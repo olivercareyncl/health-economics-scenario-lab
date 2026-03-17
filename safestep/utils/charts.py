@@ -279,3 +279,43 @@ def make_uncertainty_chart(uncertainty_df):
         showlegend=False,
     )
     return fig
+
+
+def make_comparator_delta_chart(base_results: dict, comparator_results: dict, comparator_label: str):
+    categories = [
+        "Falls avoided",
+        "Discounted net cost",
+        "Discounted cost per QALY",
+    ]
+    values = [
+        comparator_results["falls_avoided_total"] - base_results["falls_avoided_total"],
+        comparator_results["discounted_net_cost_total"] - base_results["discounted_net_cost_total"],
+        comparator_results["discounted_cost_per_qaly"] - base_results["discounted_cost_per_qaly"],
+    ]
+    text = [
+        f"{values[0]:,.0f}",
+        f"£{values[1]:,.0f}",
+        f"£{values[2]:,.0f}",
+    ]
+
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=categories,
+                y=values,
+                text=text,
+                textposition="outside",
+                showlegend=False,
+            )
+        ]
+    )
+
+    fig.update_layout(
+        title=f"Comparator deltas versus current configuration ({comparator_label})",
+        xaxis_title="",
+        yaxis_title="Delta",
+        height=430,
+        margin=dict(l=20, r=20, t=80, b=20),
+        showlegend=False,
+    )
+    return fig
