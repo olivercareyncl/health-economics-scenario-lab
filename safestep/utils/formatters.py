@@ -12,3 +12,4 @@ def format_number(value: float) -> str:
 
 def format_ratio(value: float) -> str:
     return f"{value:.2f}x"
+    
