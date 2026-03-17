@@ -57,7 +57,7 @@ from utils.summaries import (
 
 st.set_page_config(
     page_title="SafeStep",
-    page_icon="🩺",
+    page_icon="🦶",
     layout="wide",
 )
 
