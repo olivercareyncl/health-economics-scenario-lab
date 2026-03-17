@@ -4,7 +4,7 @@
 
 It is part of the broader **Health Economics Scenario Lab** project: a series of interactive decision sandboxes designed to make economic reasoning more transparent, faster to explore, and easier to interrogate than a static spreadsheet.
 
-**Live app:** [SafeStep](["https://safestep-mnjcyn8idt5rrddqsmnncd.streamlit.app/](https://safestep-mnjcyn8idt5rrddqsmnncd.streamlit.app/"))
+**Live app:** [SafeStep](https://safestep-mnjcyn8idt5rrddqsmnncd.streamlit.app/)
 
 ## What it does
 
