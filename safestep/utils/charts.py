@@ -1,33 +1,47 @@
 import plotly.graph_objects as go
 
 
-def make_waterfall_chart(results: dict):
-    fig = go.Figure(
-        go.Waterfall(
-            name="Financial impact",
-            orientation="v",
-            measure=["absolute", "relative", "total"],
-            x=["Discounted programme cost", "Discounted gross savings", "Discounted net impact"],
-            y=[
-                results["discounted_programme_cost_total"],
-                -results["discounted_gross_savings_total"],
-                0,
-            ],
-            text=[
-                f"£{results['discounted_programme_cost_total']:,.0f}",
-                f"£{results['discounted_gross_savings_total']:,.0f}",
-                f"£{results['discounted_net_cost_total']:,.0f}",
-            ],
+def make_tornado_chart(sensitivity_df):
+    sorted_df = sensitivity_df.sort_values("swing", ascending=True)
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            y=sorted_df["label"],
+            x=sorted_df["low_delta"],
+            name="Low case",
+            orientation="h",
+            text=[f"£{abs(v):,.0f}" for v in sorted_df["low_delta"]],
             textposition="outside",
         )
     )
+
+    fig.add_trace(
+        go.Bar(
+            y=sorted_df["label"],
+            x=sorted_df["high_delta"],
+            name="High case",
+            orientation="h",
+            text=[f"£{abs(v):,.0f}" for v in sorted_df["high_delta"]],
+            textposition="outside",
+        )
+    )
+
     fig.update_layout(
-        title="Discounted programme cost and savings",
-        xaxis_title="",
-        yaxis_title="£",
-        showlegend=False,
-        height=430,
-        margin=dict(l=20, r=20, t=60, b=20),
+        title="One-way sensitivity analysis on discounted cost per QALY",
+        barmode="relative",
+        xaxis_title="Change from base case (£)",
+        yaxis_title="",
+        height=500,
+        margin=dict(l=20, r=20, t=85, b=20),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=1.0,
+            xanchor="right",
+            x=1.0
+        ),
     )
     return fig
 
