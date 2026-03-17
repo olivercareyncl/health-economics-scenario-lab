@@ -1,6 +1,6 @@
 import pandas as pd
 
-from utils.scenarios import COSTING_METHOD_MAP, TARGETING_MODE_MAP
+from utils.scenarios import COSTING_METHOD_MAP, SCENARIO_MAP, TARGETING_MODE_MAP
 
 
 def safe_divide(numerator: float, denominator: float) -> float:
@@ -53,7 +53,6 @@ def _run_model_core(inputs: dict) -> dict:
     )
 
     yearly_rows = []
-
     cumulative_programme_cost = 0.0
     cumulative_gross_savings = 0.0
     cumulative_net_cost = 0.0
@@ -124,8 +123,6 @@ def _run_model_core(inputs: dict) -> dict:
     programme_cost_total = yearly_results["programme_cost"].sum()
     gross_savings_total = yearly_results["gross_savings"].sum()
     net_cost_total = yearly_results["net_cost"].sum()
-    qalys_gained_total = yearly_results["qalys_gained"].sum()
-
     discounted_programme_cost_total = yearly_results["discounted_programme_cost"].sum()
     discounted_gross_savings_total = yearly_results["discounted_gross_savings"].sum()
     discounted_net_cost_total = yearly_results["discounted_net_cost"].sum()
@@ -145,7 +142,6 @@ def _run_model_core(inputs: dict) -> dict:
         "programme_cost_total": programme_cost_total,
         "gross_savings_total": gross_savings_total,
         "net_cost_total": net_cost_total,
-        "qalys_gained_total": qalys_gained_total,
         "discounted_programme_cost_total": discounted_programme_cost_total,
         "discounted_gross_savings_total": discounted_gross_savings_total,
         "discounted_net_cost_total": discounted_net_cost_total,
@@ -277,21 +273,33 @@ def run_bounded_uncertainty(inputs: dict) -> pd.DataFrame:
             "intervention_cost_per_person": inputs["intervention_cost_per_person"] * 1.2,
             "annual_fall_risk": clamp_rate(inputs["annual_fall_risk"] * 0.9),
             "participation_dropoff_rate": clamp_rate(inputs["participation_dropoff_rate"] * 1.2),
+            "dominant_domain": "Delivery assumptions",
         },
-        "Base": {},
+        "Base": {
+            "dominant_domain": "Base case",
+        },
         "High": {
             "relative_risk_reduction": clamp_rate(inputs["relative_risk_reduction"] * 1.2),
             "intervention_cost_per_person": inputs["intervention_cost_per_person"] * 0.8,
             "annual_fall_risk": clamp_rate(inputs["annual_fall_risk"] * 1.1),
             "participation_dropoff_rate": clamp_rate(inputs["participation_dropoff_rate"] * 0.8),
+            "dominant_domain": "Clinical and delivery assumptions",
         },
     }
 
     rows = []
     for case_name, overrides in cases.items():
         case_inputs = inputs.copy()
+        dominant_domain = overrides.pop("dominant_domain")
         case_inputs.update(overrides)
         result = _run_model_core(case_inputs)
+
+        if result["discounted_net_cost_total"] < 0:
+            decision_status = "Appears cost-saving"
+        elif 0 < result["discounted_cost_per_qaly"] <= inputs["cost_effectiveness_threshold"]:
+            decision_status = "Appears cost-effective"
+        else:
+            decision_status = "Above current threshold"
 
         rows.append(
             {
@@ -299,7 +307,28 @@ def run_bounded_uncertainty(inputs: dict) -> pd.DataFrame:
                 "falls_avoided_total": result["falls_avoided_total"],
                 "discounted_net_cost_total": result["discounted_net_cost_total"],
                 "discounted_cost_per_qaly": result["discounted_cost_per_qaly"],
+                "dominant_domain": dominant_domain,
+                "decision_status": decision_status,
             }
         )
 
     return pd.DataFrame(rows)
+
+
+def build_comparator_case(defaults: dict, base_inputs: dict, comparator_mode: str) -> dict:
+    comparator_inputs = defaults.copy()
+
+    if comparator_mode in SCENARIO_MAP:
+        comparator_inputs.update(SCENARIO_MAP[comparator_mode](defaults))
+    else:
+        comparator_inputs.update(base_inputs)
+
+    comparator_inputs["time_horizon_years"] = base_inputs["time_horizon_years"]
+    comparator_inputs["discount_rate"] = base_inputs["discount_rate"]
+    comparator_inputs["costing_method"] = base_inputs["costing_method"]
+    comparator_inputs["cost_effectiveness_threshold"] = base_inputs["cost_effectiveness_threshold"]
+    comparator_inputs["cost_per_admission"] = base_inputs["cost_per_admission"]
+    comparator_inputs["cost_per_bed_day"] = base_inputs["cost_per_bed_day"]
+    comparator_inputs["qaly_loss_per_serious_fall"] = base_inputs["qaly_loss_per_serious_fall"]
+
+    return comparator_inputs
