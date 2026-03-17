@@ -1,6 +1,6 @@
 import pandas as pd
 
-from utils.calculations import run_model, clamp_rate
+from utils.calculations import clamp_rate, run_model
 from utils.metadata import ASSUMPTION_META
 
 
@@ -10,6 +10,7 @@ SENSITIVITY_VARIABLES = [
     "annual_fall_risk",
     "admission_rate_after_fall",
     "qaly_loss_per_serious_fall",
+    "effect_decay_rate",
 ]
 
 
@@ -28,7 +29,7 @@ def run_one_way_sensitivity(
     base_inputs: dict,
     variables: list[str],
     variation: float = 0.20,
-    outcome_key: str = "cost_per_qaly",
+    outcome_key: str = "discounted_cost_per_qaly",
 ) -> pd.DataFrame:
     base_results = run_model(base_inputs)
     base_value = base_results[outcome_key]
@@ -44,6 +45,8 @@ def run_one_way_sensitivity(
             "annual_fall_risk",
             "admission_rate_after_fall",
             "relative_risk_reduction",
+            "effect_decay_rate",
+            "discount_rate",
         }
 
         low_input, high_input = _apply_variation(base_input_value, variation, is_rate)
@@ -95,11 +98,11 @@ def build_sensitivity_takeaways(sensitivity_df: pd.DataFrame) -> list[str]:
         )
     if len(top) >= 2:
         takeaways.append(
-            f"{top.iloc[1]['label']} is the next biggest driver of movement in cost per QALY."
+            f"{top.iloc[1]['label']} is the next biggest driver of movement in discounted cost per QALY."
         )
     if len(top) >= 3:
         takeaways.append(
-            f"Changes in {top.iloc[2]['label'].lower()} matter, but less than the leading two drivers."
+            f"Changes in {top.iloc[2]['label'].lower()} still matter, but less than the leading two drivers."
         )
 
     return takeaways
