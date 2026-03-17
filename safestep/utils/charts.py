@@ -47,6 +47,7 @@ def make_impact_bar_chart(results: dict):
                 y=values,
                 text=[f"{v:,.0f}" for v in values],
                 textposition="outside",
+                showlegend=False,
             )
         ]
     )
@@ -115,6 +116,7 @@ def make_scenario_comparison_chart(scenario_df):
             text=[f"£{v:,.0f}" for v in scenario_df["Discounted net cost"]],
             textposition="outside",
             name="Discounted net cost",
+            showlegend=False,
         )
     )
     fig.update_layout(
@@ -216,6 +218,7 @@ def make_cumulative_net_cost_chart(yearly_df):
             y=yearly_df["cumulative_net_cost"],
             mode="lines+markers",
             name="Cumulative net cost",
+            showlegend=False,
         )
     )
 
@@ -238,6 +241,7 @@ def make_falls_avoided_chart(yearly_df):
                 y=yearly_df["falls_avoided"],
                 text=[f"{v:,.0f}" for v in yearly_df["falls_avoided"]],
                 textposition="outside",
+                showlegend=False,
             )
         ]
     )
