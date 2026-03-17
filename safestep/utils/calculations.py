@@ -332,3 +332,4 @@ def build_comparator_case(defaults: dict, base_inputs: dict, comparator_mode: st
     comparator_inputs["qaly_loss_per_serious_fall"] = base_inputs["qaly_loss_per_serious_fall"]
 
     return comparator_inputs
+    
