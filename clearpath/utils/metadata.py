@@ -183,6 +183,7 @@ ASSUMPTION_ORDER = [
     "annual_incident_cases",
     "current_late_diagnosis_rate",
     "achievable_reduction_in_late_diagnosis",
+    "intervention_reach_rate",
     "late_emergency_presentation_rate",
     "early_emergency_presentation_rate",
     "admissions_per_emergency_presentation",
