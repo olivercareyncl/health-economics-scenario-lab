@@ -1,22 +1,6 @@
 import Link from "next/link";
 import { apps } from "@/data/apps";
 
-const categories: Record<string, string> = {
-  safestep: "Prevention",
-  clearpath: "Diagnosis",
-  waitwise: "Access",
-  pathshift: "Redesign",
-  frailtyforward: "Community care",
-};
-
-const questions: Record<string, string> = {
-  safestep: "What would need to be true for falls prevention to look worthwhile?",
-  clearpath: "What shifts would make earlier diagnosis create value?",
-  waitwise: "When do waiting list interventions improve value, not just throughput optics?",
-  pathshift: "Where does value actually come from in pathway redesign?",
-  frailtyforward: "When does earlier frailty support hold up economically?",
-};
-
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -43,7 +27,7 @@ export default function HomePage() {
               Explore apps
             </a>
             <a
-              href="https://github.com/YOUR-USERNAME/health-economics-scenario-lab"
+              href="https://github.com/olivercareyncl/health-economics-scenario-lab"
               target="_blank"
               rel="noreferrer"
               className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
@@ -121,8 +105,13 @@ export default function HomePage() {
                 key={app.slug}
                 className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
               >
-                <div className="mb-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                  {categories[app.slug]}
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                    {app.category}
+                  </span>
+                  <span className="inline-flex rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500">
+                    {app.status}
+                  </span>
                 </div>
 
                 <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
@@ -139,7 +128,7 @@ export default function HomePage() {
                 </p>
 
                 <p className="mt-4 text-sm font-medium leading-7 text-slate-800">
-                  {questions[app.slug]}
+                  {app.question}
                 </p>
 
                 <p className="mt-4 text-sm leading-7 text-slate-600">
@@ -241,7 +230,7 @@ export default function HomePage() {
               GitHub
             </a>
             <a
-              href="https://www.linkedin.com/in/olivercarey/"
+              href="https://www.linkedin.com/in/YOUR-LINKEDIN/"
               target="_blank"
               rel="noreferrer"
               className="hover:text-slate-900"
