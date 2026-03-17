@@ -222,7 +222,7 @@ export default function HomePage() {
 
       <footer className="border-t border-slate-200">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <p>Health Economics Scenario Lab</p>
+          <p><p>Health Economics Scenario Lab · Built by Oliver Carey</p></p>
           <div className="flex items-center gap-5">
             <a
               href="https://github.com/olivercareyncl/health-economics-scenario-lab"
