@@ -36,7 +36,6 @@ from utils.summaries import (
     get_net_cost_label,
 )
 
-
 st.set_page_config(
     page_title="SafeStep",
     page_icon="🩺",
@@ -48,13 +47,37 @@ st.set_page_config(
 def load_defaults() -> dict:
     base_dir = Path(__file__).resolve().parent
     data_path = base_dir / "data" / "default_assumptions.json"
+
+    fallback_defaults = {
+        "eligible_population": 5000,
+        "uptake_rate": 0.5,
+        "adherence_rate": 0.8,
+        "annual_fall_risk": 0.3,
+        "admission_rate_after_fall": 0.2,
+        "average_length_of_stay": 7,
+        "intervention_cost_per_person": 250,
+        "relative_risk_reduction": 0.2,
+        "effect_decay_rate": 0.1,
+        "cost_per_admission": 3500,
+        "cost_per_bed_day": 400,
+        "qaly_loss_per_serious_fall": 0.05,
+        "cost_effectiveness_threshold": 20000,
+        "time_horizon_years": 3,
+        "discount_rate": 0.035,
+    }
+
     with open(data_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        loaded = json.load(f)
+
+    fallback_defaults.update(loaded)
+    return fallback_defaults
 
 
 def build_assumptions_table(inputs: dict) -> pd.DataFrame:
     rows = []
     for key in ASSUMPTION_ORDER:
+        if key not in inputs:
+            continue
         value = inputs[key]
         meta = ASSUMPTION_META[key]
         rows.append(
@@ -99,19 +122,25 @@ def build_yearly_results_table(yearly_df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     for col in currency_cols:
-        display_df[col] = display_df[col].apply(format_currency)
+        if col in display_df.columns:
+            display_df[col] = display_df[col].apply(format_currency)
 
     for col in number_cols:
-        display_df[col] = display_df[col].apply(format_number)
+        if col in display_df.columns:
+            display_df[col] = display_df[col].apply(format_number)
 
-    display_df["QALYs gained"] = display_df["QALYs gained"].apply(lambda x: f"{x:,.2f}")
+    if "QALYs gained" in display_df.columns:
+        display_df["QALYs gained"] = display_df["QALYs gained"].apply(lambda x: f"{x:,.2f}")
+
     return display_df
 
 
 def build_scenario_comparison(defaults: dict, base_inputs: dict) -> pd.DataFrame:
     rows = []
     for scenario_name, scenario_func in SCENARIO_MAP.items():
-        scenario_inputs = scenario_func(defaults)
+        scenario_inputs = defaults.copy()
+        scenario_inputs.update(scenario_func(defaults))
+
         scenario_inputs["time_horizon_years"] = base_inputs["time_horizon_years"]
         scenario_inputs["discount_rate"] = base_inputs["discount_rate"]
         scenario_inputs["effect_decay_rate"] = base_inputs["effect_decay_rate"]
@@ -141,11 +170,14 @@ def build_scenario_comparison(defaults: dict, base_inputs: dict) -> pd.DataFrame
 
 def format_scenario_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     formatted = df.copy()
+
     for col in ["People treated", "Falls avoided", "Admissions avoided", "Bed days avoided"]:
-        formatted[col] = formatted[col].apply(format_number)
+        if col in formatted.columns:
+            formatted[col] = formatted[col].apply(format_number)
 
     for col in ["Programme cost", "Gross savings", "Discounted net cost", "Discounted cost per QALY"]:
-        formatted[col] = formatted[col].apply(format_currency)
+        if col in formatted.columns:
+            formatted[col] = formatted[col].apply(format_currency)
 
     return formatted
 
@@ -189,27 +221,28 @@ with st.sidebar:
         index=0,
     )
 
-    scenario_inputs = SCENARIO_MAP[selected_scenario](defaults)
+    scenario_inputs = defaults.copy()
+    scenario_inputs.update(SCENARIO_MAP[selected_scenario](defaults))
 
     st.header("Population and delivery")
     eligible_population = st.number_input(
         "Eligible population",
         min_value=0,
-        value=int(scenario_inputs["eligible_population"]),
+        value=int(scenario_inputs.get("eligible_population", defaults["eligible_population"])),
         step=100,
     )
     uptake_rate = st.slider(
         "Programme uptake",
         min_value=0.0,
         max_value=1.0,
-        value=float(scenario_inputs["uptake_rate"]),
+        value=float(scenario_inputs.get("uptake_rate", defaults["uptake_rate"])),
         step=0.01,
     )
     adherence_rate = st.slider(
         "Programme completion",
         min_value=0.0,
         max_value=1.0,
-        value=float(scenario_inputs["adherence_rate"]),
+        value=float(scenario_inputs.get("adherence_rate", defaults["adherence_rate"])),
         step=0.01,
     )
 
@@ -218,20 +251,20 @@ with st.sidebar:
         "Annual fall risk",
         min_value=0.0,
         max_value=1.0,
-        value=float(scenario_inputs["annual_fall_risk"]),
+        value=float(scenario_inputs.get("annual_fall_risk", defaults["annual_fall_risk"])),
         step=0.01,
     )
     admission_rate_after_fall = st.slider(
         "Falls leading to admission",
         min_value=0.0,
         max_value=1.0,
-        value=float(scenario_inputs["admission_rate_after_fall"]),
+        value=float(scenario_inputs.get("admission_rate_after_fall", defaults["admission_rate_after_fall"])),
         step=0.01,
     )
     average_length_of_stay = st.number_input(
         "Average length of stay (days)",
         min_value=0.0,
-        value=float(scenario_inputs["average_length_of_stay"]),
+        value=float(scenario_inputs.get("average_length_of_stay", defaults["average_length_of_stay"])),
         step=0.5,
     )
 
@@ -239,21 +272,21 @@ with st.sidebar:
     intervention_cost_per_person = st.number_input(
         "Cost per participant",
         min_value=0.0,
-        value=float(scenario_inputs["intervention_cost_per_person"]),
+        value=float(scenario_inputs.get("intervention_cost_per_person", defaults["intervention_cost_per_person"])),
         step=10.0,
     )
     relative_risk_reduction = st.slider(
         "Reduction in falls",
         min_value=0.0,
         max_value=1.0,
-        value=float(scenario_inputs["relative_risk_reduction"]),
+        value=float(scenario_inputs.get("relative_risk_reduction", defaults["relative_risk_reduction"])),
         step=0.01,
     )
     effect_decay_rate = st.slider(
         "Annual effect decay",
         min_value=0.0,
         max_value=0.5,
-        value=float(scenario_inputs["effect_decay_rate"]),
+        value=float(scenario_inputs.get("effect_decay_rate", defaults.get("effect_decay_rate", 0.1))),
         step=0.01,
     )
 
@@ -261,38 +294,42 @@ with st.sidebar:
     cost_per_admission = st.number_input(
         "Cost per admission",
         min_value=0.0,
-        value=float(scenario_inputs["cost_per_admission"]),
+        value=float(scenario_inputs.get("cost_per_admission", defaults["cost_per_admission"])),
         step=100.0,
     )
     cost_per_bed_day = st.number_input(
         "Cost per bed day",
         min_value=0.0,
-        value=float(scenario_inputs["cost_per_bed_day"]),
+        value=float(scenario_inputs.get("cost_per_bed_day", defaults["cost_per_bed_day"])),
         step=50.0,
     )
     qaly_loss_per_serious_fall = st.number_input(
         "QALY loss per serious fall",
         min_value=0.0,
-        value=float(scenario_inputs["qaly_loss_per_serious_fall"]),
+        value=float(scenario_inputs.get("qaly_loss_per_serious_fall", defaults["qaly_loss_per_serious_fall"])),
         step=0.01,
     )
     cost_effectiveness_threshold = st.number_input(
         "Cost-effectiveness threshold",
         min_value=0.0,
-        value=float(scenario_inputs["cost_effectiveness_threshold"]),
+        value=float(scenario_inputs.get("cost_effectiveness_threshold", defaults["cost_effectiveness_threshold"])),
         step=1000.0,
     )
 
     st.header("Time horizon")
+    time_horizon_value = int(scenario_inputs.get("time_horizon_years", defaults.get("time_horizon_years", 3)))
+    if time_horizon_value not in [1, 3, 5]:
+        time_horizon_value = 3
+
     time_horizon_years = st.selectbox(
         "Time horizon",
         options=[1, 3, 5],
-        index=[1, 3, 5].index(int(scenario_inputs["time_horizon_years"])),
+        index=[1, 3, 5].index(time_horizon_value),
     )
     discount_rate = st.number_input(
         "Discount rate",
         min_value=0.0,
-        value=float(scenario_inputs["discount_rate"]),
+        value=float(scenario_inputs.get("discount_rate", defaults.get("discount_rate", 0.035))),
         step=0.005,
         format="%.3f",
     )
