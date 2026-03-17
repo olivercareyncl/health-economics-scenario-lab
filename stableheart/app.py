@@ -291,7 +291,7 @@ def build_comparator_table(base_results: dict, comparator_results: dict) -> pd.D
 
 defaults = load_defaults()
 
-st.caption("Health Economics Scenario Lab - Author: Oliver Carey"
+st.caption("Health Economics Scenario Lab - Author: Oliver Carey")
 st.title("StableHeart")
 st.subheader("Proactive Cardiovascular Management Value Sandbox")
 st.write(
