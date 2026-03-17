@@ -365,27 +365,25 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
 )
 
 with tab1:
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("People treated", format_number(results["treated_population"]))
     col2.metric("Falls avoided", format_number(results["falls_avoided_total"]))
     col3.metric("Admissions avoided", format_number(results["admissions_avoided_total"]))
     col4.metric("Bed days avoided", format_number(results["bed_days_avoided_total"]))
 
-    col4, col5, col6 = st.columns(3)
-    col4.metric("Bed days avoided", format_number(results["bed_days_avoided_total"]))
+    col5, col6, col7, col8 = st.columns(4)
     col5.metric("Programme cost", format_currency(results["programme_cost_total"]))
     col6.metric("Gross savings", format_currency(results["gross_savings_total"]))
-    
-    col7, col8, col9 = st.columns(3)
     col7.metric(net_cost_label, format_currency(abs(results["discounted_net_cost_total"])))
     col8.metric("Discounted cost per QALY", format_currency(results["discounted_cost_per_qaly"]))
-    col9.metric("Return on spend", format_ratio(results["roi"]))
 
-    col10, col11, col12 = st.columns(3)
+    col9, col10, col11, col12 = st.columns(4)
+    col9, col10, col11 = st.columns(3)
+    col9.metric("Return on spend", format_ratio(results["roi"]))
     col10.metric("Break-even cost per participant", format_currency(results["break_even_cost_per_participant"]))
     col11.metric("Required fall reduction", format_percent(results["break_even_effectiveness"]))
     col12.metric("Decision status", decision_status)
-    
+
     st.markdown("### What this scenario suggests")
     st.write(overview_summary)
 
