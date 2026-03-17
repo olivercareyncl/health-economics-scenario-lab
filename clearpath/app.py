@@ -56,7 +56,6 @@ from utils.summaries import (
     summarise_scenario_strengths,
 )
 
-
 st.set_page_config(
     page_title="ClearPath",
     page_icon="🧭",
@@ -259,7 +258,9 @@ def build_comparator_table(base_results: dict, comparator_results: dict) -> pd.D
             "Metric": "Cases shifted earlier",
             "Current selection": format_number(base_results["cases_shifted_total"]),
             "Comparator": format_number(comparator_results["cases_shifted_total"]),
-            "Delta": format_number(comparator_results["cases_shifted_total"] - base_results["cases_shifted_total"]),
+            "Delta": format_number(
+                comparator_results["cases_shifted_total"] - base_results["cases_shifted_total"]
+            ),
         },
         {
             "Metric": "Emergency presentations avoided",
@@ -292,15 +293,19 @@ def build_comparator_table(base_results: dict, comparator_results: dict) -> pd.D
 
 defaults = load_defaults()
 
-st.caption("Health Economics Scenario Lab - Author: Oliver Carey")
+st.caption("Health Economics Scenario Lab")
 st.title("ClearPath")
-st.subheader("Early Diagnosis Value Sandbox")
+st.subheader("Early Diagnosis Sandbox")
 st.write(
-    "An interactive sandbox for testing how earlier diagnosis changes cost, activity, and value under different assumptions."
+    "Explore how earlier diagnosis might change pathway pressure, emergency activity, admissions, and value under different assumptions about reach, effect size, and delivery cost."
+)
+
+st.info(
+    "Key question: What would need to shift for earlier diagnosis to create value?"
 )
 
 st.warning(
-    "Demo only. This sandbox uses synthetic assumptions for illustrative decision support and is not a formal economic evaluation."
+    "Illustrative decision sandbox only. This model uses synthetic assumptions for exploratory decision support and is not a formal economic evaluation."
 )
 
 with st.sidebar:
@@ -551,66 +556,77 @@ comparator_results = run_model(comparator_inputs)
 comparator_table = build_comparator_table(results, comparator_results)
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Overview", "Assumptions", "Sensitivity", "Scenarios", "Interpretation"]
+    ["Overview", "Assumptions", "Uncertainty", "Scenarios", "Interpretation"]
 )
 
 with tab1:
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Cases shifted earlier", format_number(results["cases_shifted_total"]))
-    col2.metric(
+    st.markdown("### Headline view")
+
+    primary_1, primary_2, primary_3, primary_4 = st.columns(4)
+    primary_1.metric("Cases shifted earlier", format_number(results["cases_shifted_total"]))
+    primary_2.metric(
         "Emergency presentations avoided",
         format_number(results["emergency_presentations_avoided_total"]),
     )
-    col3.metric("Admissions avoided", format_number(results["admissions_avoided_total"]))
-    col4.metric("Bed days avoided", format_number(results["bed_days_avoided_total"]))
-
-    col5, col6, col7, col8 = st.columns(4)
-    col5.metric("Programme cost", format_currency(results["programme_cost_total"]))
-    col6.metric("Gross savings", format_currency(results["gross_savings_total"]))
-    col7.metric(net_cost_label, format_currency(abs(results["discounted_net_cost_total"])))
-    col8.metric("Discounted cost per QALY", format_currency(results["discounted_cost_per_qaly"]))
-
-    col9, col10, col11 = st.columns(3)
-    col9.metric("Return on spend", format_ratio(results["roi"]))
-    col10.metric("Max intervention cost per case", format_currency(results["break_even_cost_per_case"]))
-    col11.metric(
-        "Required late diagnosis reduction",
-        format_percent(results["break_even_reduction_in_late_diagnosis"]),
+    primary_3.metric(
+        net_cost_label,
+        format_currency(abs(results["discounted_net_cost_total"]))
+    )
+    primary_4.metric(
+        "Discounted cost per QALY",
+        format_currency(results["discounted_cost_per_qaly"])
     )
 
-    st.markdown("### Decision status")
+    secondary_1, secondary_2, secondary_3, secondary_4 = st.columns(4)
+    secondary_1.metric("Admissions avoided", format_number(results["admissions_avoided_total"]))
+    secondary_2.metric("Bed days avoided", format_number(results["bed_days_avoided_total"]))
+    secondary_3.metric("Programme cost", format_currency(results["programme_cost_total"]))
+    secondary_4.metric("Gross savings", format_currency(results["gross_savings_total"]))
+
+    threshold_1, threshold_2, threshold_3 = st.columns(3)
+    threshold_1.metric("Return on spend", format_ratio(results["roi"]))
+    threshold_2.metric(
+        "Max intervention cost per case",
+        format_currency(results["break_even_cost_per_case"])
+    )
+    threshold_3.metric(
+        "Required late diagnosis reduction",
+        format_percent(results["break_even_reduction_in_late_diagnosis"])
+    )
+
+    st.markdown("### Decision verdict")
+
     if decision_status == "Appears cost-saving":
         st.success("Appears cost-saving")
         st.caption(
-            "The model suggests the programme generates net savings under the current assumptions and selected horizon."
+            "The current assumptions suggest the programme generates net savings over the selected horizon."
         )
     elif decision_status == "Appears cost-effective":
         st.info("Appears cost-effective")
         st.caption(
-            "The model suggests the programme is below the current cost-effectiveness threshold, but not cost-saving."
+            "The current assumptions suggest the programme is below the selected cost-effectiveness threshold, but not cost-saving."
         )
     else:
-        st.warning("Above current threshold")
+        st.warning("Above threshold")
         st.caption(
-            "The model suggests the programme delivers benefit, but remains above the current threshold under the selected assumptions."
+            "The current assumptions suggest the programme delivers benefit, but remains above the selected threshold."
         )
 
-    st.markdown("### Structured recommendation")
-    rec1, rec2 = st.columns(2)
-    with rec1:
+    verdict_col1, verdict_col2 = st.columns(2)
+    with verdict_col1:
         st.markdown(f"**Overall signal**  \n{overall_signal}")
         st.markdown(f"**Main dependency**  \n{structured_recommendation['main_dependency']}")
-    with rec2:
+    with verdict_col2:
         st.markdown(f"**Main fragility**  \n{structured_recommendation['main_fragility']}")
         st.markdown(f"**Best next analytical step**  \n{structured_recommendation['best_next_step']}")
 
-    st.markdown("### What this scenario suggests")
+    st.markdown("### Strategic summary")
     st.write(overview_summary)
 
-    info_col1, info_col2 = st.columns(2)
-    with info_col1:
+    summary_col1, summary_col2 = st.columns(2)
+    with summary_col1:
         st.info(f"Primary economic driver: {main_driver_text}")
-    with info_col2:
+    with summary_col2:
         st.info(f"Uncertainty readout: {uncertainty_robustness}")
 
     if inputs["costing_method"] == "Combined illustrative view":
@@ -618,72 +634,72 @@ with tab1:
             "Combined illustrative view adds treatment cost difference and emergency/admission savings together. This is useful for exploration, but may overstate value if local costing assumptions overlap."
         )
 
+    st.markdown("### Impact and value profile")
+
     chart_col1, chart_col2 = st.columns(2)
     with chart_col1:
         st.plotly_chart(make_waterfall_chart(results), use_container_width=True)
     with chart_col2:
         st.plotly_chart(make_impact_bar_chart(results), use_container_width=True)
 
-    time_col1, time_col2 = st.columns(2)
-    with time_col1:
-        st.plotly_chart(make_cumulative_costs_chart(results["yearly_results"]), use_container_width=True)
-    with time_col2:
-        st.plotly_chart(make_cumulative_net_cost_chart(results["yearly_results"]), use_container_width=True)
-
-    st.plotly_chart(make_cases_shifted_chart(results["yearly_results"]), use_container_width=True)
-
-    st.markdown("### Comparator view")
-    st.write(
-        f"Current selection versus **{comparator_mode}** using the same time horizon, costing method, and uncertainty framing."
-    )
-    comp_col1, comp_col2, comp_col3 = st.columns(3)
-    comp_col1.metric(
-        "Cases shifted delta",
-        format_number(comparator_results["cases_shifted_total"] - results["cases_shifted_total"]),
-    )
-    comp_col2.metric(
-        "Discounted net cost delta",
-        format_currency(comparator_results["discounted_net_cost_total"] - results["discounted_net_cost_total"]),
-    )
-    comp_col3.metric(
-        "Discounted cost per QALY delta",
-        format_currency(comparator_results["discounted_cost_per_qaly"] - results["discounted_cost_per_qaly"]),
-    )
     st.plotly_chart(
-        make_comparator_delta_chart(results, comparator_results, comparator_mode),
+        make_cases_shifted_chart(results["yearly_results"]),
         use_container_width=True,
     )
-    st.dataframe(comparator_table, use_container_width=True, hide_index=True)
 
-    st.markdown("### Threshold analysis")
-    threshold_col1, threshold_col2, threshold_col3 = st.columns(3)
-    threshold_col1.metric(
-        "Max intervention cost per case",
-        format_currency(results["break_even_cost_per_case"]),
-    )
-    threshold_col2.metric(
-        "Minimum horizon to threshold",
-        results["break_even_horizon"],
-    )
-    threshold_col3.metric(
-        "Required late diagnosis reduction",
-        format_percent(results["break_even_reduction_in_late_diagnosis"]),
-    )
+    with st.expander("Comparator view"):
+        st.write(
+            f"Current selection versus **{comparator_mode}** using the same time horizon, costing method, and uncertainty framing."
+        )
+        comp_col1, comp_col2, comp_col3 = st.columns(3)
+        comp_col1.metric(
+            "Cases shifted delta",
+            format_number(comparator_results["cases_shifted_total"] - results["cases_shifted_total"]),
+        )
+        comp_col2.metric(
+            "Discounted net cost delta",
+            format_currency(comparator_results["discounted_net_cost_total"] - results["discounted_net_cost_total"]),
+        )
+        comp_col3.metric(
+            "Discounted cost per QALY delta",
+            format_currency(comparator_results["discounted_cost_per_qaly"] - results["discounted_cost_per_qaly"]),
+        )
+        st.plotly_chart(
+            make_comparator_delta_chart(results, comparator_results, comparator_mode),
+            use_container_width=True,
+        )
+        st.dataframe(comparator_table, use_container_width=True, hide_index=True)
 
-    st.markdown("### Bounded uncertainty")
-    st.write(
-        "These low, base, and high cases give a simple deterministic view of how fragile or robust the result looks under a bounded change in key assumptions."
-    )
-    st.plotly_chart(make_uncertainty_chart(uncertainty_df), use_container_width=True)
-    st.dataframe(uncertainty_display_df, use_container_width=True, hide_index=True)
+    with st.expander("Threshold analysis"):
+        threshold_col1, threshold_col2, threshold_col3 = st.columns(3)
+        threshold_col1.metric(
+            "Max intervention cost per case",
+            format_currency(results["break_even_cost_per_case"]),
+        )
+        threshold_col2.metric(
+            "Minimum horizon to threshold",
+            results["break_even_horizon"],
+        )
+        threshold_col3.metric(
+            "Required late diagnosis reduction",
+            format_percent(results["break_even_reduction_in_late_diagnosis"]),
+        )
 
-    st.markdown("### Decision readiness")
-    for item in decision_readiness["validate_next"]:
-        st.write(f"- {item}")
-    st.caption(decision_readiness["readiness_note"])
+    with st.expander("Cumulative cost profile"):
+        time_col1, time_col2 = st.columns(2)
+        with time_col1:
+            st.plotly_chart(
+                make_cumulative_costs_chart(results["yearly_results"]),
+                use_container_width=True,
+            )
+        with time_col2:
+            st.plotly_chart(
+                make_cumulative_net_cost_chart(results["yearly_results"]),
+                use_container_width=True,
+            )
 
-    st.markdown("### Year-by-year results")
-    st.dataframe(yearly_results_table, use_container_width=True, hide_index=True)
+    with st.expander("Year-by-year results"):
+        st.dataframe(yearly_results_table, use_container_width=True, hide_index=True)
 
 with tab2:
     st.markdown("### Current assumptions")
@@ -702,7 +718,14 @@ with tab2:
     )
 
 with tab3:
-    st.markdown("### What matters most")
+    st.markdown("### Bounded uncertainty")
+    st.write(
+        "These low, base, and high cases give a simple deterministic view of how fragile or robust the result looks under a bounded change in key assumptions."
+    )
+    st.plotly_chart(make_uncertainty_chart(uncertainty_df), use_container_width=True)
+    st.dataframe(uncertainty_display_df, use_container_width=True, hide_index=True)
+
+    st.markdown("### Which assumptions matter most")
     st.write(
         "This view varies one assumption at a time while holding the others constant. It shows which inputs have the biggest effect on discounted cost per QALY across the selected horizon."
     )
@@ -716,13 +739,18 @@ with tab3:
 
     st.plotly_chart(make_tornado_chart(sensitivity_df), use_container_width=True)
 
-    st.markdown("#### What the sensitivity analysis suggests")
+    st.markdown("#### What the uncertainty analysis suggests")
     for takeaway in build_sensitivity_takeaways(sensitivity_df):
         st.write(f"- {takeaway}")
 
     st.caption(
         "Low and high values are set at ±20% around the current base case, with values constrained to sensible ranges for rate-based assumptions."
     )
+
+    st.markdown("### Decision readiness")
+    for item in decision_readiness["validate_next"]:
+        st.write(f"- {item}")
+    st.caption(decision_readiness["readiness_note"])
 
 with tab4:
     st.markdown("### Compare scenarios")
