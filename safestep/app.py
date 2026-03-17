@@ -377,11 +377,27 @@ with tab1:
     col7.metric(net_cost_label, format_currency(abs(results["discounted_net_cost_total"])))
     col8.metric("Discounted cost per QALY", format_currency(results["discounted_cost_per_qaly"]))
 
-    col9, col10, col11, col12 = st.columns(4)
+    col9, col10, col11 = st.columns(3)
     col9.metric("Return on spend", format_ratio(results["roi"]))
     col10.metric("Break-even cost per participant", format_currency(results["break_even_cost_per_participant"]))
     col11.metric("Required fall reduction", format_percent(results["break_even_effectiveness"]))
-    col12.metric("Decision status", decision_status)
+
+    st.markdown("### Decision status")
+    if decision_status == "Appears cost-saving":
+        st.success("Appears cost-saving")
+        st.caption(
+            "The model suggests the programme generates net savings under the current assumptions and selected horizon."
+        )
+    elif decision_status == "Appears cost-effective":
+        st.info("Appears cost-effective")
+        st.caption(
+            "The model suggests the programme is below the current cost-effectiveness threshold, but not cost-saving."
+        )
+    else:
+        st.warning("Above threshold")
+        st.caption(
+            "The model suggests the programme delivers benefit, but remains above the current threshold under the selected assumptions."
+        )
 
     st.markdown("### What this scenario suggests")
     st.write(overview_summary)
