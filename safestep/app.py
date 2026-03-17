@@ -4,8 +4,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from utils.calculations import run_bounded_uncertainty, run_model
+from utils.calculations import (
+    build_comparator_case,
+    run_bounded_uncertainty,
+    run_model,
+)
 from utils.charts import (
+    make_comparator_delta_chart,
     make_cumulative_costs_chart,
     make_cumulative_net_cost_chart,
     make_falls_avoided_chart,
@@ -22,7 +27,11 @@ from utils.formatters import (
     format_percent,
     format_ratio,
 )
-from utils.metadata import ASSUMPTION_META, ASSUMPTION_ORDER
+from utils.metadata import (
+    ASSUMPTION_META,
+    ASSUMPTION_ORDER,
+    get_assumption_confidence_summary,
+)
 from utils.scenarios import (
     COSTING_METHOD_OPTIONS,
     SCENARIO_MAP,
@@ -35,11 +44,15 @@ from utils.sensitivity import (
 )
 from utils.summaries import (
     assess_uncertainty_robustness,
+    generate_decision_readiness,
     generate_interpretation,
+    generate_overall_signal,
     generate_overview_summary,
+    generate_structured_recommendation,
     get_decision_status,
     get_main_driver_text,
     get_net_cost_label,
+    summarise_scenario_strengths,
 )
 
 st.set_page_config(
@@ -94,6 +107,8 @@ def build_assumptions_table(inputs: dict) -> pd.DataFrame:
                 "Assumption": meta["label"],
                 "Value": meta["formatter"](value),
                 "Unit": meta["unit"],
+                "Source type": meta["source_type"],
+                "Confidence": meta["confidence"],
                 "Notes": meta["description"],
             }
         )
@@ -155,6 +170,7 @@ def build_uncertainty_table(uncertainty_df: pd.DataFrame) -> pd.DataFrame:
             "discounted_net_cost_total": "Discounted net cost",
             "discounted_cost_per_qaly": "Discounted cost per QALY",
             "decision_status": "Decision status",
+            "dominant_domain": "Main uncertainty domain",
         }
     )
 
@@ -201,10 +217,12 @@ def format_scenario_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     formatted = df.copy()
 
     for col in ["Falls avoided", "Admissions avoided"]:
-        formatted[col] = formatted[col].apply(format_number)
+        if col in formatted.columns:
+            formatted[col] = formatted[col].apply(format_number)
 
     for col in ["Programme cost", "Discounted net cost", "Discounted cost per QALY"]:
-        formatted[col] = formatted[col].apply(format_currency)
+        if col in formatted.columns:
+            formatted[col] = formatted[col].apply(format_currency)
 
     return formatted
 
@@ -225,6 +243,30 @@ def get_best_scenario_text(df: pd.DataFrame) -> dict:
         "best_net_cost": best_net_cost,
         "best_health_gain": best_health_gain,
     }
+
+
+def build_comparator_table(base_results: dict, comparator_results: dict) -> pd.DataFrame:
+    rows = [
+        {
+            "Metric": "Falls avoided",
+            "Current selection": format_number(base_results["falls_avoided_total"]),
+            "Comparator": format_number(comparator_results["falls_avoided_total"]),
+            "Delta": format_number(comparator_results["falls_avoided_total"] - base_results["falls_avoided_total"]),
+        },
+        {
+            "Metric": "Discounted net cost",
+            "Current selection": format_currency(base_results["discounted_net_cost_total"]),
+            "Comparator": format_currency(comparator_results["discounted_net_cost_total"]),
+            "Delta": format_currency(comparator_results["discounted_net_cost_total"] - base_results["discounted_net_cost_total"]),
+        },
+        {
+            "Metric": "Discounted cost per QALY",
+            "Current selection": format_currency(base_results["discounted_cost_per_qaly"]),
+            "Comparator": format_currency(comparator_results["discounted_cost_per_qaly"]),
+            "Delta": format_currency(comparator_results["discounted_cost_per_qaly"] - base_results["discounted_cost_per_qaly"]),
+        },
+    ]
+    return pd.DataFrame(rows)
 
 
 defaults = load_defaults()
@@ -382,6 +424,19 @@ with st.sidebar:
         format="%.3f",
     )
 
+    st.header("Comparator")
+    comparator_mode = st.selectbox(
+        "Compare current selection with",
+        [
+            "Higher-risk targeting",
+            "Tighter high-risk targeting",
+            "Lower-cost delivery",
+            "Stronger effect",
+            "Targeted and stronger effect",
+        ],
+        index=0,
+    )
+
 inputs = {
     "eligible_population": eligible_population,
     "uptake_rate": uptake_rate,
@@ -414,9 +469,18 @@ uncertainty_robustness = assess_uncertainty_robustness(
 decision_status = get_decision_status(results, cost_effectiveness_threshold)
 overview_summary = generate_overview_summary(results, inputs, uncertainty_df)
 interpretation = generate_interpretation(results, inputs, uncertainty_df)
+decision_readiness = generate_decision_readiness(inputs, results, uncertainty_df)
+structured_recommendation = generate_structured_recommendation(inputs, results, uncertainty_df)
+overall_signal = generate_overall_signal(results, inputs, uncertainty_df)
 net_cost_label = get_net_cost_label(results)
 main_driver_text = get_main_driver_text(inputs)
 yearly_results_table = build_yearly_results_table(results["yearly_results"])
+assumptions_df = build_assumptions_table(inputs)
+confidence_summary = get_assumption_confidence_summary()
+
+comparator_inputs = build_comparator_case(defaults, inputs, comparator_mode)
+comparator_results = run_model(comparator_inputs)
+comparator_table = build_comparator_table(results, comparator_results)
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ["Overview", "Assumptions", "Sensitivity", "Scenarios", "Interpretation"]
@@ -457,6 +521,15 @@ with tab1:
             "The model suggests the programme delivers benefit, but remains above the current threshold under the selected assumptions."
         )
 
+    st.markdown("### Structured recommendation")
+    rec1, rec2 = st.columns(2)
+    with rec1:
+        st.markdown(f"**Overall signal**  \n{overall_signal}")
+        st.markdown(f"**Main dependency**  \n{structured_recommendation['main_dependency']}")
+    with rec2:
+        st.markdown(f"**Main fragility**  \n{structured_recommendation['main_fragility']}")
+        st.markdown(f"**Best next analytical step**  \n{structured_recommendation['best_next_step']}")
+
     st.markdown("### What this scenario suggests")
     st.write(overview_summary)
 
@@ -485,6 +558,29 @@ with tab1:
 
     st.plotly_chart(make_falls_avoided_chart(results["yearly_results"]), use_container_width=True)
 
+    st.markdown("### Comparator view")
+    st.write(
+        f"Current selection versus **{comparator_mode}** using the same time horizon, costing method, and uncertainty framing."
+    )
+    comp_col1, comp_col2, comp_col3 = st.columns(3)
+    comp_col1.metric(
+        "Falls avoided delta",
+        format_number(comparator_results["falls_avoided_total"] - results["falls_avoided_total"]),
+    )
+    comp_col2.metric(
+        "Discounted net cost delta",
+        format_currency(comparator_results["discounted_net_cost_total"] - results["discounted_net_cost_total"]),
+    )
+    comp_col3.metric(
+        "Discounted cost per QALY delta",
+        format_currency(comparator_results["discounted_cost_per_qaly"] - results["discounted_cost_per_qaly"]),
+    )
+    st.plotly_chart(
+        make_comparator_delta_chart(results, comparator_results, comparator_mode),
+        use_container_width=True,
+    )
+    st.dataframe(comparator_table, use_container_width=True, hide_index=True)
+
     st.markdown("### Threshold analysis")
     threshold_col1, threshold_col2, threshold_col3 = st.columns(3)
     threshold_col1.metric(
@@ -507,6 +603,11 @@ with tab1:
     st.plotly_chart(make_uncertainty_chart(uncertainty_df), use_container_width=True)
     st.dataframe(uncertainty_display_df, use_container_width=True, hide_index=True)
 
+    st.markdown("### Decision readiness")
+    for item in decision_readiness["validate_next"]:
+        st.write(f"- {item}")
+    st.caption(decision_readiness["readiness_note"])
+
     st.markdown("### Year-by-year results")
     st.dataframe(yearly_results_table, use_container_width=True, hide_index=True)
 
@@ -515,8 +616,16 @@ with tab2:
     st.write(
         "This sandbox is driven by editable synthetic assumptions. Review the current values below before interpreting results."
     )
-    assumptions_df = build_assumptions_table(inputs)
     st.dataframe(assumptions_df, use_container_width=True, hide_index=True)
+
+    st.markdown("### Assumption confidence summary")
+    conf1, conf2, conf3 = st.columns(3)
+    conf1.metric("High confidence", str(confidence_summary["High confidence"]))
+    conf2.metric("Medium confidence", str(confidence_summary["Medium confidence"]))
+    conf3.metric("Low confidence", str(confidence_summary["Low confidence"]))
+    st.caption(
+        "Confidence and source tags are simple metadata cues to improve transparency. They are not a formal evidence appraisal."
+    )
 
 with tab3:
     st.markdown("### What matters most")
@@ -550,28 +659,29 @@ with tab4:
     scenario_df = build_scenario_comparison(defaults, inputs)
     formatted_scenario_df = format_scenario_dataframe(scenario_df)
     best_scenarios = get_best_scenario_text(scenario_df)
+    scenario_strengths = summarise_scenario_strengths(scenario_df)
 
     summary_col1, summary_col2, summary_col3 = st.columns(3)
     with summary_col1:
         if best_scenarios["best_cost_effective"] is not None:
             st.metric(
-                "Lowest discounted cost per QALY",
+                "Best for value",
                 best_scenarios["best_cost_effective"]["Scenario"],
                 format_currency(best_scenarios["best_cost_effective"]["Discounted cost per QALY"]),
             )
         else:
-            st.metric("Lowest discounted cost per QALY", "Not available", "No positive QALY result")
+            st.metric("Best for value", "Not available", "No positive QALY result")
 
     with summary_col2:
         st.metric(
-            "Lowest discounted net cost",
+            "Best for efficiency",
             best_scenarios["best_net_cost"]["Scenario"],
             format_currency(best_scenarios["best_net_cost"]["Discounted net cost"]),
         )
 
     with summary_col3:
         st.metric(
-            "Largest health gain",
+            "Best for impact",
             best_scenarios["best_health_gain"]["Scenario"],
             format_number(best_scenarios["best_health_gain"]["Falls avoided"]) + " falls avoided",
         )
@@ -584,29 +694,21 @@ with tab4:
     with chart_col2:
         st.plotly_chart(make_scenario_outcome_chart(scenario_df), use_container_width=True)
 
-    st.markdown("#### What the scenario comparison suggests")
-    if best_scenarios["best_cost_effective"] is not None:
-        st.write(
-            f"The strongest preset on discounted cost per QALY is **{best_scenarios['best_cost_effective']['Scenario']}**, while **{best_scenarios['best_net_cost']['Scenario']}** has the lowest discounted net cost and **{best_scenarios['best_health_gain']['Scenario']}** delivers the largest reduction in falls."
-        )
-    else:
-        st.write(
-            f"Across the current presets, **{best_scenarios['best_net_cost']['Scenario']}** has the lowest discounted net cost and **{best_scenarios['best_health_gain']['Scenario']}** delivers the largest reduction in falls."
-        )
-
-    st.write(
-        "In practice, the strongest economic case often comes from a combination of higher-risk targeting, lower delivery cost, and persistence of effect rather than scale alone."
-    )
+    st.markdown("#### Scenario interpretation")
+    st.write(scenario_strengths)
 
 with tab5:
     st.markdown("### What the model suggests")
     st.write(interpretation["what_model_suggests"])
 
-    st.markdown("### What is driving the result")
+    st.markdown("### What the result depends on")
     st.write(interpretation["what_drives_result"])
 
-    st.markdown("### What would improve the case")
-    st.write(interpretation["what_improves_case"])
+    st.markdown("### What looks fragile")
+    st.write(interpretation["what_looks_fragile"])
+
+    st.markdown("### What to validate next")
+    st.write(interpretation["what_to_validate_next"])
 
     st.markdown("### What this sandbox does not capture")
     st.write(interpretation["limitations"])
