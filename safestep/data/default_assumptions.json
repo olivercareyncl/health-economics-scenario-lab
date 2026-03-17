@@ -2,7 +2,6 @@
   "eligible_population": 5000,
   "uptake_rate": 0.5,
   "adherence_rate": 0.8,
-  "time_horizon_years": 1,
   "annual_fall_risk": 0.3,
   "admission_rate_after_fall": 0.2,
   "average_length_of_stay": 7,
@@ -11,6 +10,5 @@
   "cost_per_admission": 3500,
   "cost_per_bed_day": 400,
   "qaly_loss_per_serious_fall": 0.05,
-  "cost_effectiveness_threshold": 20000,
-  "discount_rate": 0.035
+  "cost_effectiveness_threshold": 20000
 }
