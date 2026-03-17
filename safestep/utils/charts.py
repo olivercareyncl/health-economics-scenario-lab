@@ -7,22 +7,22 @@ def make_waterfall_chart(results: dict):
             name="Financial impact",
             orientation="v",
             measure=["absolute", "relative", "total"],
-            x=["Programme cost", "Gross savings", "Net impact"],
+            x=["Discounted programme cost", "Discounted gross savings", "Discounted net impact"],
             y=[
-                results["programme_cost"],
-                -results["gross_savings"],
+                results["discounted_programme_cost_total"],
+                -results["discounted_gross_savings_total"],
                 0,
             ],
             text=[
-                f"£{results['programme_cost']:,.0f}",
-                f"£{results['gross_savings']:,.0f}",
-                f"£{results['net_cost']:,.0f}",
+                f"£{results['discounted_programme_cost_total']:,.0f}",
+                f"£{results['discounted_gross_savings_total']:,.0f}",
+                f"£{results['discounted_net_cost_total']:,.0f}",
             ],
             textposition="outside",
         )
     )
     fig.update_layout(
-        title="Programme cost and savings",
+        title="Discounted programme cost and savings",
         xaxis_title="",
         yaxis_title="£",
         showlegend=False,
@@ -35,9 +35,9 @@ def make_waterfall_chart(results: dict):
 def make_impact_bar_chart(results: dict):
     categories = ["Falls avoided", "Admissions avoided", "Bed days avoided"]
     values = [
-        results["falls_avoided"],
-        results["admissions_avoided"],
-        results["bed_days_avoided"],
+        results["falls_avoided_total"],
+        results["admissions_avoided_total"],
+        results["bed_days_avoided_total"],
     ]
 
     fig = go.Figure(
@@ -51,7 +51,7 @@ def make_impact_bar_chart(results: dict):
         ]
     )
     fig.update_layout(
-        title="Activity impact",
+        title="Total activity impact over selected horizon",
         xaxis_title="",
         yaxis_title="Estimated volume",
         showlegend=False,
@@ -89,7 +89,7 @@ def make_tornado_chart(sensitivity_df):
     )
 
     fig.update_layout(
-        title="One-way sensitivity analysis on cost per QALY",
+        title="One-way sensitivity analysis on discounted cost per QALY",
         barmode="relative",
         xaxis_title="Change from base case (£)",
         yaxis_title="",
@@ -104,14 +104,14 @@ def make_scenario_comparison_chart(scenario_df):
     fig.add_trace(
         go.Bar(
             x=scenario_df["Scenario"],
-            y=scenario_df["Net cost"],
-            text=[f"£{v:,.0f}" for v in scenario_df["Net cost"]],
+            y=scenario_df["Discounted net cost"],
+            text=[f"£{v:,.0f}" for v in scenario_df["Discounted net cost"]],
             textposition="outside",
-            name="Net cost",
+            name="Discounted net cost",
         )
     )
     fig.update_layout(
-        title="Net cost across scenarios",
+        title="Discounted net cost across scenarios",
         xaxis_title="",
         yaxis_title="£",
         showlegend=False,
@@ -151,5 +151,82 @@ def make_scenario_outcome_chart(scenario_df):
         yaxis_title="Estimated volume",
         height=430,
         margin=dict(l=20, r=20, t=60, b=20),
+    )
+    return fig
+
+
+def make_cumulative_costs_chart(yearly_df):
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=yearly_df["year"],
+            y=yearly_df["cumulative_programme_cost"],
+            mode="lines+markers",
+            name="Cumulative programme cost",
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=yearly_df["year"],
+            y=yearly_df["cumulative_gross_savings"],
+            mode="lines+markers",
+            name="Cumulative gross savings",
+        )
+    )
+
+    fig.update_layout(
+        title="Cumulative programme cost vs cumulative savings",
+        xaxis_title="Year",
+        yaxis_title="£",
+        height=430,
+        margin=dict(l=20, r=20, t=60, b=20),
+    )
+    return fig
+
+
+def make_cumulative_net_cost_chart(yearly_df):
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=yearly_df["year"],
+            y=yearly_df["cumulative_net_cost"],
+            mode="lines+markers",
+            name="Cumulative net cost",
+        )
+    )
+
+    fig.update_layout(
+        title="Cumulative net cost over time",
+        xaxis_title="Year",
+        yaxis_title="£",
+        height=430,
+        margin=dict(l=20, r=20, t=60, b=20),
+        showlegend=False,
+    )
+    return fig
+
+
+def make_falls_avoided_chart(yearly_df):
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=yearly_df["year"],
+                y=yearly_df["falls_avoided"],
+                text=[f"{v:,.0f}" for v in yearly_df["falls_avoided"]],
+                textposition="outside",
+            )
+        ]
+    )
+
+    fig.update_layout(
+        title="Falls avoided by year",
+        xaxis_title="Year",
+        yaxis_title="Falls avoided",
+        height=430,
+        margin=dict(l=20, r=20, t=60, b=20),
+        showlegend=False,
     )
     return fig
