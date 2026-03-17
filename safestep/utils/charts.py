@@ -1,4 +1,3 @@
-import pandas as pd
 import plotly.graph_objects as go
 
 
@@ -12,20 +11,23 @@ def make_waterfall_chart(results: dict):
             y=[
                 results["programme_cost"],
                 -results["gross_savings"],
-                0
+                0,
             ],
             text=[
                 f"£{results['programme_cost']:,.0f}",
                 f"£{results['gross_savings']:,.0f}",
-                f"£{results['net_cost']:,.0f}"
+                f"£{results['net_cost']:,.0f}",
             ],
             textposition="outside",
         )
     )
     fig.update_layout(
         title="Programme cost and savings",
+        xaxis_title="",
+        yaxis_title="£",
         showlegend=False,
-        height=450
+        height=430,
+        margin=dict(l=20, r=20, t=60, b=20),
     )
     return fig
 
@@ -35,32 +37,119 @@ def make_impact_bar_chart(results: dict):
     values = [
         results["falls_avoided"],
         results["admissions_avoided"],
-        results["bed_days_avoided"]
+        results["bed_days_avoided"],
     ]
 
     fig = go.Figure(
-        data=[go.Bar(x=categories, y=values, text=[f"{v:,.0f}" for v in values], textposition="outside")]
+        data=[
+            go.Bar(
+                x=categories,
+                y=values,
+                text=[f"{v:,.0f}" for v in values],
+                textposition="outside",
+            )
+        ]
     )
     fig.update_layout(
         title="Activity impact",
-        height=450
+        xaxis_title="",
+        yaxis_title="Estimated volume",
+        showlegend=False,
+        height=430,
+        margin=dict(l=20, r=20, t=60, b=20),
     )
     return fig
 
 
-def make_scenario_comparison_chart(scenario_df: pd.DataFrame):
+def make_tornado_chart(sensitivity_df):
+    sorted_df = sensitivity_df.sort_values("swing", ascending=True)
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            y=sorted_df["label"],
+            x=sorted_df["low_delta"],
+            name="Low case",
+            orientation="h",
+            text=[f"£{abs(v):,.0f}" for v in sorted_df["low_delta"]],
+            textposition="outside",
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            y=sorted_df["label"],
+            x=sorted_df["high_delta"],
+            name="High case",
+            orientation="h",
+            text=[f"£{abs(v):,.0f}" for v in sorted_df["high_delta"]],
+            textposition="outside",
+        )
+    )
+
+    fig.update_layout(
+        title="One-way sensitivity analysis on cost per QALY",
+        barmode="relative",
+        xaxis_title="Change from base case (£)",
+        yaxis_title="",
+        height=500,
+        margin=dict(l=20, r=20, t=60, b=20),
+    )
+    return fig
+
+
+def make_scenario_comparison_chart(scenario_df):
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
-            x=scenario_df["scenario"],
-            y=scenario_df["net_cost"],
-            text=[f"£{v:,.0f}" for v in scenario_df["net_cost"]],
+            x=scenario_df["Scenario"],
+            y=scenario_df["Net cost"],
+            text=[f"£{v:,.0f}" for v in scenario_df["Net cost"]],
             textposition="outside",
-            name="Net cost"
+            name="Net cost",
         )
     )
     fig.update_layout(
         title="Net cost across scenarios",
-        height=450
+        xaxis_title="",
+        yaxis_title="£",
+        showlegend=False,
+        height=430,
+        margin=dict(l=20, r=20, t=60, b=20),
+    )
+    return fig
+
+
+def make_scenario_outcome_chart(scenario_df):
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Bar(
+            x=scenario_df["Scenario"],
+            y=scenario_df["Falls avoided"],
+            name="Falls avoided",
+            text=[f"{v:,.0f}" for v in scenario_df["Falls avoided"]],
+            textposition="outside",
+        )
+    )
+
+    fig.add_trace(
+        go.Bar(
+            x=scenario_df["Scenario"],
+            y=scenario_df["Admissions avoided"],
+            name="Admissions avoided",
+            text=[f"{v:,.0f}" for v in scenario_df["Admissions avoided"]],
+            textposition="outside",
+        )
+    )
+
+    fig.update_layout(
+        title="Headline health impact across scenarios",
+        barmode="group",
+        xaxis_title="",
+        yaxis_title="Estimated volume",
+        height=430,
+        margin=dict(l=20, r=20, t=60, b=20),
     )
     return fig
