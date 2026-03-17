@@ -95,14 +95,14 @@ def make_tornado_chart(sensitivity_df):
         xaxis_title="Change from base case (£)",
         yaxis_title="",
         height=560,
+        margin=dict(l=20, r=20, t=130, b=20),
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
+            yanchor="top",
+            y=1.04,
+            xanchor="left",
             x=0.0,
         ),
-        margin=dict(l=20, r=20, t=140, b=20),
     )
     return fig
 
@@ -250,6 +250,30 @@ def make_falls_avoided_chart(yearly_df):
         title="Falls avoided by year",
         xaxis_title="Year",
         yaxis_title="Falls avoided",
+        height=430,
+        margin=dict(l=20, r=20, t=80, b=20),
+        showlegend=False,
+    )
+    return fig
+
+
+def make_uncertainty_chart(uncertainty_df):
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                x=uncertainty_df["case"],
+                y=uncertainty_df["discounted_cost_per_qaly"],
+                text=[f"£{v:,.0f}" for v in uncertainty_df["discounted_cost_per_qaly"]],
+                textposition="outside",
+                showlegend=False,
+            )
+        ]
+    )
+
+    fig.update_layout(
+        title="Bounded uncertainty on discounted cost per QALY",
+        xaxis_title="Case",
+        yaxis_title="£ per QALY",
         height=430,
         margin=dict(l=20, r=20, t=80, b=20),
         showlegend=False,
