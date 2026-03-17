@@ -567,7 +567,10 @@ with tab1:
         "Required fall reduction",
         format_percent(results["break_even_effectiveness"])
     )
-
+    st.info(
+        f"This scenario suggests falls prevention {decision_status.lower()} over a {inputs['time_horizon_years']}-year horizon, with {format_number(results['falls_avoided_total'])} falls avoided and {format_currency(abs(results['discounted_net_cost_total']))} in {'net savings' if results['discounted_net_cost_total'] < 0 else 'net cost'}."
+    )
+    
     st.markdown("### Decision verdict")
 
     if decision_status == "Appears cost-saving":
