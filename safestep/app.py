@@ -6,6 +6,9 @@ import streamlit as st
 
 from utils.calculations import run_model
 from utils.charts import (
+    make_cumulative_costs_chart,
+    make_cumulative_net_cost_chart,
+    make_falls_avoided_chart,
     make_impact_bar_chart,
     make_scenario_comparison_chart,
     make_scenario_outcome_chart,
@@ -65,23 +68,67 @@ def build_assumptions_table(inputs: dict) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def build_scenario_comparison(defaults: dict) -> pd.DataFrame:
+def build_yearly_results_table(yearly_df: pd.DataFrame) -> pd.DataFrame:
+    display_df = yearly_df.copy()
+    display_df = display_df.rename(
+        columns={
+            "year": "Year",
+            "programme_cost": "Programme cost",
+            "gross_savings": "Gross savings",
+            "net_cost": "Net cost",
+            "falls_avoided": "Falls avoided",
+            "admissions_avoided": "Admissions avoided",
+            "bed_days_avoided": "Bed days avoided",
+            "qalys_gained": "QALYs gained",
+            "discounted_net_cost": "Discounted net cost",
+            "cumulative_net_cost": "Cumulative net cost",
+        }
+    )
+
+    currency_cols = [
+        "Programme cost",
+        "Gross savings",
+        "Net cost",
+        "Discounted net cost",
+        "Cumulative net cost",
+    ]
+    number_cols = [
+        "Falls avoided",
+        "Admissions avoided",
+        "Bed days avoided",
+    ]
+
+    for col in currency_cols:
+        display_df[col] = display_df[col].apply(format_currency)
+
+    for col in number_cols:
+        display_df[col] = display_df[col].apply(format_number)
+
+    display_df["QALYs gained"] = display_df["QALYs gained"].apply(lambda x: f"{x:,.2f}")
+    return display_df
+
+
+def build_scenario_comparison(defaults: dict, base_inputs: dict) -> pd.DataFrame:
     rows = []
     for scenario_name, scenario_func in SCENARIO_MAP.items():
         scenario_inputs = scenario_func(defaults)
+        scenario_inputs["time_horizon_years"] = base_inputs["time_horizon_years"]
+        scenario_inputs["discount_rate"] = base_inputs["discount_rate"]
+        scenario_inputs["effect_decay_rate"] = base_inputs["effect_decay_rate"]
+
         scenario_results = run_model(scenario_inputs)
 
         rows.append(
             {
                 "Scenario": scenario_name,
                 "People treated": scenario_results["treated_population"],
-                "Falls avoided": scenario_results["falls_avoided"],
-                "Admissions avoided": scenario_results["admissions_avoided"],
-                "Bed days avoided": scenario_results["bed_days_avoided"],
-                "Programme cost": scenario_results["programme_cost"],
-                "Gross savings": scenario_results["gross_savings"],
-                "Net cost": scenario_results["net_cost"],
-                "Cost per QALY": scenario_results["cost_per_qaly"],
+                "Falls avoided": scenario_results["falls_avoided_total"],
+                "Admissions avoided": scenario_results["admissions_avoided_total"],
+                "Bed days avoided": scenario_results["bed_days_avoided_total"],
+                "Programme cost": scenario_results["programme_cost_total"],
+                "Gross savings": scenario_results["gross_savings_total"],
+                "Discounted net cost": scenario_results["discounted_net_cost_total"],
+                "Discounted cost per QALY": scenario_results["discounted_cost_per_qaly"],
                 "Decision status": get_decision_status(
                     scenario_results,
                     scenario_inputs["cost_effectiveness_threshold"],
@@ -97,21 +144,21 @@ def format_scenario_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     for col in ["People treated", "Falls avoided", "Admissions avoided", "Bed days avoided"]:
         formatted[col] = formatted[col].apply(format_number)
 
-    for col in ["Programme cost", "Gross savings", "Net cost", "Cost per QALY"]:
+    for col in ["Programme cost", "Gross savings", "Discounted net cost", "Discounted cost per QALY"]:
         formatted[col] = formatted[col].apply(format_currency)
 
     return formatted
 
 
 def get_best_scenario_text(df: pd.DataFrame) -> dict:
-    valid_qaly_df = df[df["Cost per QALY"] > 0].copy()
+    valid_qaly_df = df[df["Discounted cost per QALY"] > 0].copy()
 
     if valid_qaly_df.empty:
         best_cost_effective = None
     else:
-        best_cost_effective = valid_qaly_df.loc[valid_qaly_df["Cost per QALY"].idxmin()]
+        best_cost_effective = valid_qaly_df.loc[valid_qaly_df["Discounted cost per QALY"].idxmin()]
 
-    best_net_cost = df.loc[df["Net cost"].idxmin()]
+    best_net_cost = df.loc[df["Discounted net cost"].idxmin()]
     best_health_gain = df.loc[df["Falls avoided"].idxmax()]
 
     return {
@@ -202,6 +249,13 @@ with st.sidebar:
         value=float(scenario_inputs["relative_risk_reduction"]),
         step=0.01,
     )
+    effect_decay_rate = st.slider(
+        "Annual effect decay",
+        min_value=0.0,
+        max_value=0.5,
+        value=float(scenario_inputs["effect_decay_rate"]),
+        step=0.01,
+    )
 
     st.header("Economic assumptions")
     cost_per_admission = st.number_input(
@@ -229,6 +283,20 @@ with st.sidebar:
         step=1000.0,
     )
 
+    st.header("Time horizon")
+    time_horizon_years = st.selectbox(
+        "Time horizon",
+        options=[1, 3, 5],
+        index=[1, 3, 5].index(int(scenario_inputs["time_horizon_years"])),
+    )
+    discount_rate = st.number_input(
+        "Discount rate",
+        min_value=0.0,
+        value=float(scenario_inputs["discount_rate"]),
+        step=0.005,
+        format="%.3f",
+    )
+
 inputs = {
     "eligible_population": eligible_population,
     "uptake_rate": uptake_rate,
@@ -238,10 +306,13 @@ inputs = {
     "average_length_of_stay": average_length_of_stay,
     "intervention_cost_per_person": intervention_cost_per_person,
     "relative_risk_reduction": relative_risk_reduction,
+    "effect_decay_rate": effect_decay_rate,
     "cost_per_admission": cost_per_admission,
     "cost_per_bed_day": cost_per_bed_day,
     "qaly_loss_per_serious_fall": qaly_loss_per_serious_fall,
     "cost_effectiveness_threshold": cost_effectiveness_threshold,
+    "time_horizon_years": time_horizon_years,
+    "discount_rate": discount_rate,
 }
 
 results = run_model(inputs)
@@ -250,6 +321,7 @@ overview_summary = generate_overview_summary(results, inputs)
 interpretation = generate_interpretation(results, inputs)
 net_cost_label = get_net_cost_label(results)
 main_driver_text = get_main_driver_text(inputs)
+yearly_results_table = build_yearly_results_table(results["yearly_results"])
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ["Overview", "Assumptions", "Sensitivity", "Scenarios", "Interpretation"]
@@ -258,23 +330,20 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
 with tab1:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("People treated", format_number(results["treated_population"]))
-    col2.metric("Falls avoided", format_number(results["falls_avoided"]))
-    col3.metric("Admissions avoided", format_number(results["admissions_avoided"]))
-    col4.metric("Bed days avoided", format_number(results["bed_days_avoided"]))
+    col2.metric("Falls avoided", format_number(results["falls_avoided_total"]))
+    col3.metric("Admissions avoided", format_number(results["admissions_avoided_total"]))
+    col4.metric("Bed days avoided", format_number(results["bed_days_avoided_total"]))
 
     col5, col6, col7, col8 = st.columns(4)
-    col5.metric("Programme cost", format_currency(results["programme_cost"]))
-    col6.metric("Gross savings", format_currency(results["gross_savings"]))
-    col7.metric(net_cost_label, format_currency(abs(results["net_cost"])))
-    col8.metric("Cost per QALY", format_currency(results["cost_per_qaly"]))
+    col5.metric("Programme cost", format_currency(results["programme_cost_total"]))
+    col6.metric("Gross savings", format_currency(results["gross_savings_total"]))
+    col7.metric(net_cost_label, format_currency(abs(results["discounted_net_cost_total"])))
+    col8.metric("Discounted cost per QALY", format_currency(results["discounted_cost_per_qaly"]))
 
     col9, col10, col11, col12 = st.columns(4)
     col9.metric("Return on spend", format_ratio(results["roi"]))
-    col10.metric("Cost per fall avoided", format_currency(results["cost_per_fall_avoided"]))
-    col11.metric(
-        "Required fall reduction",
-        format_percent(results["break_even_effectiveness"]),
-    )
+    col10.metric("Break-even cost per participant", format_currency(results["break_even_cost_per_participant"]))
+    col11.metric("Required fall reduction", format_percent(results["break_even_effectiveness"]))
     col12.metric("Decision status", decision_status)
 
     st.markdown("### What this scenario suggests")
@@ -284,15 +353,15 @@ with tab1:
     with info_col1:
         st.info(f"Primary economic driver: {main_driver_text}")
     with info_col2:
-        if results["net_cost"] < 0:
-            st.success("Under the current assumptions, the programme appears cost-saving.")
-        elif 0 < results["cost_per_qaly"] <= inputs["cost_effectiveness_threshold"]:
+        if results["discounted_net_cost_total"] < 0:
+            st.success("Across the selected horizon, the programme appears cost-saving.")
+        elif 0 < results["discounted_cost_per_qaly"] <= inputs["cost_effectiveness_threshold"]:
             st.success(
-                "Under the current assumptions, the programme appears cost-effective, but not cost-saving."
+                "Across the selected horizon, the programme appears cost-effective, but not cost-saving."
             )
         else:
             st.info(
-                "Under the current assumptions, the programme delivers benefit but remains above the current threshold."
+                "Across the selected horizon, the programme delivers benefit but remains above the current threshold."
             )
 
     chart_col1, chart_col2 = st.columns(2)
@@ -300,6 +369,17 @@ with tab1:
         st.plotly_chart(make_waterfall_chart(results), use_container_width=True)
     with chart_col2:
         st.plotly_chart(make_impact_bar_chart(results), use_container_width=True)
+
+    time_col1, time_col2 = st.columns(2)
+    with time_col1:
+        st.plotly_chart(make_cumulative_costs_chart(results["yearly_results"]), use_container_width=True)
+    with time_col2:
+        st.plotly_chart(make_cumulative_net_cost_chart(results["yearly_results"]), use_container_width=True)
+
+    st.plotly_chart(make_falls_avoided_chart(results["yearly_results"]), use_container_width=True)
+
+    st.markdown("### Year-by-year results")
+    st.dataframe(yearly_results_table, use_container_width=True, hide_index=True)
 
 with tab2:
     st.markdown("### Current assumptions")
@@ -312,14 +392,14 @@ with tab2:
 with tab3:
     st.markdown("### What matters most")
     st.write(
-        "This view varies one assumption at a time while holding the others constant. It shows which inputs have the biggest effect on cost per QALY."
+        "This view varies one assumption at a time while holding the others constant. It shows which inputs have the biggest effect on discounted cost per QALY across the selected horizon."
     )
 
     sensitivity_df = run_one_way_sensitivity(
         base_inputs=inputs,
         variables=SENSITIVITY_VARIABLES,
         variation=0.20,
-        outcome_key="cost_per_qaly",
+        outcome_key="discounted_cost_per_qaly",
     )
 
     st.plotly_chart(make_tornado_chart(sensitivity_df), use_container_width=True)
@@ -335,10 +415,10 @@ with tab3:
 with tab4:
     st.markdown("### Compare scenarios")
     st.write(
-        "These preset scenarios illustrate how different delivery choices and risk profiles change the case for falls prevention."
+        "These preset scenarios illustrate how different delivery choices and risk profiles change the case for falls prevention over the selected horizon."
     )
 
-    scenario_df = build_scenario_comparison(defaults)
+    scenario_df = build_scenario_comparison(defaults, inputs)
     formatted_scenario_df = format_scenario_dataframe(scenario_df)
     best_scenarios = get_best_scenario_text(scenario_df)
 
@@ -346,18 +426,18 @@ with tab4:
     with summary_col1:
         if best_scenarios["best_cost_effective"] is not None:
             st.metric(
-                "Lowest cost per QALY",
+                "Lowest discounted cost per QALY",
                 best_scenarios["best_cost_effective"]["Scenario"],
-                format_currency(best_scenarios["best_cost_effective"]["Cost per QALY"]),
+                format_currency(best_scenarios["best_cost_effective"]["Discounted cost per QALY"]),
             )
         else:
-            st.metric("Lowest cost per QALY", "Not available", "No positive QALY result")
+            st.metric("Lowest discounted cost per QALY", "Not available", "No positive QALY result")
 
     with summary_col2:
         st.metric(
-            "Lowest net cost",
+            "Lowest discounted net cost",
             best_scenarios["best_net_cost"]["Scenario"],
-            format_currency(best_scenarios["best_net_cost"]["Net cost"]),
+            format_currency(best_scenarios["best_net_cost"]["Discounted net cost"]),
         )
 
     with summary_col3:
@@ -382,15 +462,15 @@ with tab4:
     st.markdown("#### What the scenario comparison suggests")
     if best_cost_effective is not None:
         st.write(
-            f"The strongest preset on cost per QALY is **{best_cost_effective['Scenario']}**, while **{best_net_cost['Scenario']}** has the lowest net cost and **{best_health_gain['Scenario']}** delivers the largest reduction in falls."
+            f"The strongest preset on discounted cost per QALY is **{best_cost_effective['Scenario']}**, while **{best_net_cost['Scenario']}** has the lowest discounted net cost and **{best_health_gain['Scenario']}** delivers the largest reduction in falls."
         )
     else:
         st.write(
-            f"Across the current presets, **{best_net_cost['Scenario']}** has the lowest net cost and **{best_health_gain['Scenario']}** delivers the largest reduction in falls."
+            f"Across the current presets, **{best_net_cost['Scenario']}** has the lowest discounted net cost and **{best_health_gain['Scenario']}** delivers the largest reduction in falls."
         )
 
     st.write(
-        "In practice, this means the most economically attractive scenario is not always the one with the largest headline impact. Targeting higher-risk groups or improving delivery efficiency can strengthen value faster than simply expanding reach."
+        "In practice, this means the most economically attractive scenario is not always the one with the largest headline impact. Time horizon, effect persistence, and targeting all shape the result."
     )
 
 with tab5:
