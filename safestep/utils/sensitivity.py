@@ -11,6 +11,7 @@ SENSITIVITY_VARIABLES = [
     "admission_rate_after_fall",
     "qaly_loss_per_serious_fall",
     "effect_decay_rate",
+    "participation_dropoff_rate",
 ]
 
 
@@ -46,6 +47,7 @@ def run_one_way_sensitivity(
             "admission_rate_after_fall",
             "relative_risk_reduction",
             "effect_decay_rate",
+            "participation_dropoff_rate",
             "discount_rate",
         }
 
