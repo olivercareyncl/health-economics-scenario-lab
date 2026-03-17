@@ -8,7 +8,7 @@ export default function SandboxesPage() {
         Sandbox library
       </p>
       <h1 className="mt-4 text-4xl font-semibold tracking-tight">
-        Explore the current modules
+        Explore the sandbox library
       </h1>
       <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
         Each sandbox focuses on a different intervention archetype, but all are
