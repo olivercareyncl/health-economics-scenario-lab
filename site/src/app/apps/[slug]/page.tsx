@@ -134,7 +134,7 @@ export default async function AppDetailPage({
 
       <footer className="border-t border-slate-200">
         <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-          <p>{app.name}</p>
+          <p>{app.name} · Built by Oliver Carey</p>
           <div className="flex items-center gap-5">
             <Link href="/" className="hover:text-slate-900">
               Home
