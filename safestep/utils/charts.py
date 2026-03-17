@@ -103,7 +103,6 @@ def make_tornado_chart(sensitivity_df):
             x=0.0,
         ),
         margin=dict(l=20, r=20, t=140, b=20),
-        ),
     )
     return fig
 
