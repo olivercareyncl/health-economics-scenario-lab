@@ -4,7 +4,7 @@
 
 It is part of the broader **Health Economics Scenario Lab** project: a series of interactive decision sandboxes designed to make economic reasoning more transparent, faster to explore, and easier to interrogate than a static spreadsheet.
 
-**Live app:** [ClearPath](ADD_YOUR_CLEARPATH_STREAMLIT_LINK_HERE)
+**Live app:** [ClearPath](https://health-economics-scenario-lab-fzfkngiwwyynydcjpfuwii.streamlit.app/)
 
 ## What it does
 
