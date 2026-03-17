@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { apps } from "@/data/apps";
+import { apps, GITHUB_URL, LINKEDIN_URL } from "@/data/apps";
 
 export default function HomePage() {
   return (
@@ -233,7 +234,7 @@ export default function HomePage() {
               GitHub
             </a>
             <a
-              href="https://www.linkedin.com/in/oliver-carey
+              href={LINKEDIN_URL}
               target="_blank"
               rel="noreferrer"
               className="hover:text-slate-900"
