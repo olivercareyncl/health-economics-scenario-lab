@@ -89,12 +89,19 @@ def make_tornado_chart(sensitivity_df):
     )
 
     fig.update_layout(
-        title="One-way sensitivity analysis on discounted cost per QALY",
-        barmode="relative",
-        xaxis_title="Change from base case (£)",
-        yaxis_title="",
-        height=500,
-        margin=dict(l=20, r=20, t=60, b=20),
+    title="One-way sensitivity analysis on discounted cost per QALY",
+    barmode="relative",
+    xaxis_title="Change from base case (£)",
+    yaxis_title="",
+    height=520,
+    margin=dict(l=20, r=20, t=90, b=20),
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.08,
+        xanchor="left",
+        x=0
+    ),
     )
     return fig
 
