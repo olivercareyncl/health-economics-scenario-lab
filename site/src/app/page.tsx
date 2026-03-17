@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { apps } from "@/data/apps";
 
@@ -27,7 +28,7 @@ export default function HomePage() {
               Explore apps
             </a>
             <a
-              href="https://github.com/olivercareyncl/health-economics-scenario-lab"
+              href="https://github.com/olivercsreyncl/health-economics-scenario-lab"
               target="_blank"
               rel="noreferrer"
               className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
@@ -115,9 +116,11 @@ export default function HomePage() {
                 </div>
 
                 <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                  <img
+                  <Image
                     src={app.image}
                     alt={app.name}
+                    width={1200}
+                    height={700}
                     className="h-44 w-full object-cover"
                   />
                 </div>
@@ -230,7 +233,7 @@ export default function HomePage() {
               GitHub
             </a>
             <a
-              href="https://www.linkedin.com/in/YOUR-LINKEDIN/"
+              href="https://www.linkedin.com/in/olivercarey/"
               target="_blank"
               rel="noreferrer"
               className="hover:text-slate-900"
