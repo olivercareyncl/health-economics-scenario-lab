@@ -1,10 +1,11 @@
-import math
-
-
 def safe_divide(numerator: float, denominator: float) -> float:
     if denominator == 0:
         return 0.0
     return numerator / denominator
+
+
+def clamp_rate(value: float) -> float:
+    return max(0.0, min(1.0, value))
 
 
 def run_model(inputs: dict) -> dict:
@@ -31,6 +32,7 @@ def run_model(inputs: dict) -> dict:
     cost_per_fall_avoided = safe_divide(net_cost, falls_avoided)
 
     break_even_effectiveness = calculate_break_even_effectiveness(inputs)
+    break_even_effectiveness = clamp_rate(break_even_effectiveness)
 
     return {
         "treated_population": treated_population,
@@ -46,7 +48,7 @@ def run_model(inputs: dict) -> dict:
         "cost_per_qaly": cost_per_qaly,
         "roi": roi,
         "cost_per_fall_avoided": cost_per_fall_avoided,
-        "break_even_effectiveness": break_even_effectiveness
+        "break_even_effectiveness": break_even_effectiveness,
     }
 
 
