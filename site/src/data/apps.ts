@@ -1,3 +1,6 @@
+export const GITHUB_URL = "https://github.com/olivercareyncl/health-economics-scenario-lab";
+export const LINKEDIN_URL = "https://www.linkedin.com/in/oliver-carey/";
+
 export type AppStatus = "Live" | "In progress" | "Planned";
 
 export type AppItem = {
