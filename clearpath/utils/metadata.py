@@ -14,6 +14,16 @@ ASSUMPTION_META = {
         "source_type": "Operational estimate",
         "confidence": "Medium confidence",
     },
+    
+    "intervention_reach_rate": {
+        "label": "Intervention reach rate",
+        "unit": "%",
+        "formatter": format_percent,
+        "description": "Estimated share of incident cases effectively reached by the intervention.",
+        "source_type": "Operational estimate",
+        "confidence": "Medium confidence",
+    },
+    
     "current_late_diagnosis_rate": {
         "label": "Current late diagnosis rate",
         "unit": "%",
