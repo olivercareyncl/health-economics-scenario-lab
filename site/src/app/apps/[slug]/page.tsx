@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apps } from "@/data/apps";
@@ -77,9 +78,11 @@ export default async function AppDetailPage({
 
       <section className="mx-auto max-w-5xl px-6 py-16">
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <img
+          <Image
             src={app.image}
             alt={app.name}
+            width={1600}
+            height={900}
             className="w-full object-cover"
           />
         </div>
