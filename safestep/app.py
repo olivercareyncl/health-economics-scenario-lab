@@ -378,7 +378,6 @@ with tab1:
     col8.metric("Discounted cost per QALY", format_currency(results["discounted_cost_per_qaly"]))
 
     col9, col10, col11, col12 = st.columns(4)
-    col9, col10, col11 = st.columns(3)
     col9.metric("Return on spend", format_ratio(results["roi"]))
     col10.metric("Break-even cost per participant", format_currency(results["break_even_cost_per_participant"]))
     col11.metric("Required fall reduction", format_percent(results["break_even_effectiveness"]))
