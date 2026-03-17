@@ -73,6 +73,7 @@ def load_defaults() -> dict:
         "annual_incident_cases": 1000,
         "current_late_diagnosis_rate": 0.35,
         "achievable_reduction_in_late_diagnosis": 0.10,
+        "intervention_reach_rate": 0.80,
         "time_horizon_years": 3,
         "discount_rate": 0.035,
         "late_emergency_presentation_rate": 0.25,
