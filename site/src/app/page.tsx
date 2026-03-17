@@ -234,7 +234,7 @@ export default function HomePage() {
               GitHub
             </a>
             <a
-              href={LINKEDIN_URL}
+              href="https://www.linkedin.com/posts/oliver-carey_healtheconomics-healthtech-nhsanalytics-activity-7439742257710141441-rNAy?utm_source=share&utm_medium=member_ios&rcm=ACoAABp4fIQB3VoRmdwTsL63V4Cf9esmJbekqwo"
               target="_blank"
               rel="noreferrer"
               className="hover:text-slate-900"
