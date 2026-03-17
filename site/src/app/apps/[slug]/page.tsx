@@ -2,35 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apps } from "@/data/apps";
 
-const categories: Record<string, string> = {
-  safestep: "Prevention",
-  clearpath: "Diagnosis",
-  waitwise: "Access",
-  pathshift: "Redesign",
-  frailtyforward: "Community care",
-};
-
-const questions: Record<string, string> = {
-  safestep: "What would need to be true for falls prevention to look worthwhile?",
-  clearpath: "What shifts would make earlier diagnosis create value?",
-  waitwise: "When do waiting list interventions improve value, not just throughput optics?",
-  pathshift: "Where does value actually come from in pathway redesign?",
-  frailtyforward: "When does earlier frailty support hold up economically?",
-};
-
-const whyItMatters: Record<string, string> = {
-  safestep:
-    "Prevention cases often sound intuitively convincing, but the economic logic can become vague very quickly once effectiveness, delivery cost, targeting, and time horizon come into play.",
-  clearpath:
-    "Earlier diagnosis is attractive in principle, but the value case depends on what actually shifts downstream — not just the ambition to diagnose sooner.",
-  waitwise:
-    "Waiting list interventions are often framed operationally. The harder question is whether they also create value once escalation, admissions, and downstream pressure are considered.",
-  pathshift:
-    "Pathway redesign can bundle many promised effects together. Separating activity change, admission impact, follow-up burden, and bed use makes the logic easier to test.",
-  frailtyforward:
-    "Earlier frailty support is intuitively appealing, but the case often depends heavily on targeting, support persistence, and how much acute use is actually avoided.",
-};
-
 export default async function AppDetailPage({
   params,
 }: {
@@ -51,8 +22,13 @@ export default async function AppDetailPage({
         </Link>
 
         <div className="mt-8 max-w-4xl">
-          <div className="mb-4 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {categories[app.slug]}
+          <div className="mb-4 flex items-center gap-3">
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+              {app.category}
+            </span>
+            <span className="inline-flex rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500">
+              {app.status}
+            </span>
           </div>
 
           <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
@@ -64,7 +40,7 @@ export default async function AppDetailPage({
           <p className="mt-2 text-lg text-slate-500">{app.descriptor}</p>
 
           <p className="mt-6 text-lg font-medium leading-8 text-slate-900">
-            {questions[app.slug]}
+            {app.question}
           </p>
 
           <p className="mt-6 leading-8 text-slate-600">{app.longDescription}</p>
@@ -94,7 +70,7 @@ export default async function AppDetailPage({
         <div className="mx-auto max-w-5xl px-6 py-8">
           <p className="text-sm leading-7 text-slate-700">
             <span className="font-semibold text-slate-900">Why this matters:</span>{" "}
-            {whyItMatters[app.slug]}
+            {app.whyItMatters}
           </p>
         </div>
       </section>
