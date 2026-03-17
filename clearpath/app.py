@@ -522,6 +522,7 @@ inputs = {
     "time_horizon_years": time_horizon_years,
     "discount_rate": discount_rate,
     "cost_effectiveness_threshold": cost_effectiveness_threshold,
+    "intervention_reach_rate": intervention_reach_rate,
 }
 
 results = run_model(inputs)
