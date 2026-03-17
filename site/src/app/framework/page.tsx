@@ -24,7 +24,12 @@ export default function FrameworkPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 p-6">
-          <h2 className="text-xl font-semibold">Value chain</h2>
+          <h2 className="text-xl font-semibold">Basic structure</h2>
+          <p className="mt-3 text-slate-600">
+            Most sandboxes in the lab follow the same broad logic:
+            population reached, baseline event risk, intervention effect, and
+            delivery cost combine to determine whether value appears.
+          </p>
           <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-700">
             {[
               "Population at risk",
@@ -35,6 +40,32 @@ export default function FrameworkPage() {
               "System savings",
               "Intervention cost",
               "Net system value",
+            ].map((item) => (
+              <span
+                key={item}
+                className="rounded-full border border-slate-200 px-3 py-1"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-xl font-semibold">Seven routes to system value</h2>
+          <p className="mt-3 text-slate-600">
+            The sandboxes are organised around recurring ways healthcare systems
+            create value.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-700">
+            {[
+              "Prevent Need",
+              "Detect Earlier",
+              "Stabilise Risk",
+              "Improve Access",
+              "Redesign Flow",
+              "Shift Care Setting",
+              "Improve Decisions",
             ].map((item) => (
               <span
                 key={item}
