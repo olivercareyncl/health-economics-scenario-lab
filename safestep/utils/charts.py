@@ -44,7 +44,23 @@ def make_tornado_chart(sensitivity_df):
         ),
     )
     return fig
-
+def make_waterfall_chart(results: dict):
+    fig = go.Figure(
+        go.Waterfall(
+            name="Financial impact",
+            orientation="v",
+            measure=["absolute", "relative", "total"],
+            x=["Discounted programme cost", "Discounted gross savings", "Discounted net impact"],
+            y=[
+                results["discounted_programme_cost_total"],
+                -results["discounted_gross_savings_total"],
+                0,
+            ],
+            text=[
+                f"£{results['discounted_programme_cost_total']:,.0f}",
+                f"£{results['discounted_gross_savings_total']:,.0f}",
+                f"£{results['discounted_net_cost_total']:,.0f}",
+            ],
 
 def make_impact_bar_chart(results: dict):
     categories = ["Falls avoided", "Admissions avoided", "Bed days avoided"]
@@ -75,49 +91,6 @@ def make_impact_bar_chart(results: dict):
     return fig
 
 
-def make_tornado_chart(sensitivity_df):
-    sorted_df = sensitivity_df.sort_values("swing", ascending=True)
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Bar(
-            y=sorted_df["label"],
-            x=sorted_df["low_delta"],
-            name="Low case",
-            orientation="h",
-            text=[f"£{abs(v):,.0f}" for v in sorted_df["low_delta"]],
-            textposition="outside",
-        )
-    )
-
-    fig.add_trace(
-        go.Bar(
-            y=sorted_df["label"],
-            x=sorted_df["high_delta"],
-            name="High case",
-            orientation="h",
-            text=[f"£{abs(v):,.0f}" for v in sorted_df["high_delta"]],
-            textposition="outside",
-        )
-    )
-
-    fig.update_layout(
-    title="One-way sensitivity analysis on discounted cost per QALY",
-    barmode="relative",
-    xaxis_title="Change from base case (£)",
-    yaxis_title="",
-    height=520,
-    margin=dict(l=20, r=20, t=90, b=20),
-    legend=dict(
-        orientation="h",
-        yanchor="bottom",
-        y=1.08,
-        xanchor="left",
-        x=0
-    ),
-    )
-    return fig
 
 
 def make_scenario_comparison_chart(scenario_df):
