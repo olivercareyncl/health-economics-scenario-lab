@@ -95,13 +95,14 @@ def make_tornado_chart(sensitivity_df):
         xaxis_title="Change from base case (£)",
         yaxis_title="",
         height=560,
-        margin=dict(l=20, r=20, t=130, b=20),
         legend=dict(
             orientation="h",
             yanchor="top",
-            y=1.04,
+            y=1.02,
             xanchor="left",
             x=0.0,
+        ),
+        margin=dict(l=20, r=20, t=140, b=20),
         ),
     )
     return fig
