@@ -1,21 +1,38 @@
 import Link from "next/link";
 import { apps } from "@/data/apps";
 
+const categories: Record<string, string> = {
+  safestep: "Prevention",
+  clearpath: "Diagnosis",
+  waitwise: "Access",
+  pathshift: "Redesign",
+  frailtyforward: "Community care",
+};
+
+const questions: Record<string, string> = {
+  safestep: "What would need to be true for falls prevention to look worthwhile?",
+  clearpath: "What shifts would make earlier diagnosis create value?",
+  waitwise: "When do waiting list interventions improve value, not just throughput optics?",
+  pathshift: "Where does value actually come from in pathway redesign?",
+  frailtyforward: "When does earlier frailty support hold up economically?",
+};
+
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-white text-slate-900">
       <section className="mx-auto max-w-6xl px-6 py-20">
-        <div className="max-w-3xl">
+        <div className="max-w-4xl">
           <p className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
             Health Economics Scenario Lab
           </p>
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
             Interactive sandboxes for exploring value under uncertainty.
           </h1>
-          <p className="mt-6 text-lg leading-8 text-slate-600">
-            A collection of lightweight tools for testing how different
-            interventions and service changes might affect cost, activity,
-            outcomes, and value in healthcare.
+          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+            A set of lightweight tools for testing how different interventions
+            and service changes might affect cost, activity, outcomes, and
+            value in healthcare — before ideas harden into static business
+            cases or full formal models.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
@@ -37,18 +54,53 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="border-t border-slate-200">
-        <div className="mx-auto max-w-6xl px-6 py-16">
-          <div className="max-w-3xl">
+      <section className="border-y border-amber-200 bg-amber-50">
+        <div className="mx-auto max-w-6xl px-6 py-5">
+          <p className="text-sm leading-7 text-amber-900/80">
+            <span className="font-semibold text-amber-900">Important:</span>{" "}
+            These tools are illustrative and exploratory. They are designed to
+            support earlier-stage decision thinking, not replace formal economic
+            evaluation or local validation.
+          </p>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-6 py-16">
+        <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+          <div>
             <h2 className="text-2xl font-semibold tracking-tight">
               Why this exists
             </h2>
-            <p className="mt-4 leading-8 text-slate-600">
-              A lot of early economic thinking still happens in static decks,
-              rough spreadsheets, and loosely structured conversations. These
-              tools are designed to make that stage more interactive,
-              transparent, and testable — before a full formal model exists.
-            </p>
+            <div className="mt-4 space-y-5 text-slate-600 leading-8">
+              <p>
+                A lot of early economic thinking in healthcare still happens in
+                static decks, rough spreadsheets, and loosely structured
+                conversations.
+              </p>
+              <p>
+                These tools are an attempt to make that stage more interactive,
+                transparent, and testable — helping people explore what might
+                need to be true for an intervention or service change to look
+                worthwhile.
+              </p>
+              <p>
+                They sit somewhere between a rough calculator, a service design
+                thinking tool, and an early economic framing aid.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+            <h3 className="text-lg font-semibold tracking-tight">
+              What they are useful for
+            </h3>
+            <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+              <li>• testing assumptions before building a full business case</li>
+              <li>• comparing delivery or targeting strategies</li>
+              <li>• exploring thresholds and fragility</li>
+              <li>• identifying what should be validated next</li>
+              <li>• structuring earlier decision conversations</li>
+            </ul>
           </div>
         </div>
       </section>
@@ -56,10 +108,10 @@ export default function HomePage() {
       <section id="apps" className="border-t border-slate-200">
         <div className="mx-auto max-w-6xl px-6 py-16">
           <div className="mb-10">
-            <h2 className="text-2xl font-semibold tracking-tight">Apps</h2>
+            <h2 className="text-2xl font-semibold tracking-tight">Current apps</h2>
             <p className="mt-3 text-slate-600">
-              Each module focuses on a different healthcare decision problem,
-              but follows the same broad sandbox approach.
+              Each module focuses on a different decision problem, but follows
+              the same broad sandbox approach.
             </p>
           </div>
 
@@ -69,6 +121,10 @@ export default function HomePage() {
                 key={app.slug}
                 className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
               >
+                <div className="mb-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                  {categories[app.slug]}
+                </div>
+
                 <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                   <img
                     src={app.image}
@@ -81,6 +137,11 @@ export default function HomePage() {
                 <p className="mt-1 text-sm font-medium text-slate-500">
                   {app.descriptor}
                 </p>
+
+                <p className="mt-4 text-sm font-medium leading-7 text-slate-800">
+                  {questions[app.slug]}
+                </p>
+
                 <p className="mt-4 text-sm leading-7 text-slate-600">
                   {app.shortDescription}
                 </p>
@@ -112,28 +173,87 @@ export default function HomePage() {
           <div className="grid gap-10 lg:grid-cols-2">
             <div>
               <h2 className="text-2xl font-semibold tracking-tight">
-                Built for early-stage thinking
+                How to read these tools
               </h2>
-              <p className="mt-4 leading-8 text-slate-600">
-                These apps are designed as exploratory decision-support
-                sandboxes, not formal economic evaluations. They are useful for
-                testing assumptions, exploring thresholds, comparing strategies,
-                and identifying what should be validated next.
-              </p>
+              <div className="mt-4 space-y-5 text-slate-600 leading-8">
+                <p>
+                  These apps are designed for earlier-stage structured thinking.
+                  They are most useful when the question is not “is this
+                  decision already proven?” but “what would need to be true for
+                  this to look convincing?”
+                </p>
+                <p>
+                  They are best used to test assumptions, explore scenarios,
+                  compare strategic options, and surface what should be locally
+                  validated next.
+                </p>
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-              <h3 className="text-lg font-semibold text-amber-900">
-                Important
-              </h3>
-              <p className="mt-3 leading-7 text-amber-900/80">
-                These tools are illustrative only and should not be used for
-                real-world decisions without local validation.
-              </p>
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight">What they are not</h2>
+              <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+                <li>• not formal NICE-style models</li>
+                <li>• not full cost-effectiveness analyses</li>
+                <li>• not probabilistic sensitivity analyses</li>
+                <li>• not patient-level simulations</li>
+                <li>• not suitable for real-world use without local validation</li>
+              </ul>
             </div>
           </div>
         </div>
       </section>
+
+      <section className="border-t border-slate-200 bg-slate-50">
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <h2 className="text-2xl font-semibold tracking-tight">Roadmap</h2>
+          <p className="mt-3 max-w-3xl text-slate-600 leading-8">
+            The wider project is still evolving. Planned next modules include
+            long-term condition management and other pathway-specific value
+            sandboxes.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            {["StableHeart", "SteadyLungs", "KidneyKind", "DiabetesForward"].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
+                >
+                  {item}
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-slate-200">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>Health Economics Scenario Lab</p>
+          <div className="flex items-center gap-5">
+            <a
+              href="https://github.com/olivercareyncl/health-economics-scenario-lab"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-slate-900"
+            >
+              GitHub
+            </a>
+            <a
+              href="https://www.linkedin.com/in/olivercarey/"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-slate-900"
+            >
+              LinkedIn
+            </a>
+            <Link href="/about" className="hover:text-slate-900">
+              About
+            </Link>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
