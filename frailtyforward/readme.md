@@ -4,7 +4,7 @@
 
 It is part of the broader **Health Economics Scenario Lab** project: a series of interactive decision sandboxes designed to make economic reasoning more transparent, faster to explore, and easier to interrogate than a static spreadsheet.
 
-**Live app:** [FrailtyForward]((https://health-economics-scenario-lab-gp9ar7jzr8kcpnckcwgyuf.streamlit.app/))
+**Live app:** [FrailtyForward]([(https://health-economics-scenario-lab-gp9ar7jzr8kcpnckcwgyuf.streamlit.app/)])
 
 ## What it does
 
