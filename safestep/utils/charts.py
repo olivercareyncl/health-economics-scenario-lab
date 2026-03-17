@@ -98,9 +98,9 @@ def make_tornado_chart(sensitivity_df):
         margin=dict(l=20, r=20, t=130, b=20),
         legend=dict(
             orientation="h",
-            yanchor="top",
+            yanchor="bottom",
             y=1.04,
-            xanchor="left",
+            xanchor="right",
             x=0.0,
         ),
     )
