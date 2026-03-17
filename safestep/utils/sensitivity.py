@@ -40,6 +40,7 @@ def run_one_way_sensitivity(
     for variable in variables:
         meta = ASSUMPTION_META[variable]
         base_input_value = base_inputs[variable]
+
         is_rate = variable in {
             "uptake_rate",
             "adherence_rate",
