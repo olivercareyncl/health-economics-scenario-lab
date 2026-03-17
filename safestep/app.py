@@ -27,7 +27,8 @@ st.set_page_config(
 
 @st.cache_data
 def load_defaults() -> dict:
-    data_path = Path("data/default_assumptions.json")
+    base_dir = Path(__file__).resolve().parent
+    data_path = base_dir / "data" / "default_assumptions.json"
     with open(data_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
