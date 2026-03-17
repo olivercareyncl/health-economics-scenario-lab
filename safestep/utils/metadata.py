@@ -52,7 +52,13 @@ ASSUMPTION_META = {
         "label": "Reduction in falls",
         "unit": "%",
         "formatter": format_percent,
-        "description": "Estimated relative reduction in falls among participants.",
+        "description": "Estimated relative reduction in falls among participants in year 1.",
+    },
+    "effect_decay_rate": {
+        "label": "Annual effect decay",
+        "unit": "%",
+        "formatter": format_percent,
+        "description": "Estimated year-on-year reduction in intervention effect after the first year.",
     },
     "cost_per_admission": {
         "label": "Cost per admission",
@@ -76,7 +82,19 @@ ASSUMPTION_META = {
         "label": "Cost-effectiveness threshold",
         "unit": "GBP per QALY",
         "formatter": format_currency,
-        "description": "Illustrative threshold used to interpret cost per QALY.",
+        "description": "Illustrative threshold used to interpret discounted cost per QALY.",
+    },
+    "time_horizon_years": {
+        "label": "Time horizon",
+        "unit": "years",
+        "formatter": lambda x: f"{int(x)}",
+        "description": "Number of years over which costs and benefits are modelled.",
+    },
+    "discount_rate": {
+        "label": "Discount rate",
+        "unit": "%",
+        "formatter": format_percent,
+        "description": "Annual rate used to discount future costs and QALYs.",
     },
 }
 
@@ -89,8 +107,11 @@ ASSUMPTION_ORDER = [
     "average_length_of_stay",
     "intervention_cost_per_person",
     "relative_risk_reduction",
+    "effect_decay_rate",
     "cost_per_admission",
     "cost_per_bed_day",
     "qaly_loss_per_serious_fall",
     "cost_effectiveness_threshold",
+    "time_horizon_years",
+    "discount_rate",
 ]
