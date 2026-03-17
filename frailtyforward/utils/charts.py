@@ -239,7 +239,7 @@ def make_cumulative_net_cost_chart(yearly_df):
     return fig
 
 
-def make_patients_stabilised_chart(yearly_df):
+def make_stabilised_patients_chart(yearly_df):
     fig = go.Figure(
         data=[
             go.Bar(
@@ -261,7 +261,6 @@ def make_patients_stabilised_chart(yearly_df):
         showlegend=False,
     )
     return fig
-
 
 def make_uncertainty_chart(uncertainty_df):
     fig = go.Figure(
