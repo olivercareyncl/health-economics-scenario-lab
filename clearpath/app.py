@@ -339,6 +339,18 @@ with st.sidebar:
         ),
         step=0.01,
     )
+    intervention_reach_rate = st.slider(
+        "Intervention reach rate",
+        min_value=0.0,
+        max_value=1.0,
+        value=float(
+            scenario_inputs.get(
+                "intervention_reach_rate",
+                defaults["intervention_reach_rate"],
+            )
+        ),
+        step=0.01,
+    )
 
     st.header("Activity and pathway")
     late_emergency_presentation_rate = st.slider(
