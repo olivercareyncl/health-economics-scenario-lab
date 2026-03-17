@@ -233,7 +233,7 @@ export default function HomePage() {
               GitHub
             </a>
             <a
-              href="https://www.linkedin.com/in/olivercarey/"
+              href="https://www.linkedin.com/in/oliver-carey
               target="_blank"
               rel="noreferrer"
               className="hover:text-slate-900"
