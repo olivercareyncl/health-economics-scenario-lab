@@ -251,19 +251,25 @@ def build_comparator_table(base_results: dict, comparator_results: dict) -> pd.D
             "Metric": "Falls avoided",
             "Current selection": format_number(base_results["falls_avoided_total"]),
             "Comparator": format_number(comparator_results["falls_avoided_total"]),
-            "Delta": format_number(comparator_results["falls_avoided_total"] - base_results["falls_avoided_total"]),
+            "Delta": format_number(
+                comparator_results["falls_avoided_total"] - base_results["falls_avoided_total"]
+            ),
         },
         {
             "Metric": "Discounted net cost",
             "Current selection": format_currency(base_results["discounted_net_cost_total"]),
             "Comparator": format_currency(comparator_results["discounted_net_cost_total"]),
-            "Delta": format_currency(comparator_results["discounted_net_cost_total"] - base_results["discounted_net_cost_total"]),
+            "Delta": format_currency(
+                comparator_results["discounted_net_cost_total"] - base_results["discounted_net_cost_total"]
+            ),
         },
         {
             "Metric": "Discounted cost per QALY",
             "Current selection": format_currency(base_results["discounted_cost_per_qaly"]),
             "Comparator": format_currency(comparator_results["discounted_cost_per_qaly"]),
-            "Delta": format_currency(comparator_results["discounted_cost_per_qaly"] - base_results["discounted_cost_per_qaly"]),
+            "Delta": format_currency(
+                comparator_results["discounted_cost_per_qaly"] - base_results["discounted_cost_per_qaly"]
+            ),
         },
     ]
     return pd.DataFrame(rows)
@@ -271,15 +277,19 @@ def build_comparator_table(base_results: dict, comparator_results: dict) -> pd.D
 
 defaults = load_defaults()
 
-st.caption("Health Economics Scenario Lab - Author: Oliver Carey")
+st.caption("Health Economics Scenario Lab")
 st.title("SafeStep")
-st.subheader("Falls Prevention ROI Sandbox")
+st.subheader("Falls Prevention Sandbox")
 st.write(
-    "An interactive sandbox for testing the economic case for falls prevention under different assumptions."
+    "Explore how falls prevention might change falls, admissions, bed use, and value under different assumptions about targeting, uptake, effectiveness, and delivery cost."
+)
+
+st.info(
+    "Key question: What would need to be true for falls prevention to create value?"
 )
 
 st.warning(
-    "Demo only. This sandbox uses synthetic assumptions for illustrative decision support and is not a formal economic evaluation."
+    "Illustrative decision sandbox only. This model uses synthetic assumptions for exploratory decision support and is not a formal economic evaluation."
 )
 
 with st.sidebar:
@@ -318,7 +328,12 @@ with st.sidebar:
         "Annual participation drop-off",
         min_value=0.0,
         max_value=0.5,
-        value=float(scenario_inputs.get("participation_dropoff_rate", defaults["participation_dropoff_rate"])),
+        value=float(
+            scenario_inputs.get(
+                "participation_dropoff_rate",
+                defaults["participation_dropoff_rate"],
+            )
+        ),
         step=0.01,
     )
 
@@ -341,13 +356,23 @@ with st.sidebar:
         "Falls leading to admission",
         min_value=0.0,
         max_value=1.0,
-        value=float(scenario_inputs.get("admission_rate_after_fall", defaults["admission_rate_after_fall"])),
+        value=float(
+            scenario_inputs.get(
+                "admission_rate_after_fall",
+                defaults["admission_rate_after_fall"],
+            )
+        ),
         step=0.01,
     )
     average_length_of_stay = st.number_input(
         "Average length of stay (days)",
         min_value=0.0,
-        value=float(scenario_inputs.get("average_length_of_stay", defaults["average_length_of_stay"])),
+        value=float(
+            scenario_inputs.get(
+                "average_length_of_stay",
+                defaults["average_length_of_stay"],
+            )
+        ),
         step=0.5,
     )
 
@@ -355,14 +380,24 @@ with st.sidebar:
     intervention_cost_per_person = st.number_input(
         "Cost per participant",
         min_value=0.0,
-        value=float(scenario_inputs.get("intervention_cost_per_person", defaults["intervention_cost_per_person"])),
+        value=float(
+            scenario_inputs.get(
+                "intervention_cost_per_person",
+                defaults["intervention_cost_per_person"],
+            )
+        ),
         step=10.0,
     )
     relative_risk_reduction = st.slider(
         "Reduction in falls",
         min_value=0.0,
         max_value=1.0,
-        value=float(scenario_inputs.get("relative_risk_reduction", defaults["relative_risk_reduction"])),
+        value=float(
+            scenario_inputs.get(
+                "relative_risk_reduction",
+                defaults["relative_risk_reduction"],
+            )
+        ),
         step=0.01,
     )
     effect_decay_rate = st.slider(
@@ -396,18 +431,33 @@ with st.sidebar:
     qaly_loss_per_serious_fall = st.number_input(
         "QALY loss per serious fall",
         min_value=0.0,
-        value=float(scenario_inputs.get("qaly_loss_per_serious_fall", defaults["qaly_loss_per_serious_fall"])),
+        value=float(
+            scenario_inputs.get(
+                "qaly_loss_per_serious_fall",
+                defaults["qaly_loss_per_serious_fall"],
+            )
+        ),
         step=0.01,
     )
     cost_effectiveness_threshold = st.number_input(
         "Cost-effectiveness threshold",
         min_value=0.0,
-        value=float(scenario_inputs.get("cost_effectiveness_threshold", defaults["cost_effectiveness_threshold"])),
+        value=float(
+            scenario_inputs.get(
+                "cost_effectiveness_threshold",
+                defaults["cost_effectiveness_threshold"],
+            )
+        ),
         step=1000.0,
     )
 
     st.header("Time horizon")
-    time_horizon_value = int(scenario_inputs.get("time_horizon_years", defaults.get("time_horizon_years", 3)))
+    time_horizon_value = int(
+        scenario_inputs.get(
+            "time_horizon_years",
+            defaults.get("time_horizon_years", 3),
+        )
+    )
     if time_horizon_value not in [1, 3, 5]:
         time_horizon_value = 3
 
@@ -483,10 +533,12 @@ comparator_results = run_model(comparator_inputs)
 comparator_table = build_comparator_table(results, comparator_results)
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Overview", "Assumptions", "Sensitivity", "Scenarios", "Interpretation"]
+    ["Overview", "Assumptions", "Uncertainty", "Scenarios", "Interpretation"]
 )
 
 with tab1:
+    st.markdown("### Headline view")
+
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("People treated", format_number(results["treated_population_year_1"]))
     col2.metric("Falls avoided", format_number(results["falls_avoided_total"]))
@@ -504,7 +556,7 @@ with tab1:
     col10.metric("Max cost per participant", format_currency(results["break_even_cost_per_participant"]))
     col11.metric("Required fall reduction", format_percent(results["break_even_effectiveness"]))
 
-    st.markdown("### Decision status")
+    st.markdown("### Decision readout")
     if decision_status == "Appears cost-saving":
         st.success("Appears cost-saving")
         st.caption(
@@ -521,14 +573,19 @@ with tab1:
             "The model suggests the programme delivers benefit, but remains above the current threshold under the selected assumptions."
         )
 
-    st.markdown("### Structured recommendation")
     rec1, rec2 = st.columns(2)
     with rec1:
         st.markdown(f"**Overall signal**  \n{overall_signal}")
-        st.markdown(f"**Main dependency**  \n{structured_recommendation['main_dependency']}")
+        st.markdown(
+            f"**Main dependency**  \n{structured_recommendation['main_dependency']}"
+        )
     with rec2:
-        st.markdown(f"**Main fragility**  \n{structured_recommendation['main_fragility']}")
-        st.markdown(f"**Best next analytical step**  \n{structured_recommendation['best_next_step']}")
+        st.markdown(
+            f"**Main fragility**  \n{structured_recommendation['main_fragility']}"
+        )
+        st.markdown(
+            f"**Best next analytical step**  \n{structured_recommendation['best_next_step']}"
+        )
 
     st.markdown("### What this scenario suggests")
     st.write(overview_summary)
@@ -544,6 +601,7 @@ with tab1:
             "Combined illustrative view adds admission cost savings and bed-day value together. This is useful for exploration, but may overstate value if local costing assumptions already overlap."
         )
 
+    st.markdown("### Impact and value profile")
     chart_col1, chart_col2 = st.columns(2)
     with chart_col1:
         st.plotly_chart(make_waterfall_chart(results), use_container_width=True)
@@ -552,29 +610,48 @@ with tab1:
 
     time_col1, time_col2 = st.columns(2)
     with time_col1:
-        st.plotly_chart(make_cumulative_costs_chart(results["yearly_results"]), use_container_width=True)
+        st.plotly_chart(
+            make_cumulative_costs_chart(results["yearly_results"]),
+            use_container_width=True,
+        )
     with time_col2:
-        st.plotly_chart(make_cumulative_net_cost_chart(results["yearly_results"]), use_container_width=True)
+        st.plotly_chart(
+            make_cumulative_net_cost_chart(results["yearly_results"]),
+            use_container_width=True,
+        )
 
-    st.plotly_chart(make_falls_avoided_chart(results["yearly_results"]), use_container_width=True)
+    st.plotly_chart(
+        make_falls_avoided_chart(results["yearly_results"]),
+        use_container_width=True,
+    )
 
     st.markdown("### Comparator view")
     st.write(
         f"Current selection versus **{comparator_mode}** using the same time horizon, costing method, and uncertainty framing."
     )
+
     comp_col1, comp_col2, comp_col3 = st.columns(3)
     comp_col1.metric(
         "Falls avoided delta",
-        format_number(comparator_results["falls_avoided_total"] - results["falls_avoided_total"]),
+        format_number(
+            comparator_results["falls_avoided_total"] - results["falls_avoided_total"]
+        ),
     )
     comp_col2.metric(
         "Discounted net cost delta",
-        format_currency(comparator_results["discounted_net_cost_total"] - results["discounted_net_cost_total"]),
+        format_currency(
+            comparator_results["discounted_net_cost_total"]
+            - results["discounted_net_cost_total"]
+        ),
     )
     comp_col3.metric(
         "Discounted cost per QALY delta",
-        format_currency(comparator_results["discounted_cost_per_qaly"] - results["discounted_cost_per_qaly"]),
+        format_currency(
+            comparator_results["discounted_cost_per_qaly"]
+            - results["discounted_cost_per_qaly"]
+        ),
     )
+
     st.plotly_chart(
         make_comparator_delta_chart(results, comparator_results, comparator_mode),
         use_container_width=True,
@@ -596,18 +673,6 @@ with tab1:
         format_percent(results["break_even_effectiveness"]),
     )
 
-    st.markdown("### Bounded uncertainty")
-    st.write(
-        "These low, base, and high cases give a simple deterministic view of how fragile or robust the result looks under a bounded change in key assumptions."
-    )
-    st.plotly_chart(make_uncertainty_chart(uncertainty_df), use_container_width=True)
-    st.dataframe(uncertainty_display_df, use_container_width=True, hide_index=True)
-
-    st.markdown("### Decision readiness")
-    for item in decision_readiness["validate_next"]:
-        st.write(f"- {item}")
-    st.caption(decision_readiness["readiness_note"])
-
     st.markdown("### Year-by-year results")
     st.dataframe(yearly_results_table, use_container_width=True, hide_index=True)
 
@@ -628,7 +693,14 @@ with tab2:
     )
 
 with tab3:
-    st.markdown("### What matters most")
+    st.markdown("### Bounded uncertainty")
+    st.write(
+        "These low, base, and high cases give a simple deterministic view of how fragile or robust the result looks under a bounded change in key assumptions."
+    )
+    st.plotly_chart(make_uncertainty_chart(uncertainty_df), use_container_width=True)
+    st.dataframe(uncertainty_display_df, use_container_width=True, hide_index=True)
+
+    st.markdown("### Which assumptions matter most")
     st.write(
         "This view varies one assumption at a time while holding the others constant. It shows which inputs have the biggest effect on discounted cost per QALY across the selected horizon."
     )
@@ -642,13 +714,18 @@ with tab3:
 
     st.plotly_chart(make_tornado_chart(sensitivity_df), use_container_width=True)
 
-    st.markdown("#### What the sensitivity analysis suggests")
+    st.markdown("#### What the uncertainty analysis suggests")
     for takeaway in build_sensitivity_takeaways(sensitivity_df):
         st.write(f"- {takeaway}")
 
     st.caption(
         "Low and high values are set at ±20% around the current base case, with values constrained to sensible ranges for rate-based assumptions."
     )
+
+    st.markdown("### Decision readiness")
+    for item in decision_readiness["validate_next"]:
+        st.write(f"- {item}")
+    st.caption(decision_readiness["readiness_note"])
 
 with tab4:
     st.markdown("### Compare scenarios")
