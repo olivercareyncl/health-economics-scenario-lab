@@ -27,7 +27,7 @@ def make_waterfall_chart(results: dict):
         yaxis_title="£",
         showlegend=False,
         height=430,
-        margin=dict(l=20, r=20, t=60, b=20),
+        margin=dict(l=20, r=20, t=80, b=20),
     )
     return fig
 
@@ -56,7 +56,7 @@ def make_impact_bar_chart(results: dict):
         yaxis_title="Estimated volume",
         showlegend=False,
         height=430,
-        margin=dict(l=20, r=20, t=60, b=20),
+        margin=dict(l=20, r=20, t=80, b=20),
     )
     return fig
 
@@ -93,14 +93,14 @@ def make_tornado_chart(sensitivity_df):
         barmode="relative",
         xaxis_title="Change from base case (£)",
         yaxis_title="",
-        height=500,
-        margin=dict(l=20, r=20, t=95, b=20),
+        height=520,
+        margin=dict(l=20, r=20, t=100, b=20),
         legend=dict(
             orientation="h",
             yanchor="top",
-            y=0.98,
-            xanchor="right",
-            x=1.0,
+            y=1.0,
+            xanchor="left",
+            x=0.0,
         ),
     )
     return fig
@@ -123,7 +123,7 @@ def make_scenario_comparison_chart(scenario_df):
         yaxis_title="£",
         showlegend=False,
         height=430,
-        margin=dict(l=20, r=20, t=60, b=20),
+        margin=dict(l=20, r=20, t=80, b=20),
     )
     return fig
 
@@ -156,8 +156,15 @@ def make_scenario_outcome_chart(scenario_df):
         barmode="group",
         xaxis_title="",
         yaxis_title="Estimated volume",
-        height=430,
-        margin=dict(l=20, r=20, t=60, b=20),
+        height=450,
+        margin=dict(l=20, r=20, t=100, b=20),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=1.0,
+            xanchor="left",
+            x=0.0,
+        ),
     )
     return fig
 
@@ -187,8 +194,15 @@ def make_cumulative_costs_chart(yearly_df):
         title="Cumulative programme cost vs cumulative savings",
         xaxis_title="Year",
         yaxis_title="£",
-        height=430,
-        margin=dict(l=20, r=20, t=60, b=20),
+        height=450,
+        margin=dict(l=20, r=20, t=100, b=20),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=1.0,
+            xanchor="left",
+            x=0.0,
+        ),
     )
     return fig
 
@@ -210,7 +224,7 @@ def make_cumulative_net_cost_chart(yearly_df):
         xaxis_title="Year",
         yaxis_title="£",
         height=430,
-        margin=dict(l=20, r=20, t=60, b=20),
+        margin=dict(l=20, r=20, t=80, b=20),
         showlegend=False,
     )
     return fig
@@ -233,7 +247,7 @@ def make_falls_avoided_chart(yearly_df):
         xaxis_title="Year",
         yaxis_title="Falls avoided",
         height=430,
-        margin=dict(l=20, r=20, t=60, b=20),
+        margin=dict(l=20, r=20, t=80, b=20),
         showlegend=False,
     )
     return fig
