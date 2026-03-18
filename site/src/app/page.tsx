@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { getRouteStyle } from "@/lib/route-styles";
 
 const routes = [
   "Prevent Need",
@@ -98,18 +97,15 @@ export default function FrameworkPage() {
             The sandboxes are organised around recurring ways healthcare systems
             create value.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3 text-sm">
-            {routes.map((route) => {
-              const routeStyle = getRouteStyle(route);
-              return (
-                <span
-                  key={route}
-                  className={`rounded-full border px-3 py-1 font-medium ${routeStyle.pill}`}
-                >
-                  {route}
-                </span>
-              );
-            })}
+          <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-700">
+            {routes.map((route) => (
+              <span
+                key={route}
+                className="rounded-full border border-slate-200 px-3 py-1"
+              >
+                {route}
+              </span>
+            ))}
           </div>
         </div>
 
