@@ -69,7 +69,8 @@ export const apps: AppItem[] = [
       "threshold position",
       "scenario comparison",
     ],
-    liveUrl: "#",
+    liveUrl:
+      "https://health-economics-scenario-lab-fzfkngiwwyynydcjpfuwii.streamlit.app/",
     githubUrl: GITHUB_URL,
     image: "/images/clearpath.png",
   },
@@ -95,7 +96,8 @@ export const apps: AppItem[] = [
       "QALYs",
       "threshold position",
     ],
-    liveUrl: "#",
+    liveUrl:
+      "https://health-economics-scenario-lab-7nhwymodtxwru3ftvwhdoc.streamlit.app/",
     githubUrl: GITHUB_URL,
     image: "/images/waitwise.png",
   },
@@ -109,8 +111,7 @@ export const apps: AppItem[] = [
       "Explore how pathway redesign might change activity, follow-up burden, and value.",
     longDescription:
       "PathShift is designed to make pathway redesign logic more testable by separating activity change, admission impact, follow-up burden, and value.",
-    question:
-      "Under what conditions does pathway redesign create value?",
+    question: "Under what conditions does pathway redesign create value?",
     whyItMatters:
       "Pathway redesign can bundle many promised effects together. Separating activity change, admission impact, follow-up burden, and bed use makes the logic easier to test.",
     bullets: [
@@ -121,7 +122,8 @@ export const apps: AppItem[] = [
       "programme cost",
       "cost per QALY",
     ],
-    liveUrl: "#",
+    liveUrl:
+      "https://health-economics-scenario-lab-dyynjvgfplkuvsxkzrjgwc.streamlit.app/",
     githubUrl: GITHUB_URL,
     image: "/images/pathshift.png",
   },
@@ -147,7 +149,8 @@ export const apps: AppItem[] = [
       "programme cost",
       "cost per QALY",
     ],
-    liveUrl: "#",
+    liveUrl:
+      "https://health-economics-scenario-lab-gp9ar7jzr8kcpnckcwgyuf.streamlit.app/",
     githubUrl: GITHUB_URL,
     image: "/images/frailtyforward.png",
   },
@@ -156,11 +159,11 @@ export const apps: AppItem[] = [
     name: "StableHeart",
     descriptor: "Cardiovascular Prevention Sandbox",
     category: "Prevent Need",
-    status: "Planned",
+    status: "Live",
     shortDescription:
       "Explore how proactive cardiovascular management might reduce recurrent events and create value.",
     longDescription:
-      "StableHeart will explore how secondary prevention and high-risk cardiovascular management might reduce recurrent acute events, admissions, and system cost.",
+      "StableHeart explores how secondary prevention and high-risk cardiovascular management might reduce recurrent acute events, admissions, and system cost.",
     question:
       "What would need to be true for proactive cardiovascular management to create value?",
     whyItMatters:
@@ -173,7 +176,8 @@ export const apps: AppItem[] = [
       "programme cost",
       "threshold position",
     ],
-    liveUrl: "#",
+    liveUrl:
+      "https://health-economics-scenario-lab-jvqybhvadqymamynbwmhov.streamlit.app/",
     githubUrl: GITHUB_URL,
     image: "/images/stableheart.png",
   },
@@ -255,8 +259,7 @@ export const apps: AppItem[] = [
     githubUrl: GITHUB_URL,
     image: "/images/diabetesforward.png",
   },
-
-    {
+  {
     slug: "careshift",
     name: "CareShift",
     descriptor: "Care Setting Shift Sandbox",
