@@ -151,9 +151,6 @@ def generate_decision_readiness(inputs: dict, results: dict, uncertainty_df) -> 
 
 
 def generate_interpretation(results: dict, inputs: dict, uncertainty_df) -> dict:
-    st.write("DEBUG IN INTERPRETATION - input keys:", list(inputs.keys()))
-    st.write("DEBUG IN INTERPRETATION - threshold value:", inputs.get("cost_effectiveness_threshold", "MISSING"))
-
     threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
     decision_status = get_decision_status(results, threshold)
     net_cost_label = get_net_cost_label(results)
