@@ -6,7 +6,9 @@ import { apps, GITHUB_URL } from "@/data/apps";
 
 export default function HomePage() {
   const liveApps = apps.filter((app) => app.status === "Live");
-  const plannedApps = ["StableHeart", "SteadyLungs", "KidneyKind", "DiabetesForward"];
+  const plannedApps = apps
+    .filter((app) => app.status === "Planned")
+    .map((app) => app.name);
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-16">
