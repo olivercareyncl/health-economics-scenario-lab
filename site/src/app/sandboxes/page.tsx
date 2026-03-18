@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import SandboxCard from "@/components/sandbox-card";
 import { apps } from "@/data/apps";
-import { getRouteStyle } from "@/lib/route-styles";
 
 const routeOrder = [
   "Prevent Need",
@@ -86,7 +85,6 @@ export default function SandboxesPage() {
               const count = routeCounts[route];
               const isDisabled = count === 0;
               const isSelected = selectedRoute === route;
-              const routeStyle = getRouteStyle(route);
 
               if (selectedRoute === "All routes") {
                 return (
@@ -97,7 +95,7 @@ export default function SandboxesPage() {
                     className={`rounded-full border px-4 py-2 text-sm transition ${
                       isDisabled
                         ? "pointer-events-none cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                        : `${routeStyle.pill} hover:opacity-90`
+                        : "border-slate-300 text-slate-700 hover:bg-slate-50"
                     }`}
                   >
                     {route} ({count})
@@ -116,7 +114,7 @@ export default function SandboxesPage() {
                       ? "border-slate-900 bg-slate-900 text-white"
                       : isDisabled
                         ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-400"
-                        : `${routeStyle.pill} hover:opacity-90`
+                        : "border-slate-300 text-slate-700 hover:bg-slate-50"
                   }`}
                 >
                   {route} ({count})
@@ -128,36 +126,30 @@ export default function SandboxesPage() {
       </div>
 
       <div className="mt-12 space-y-14">
-        {groupedApps.map((group) => {
-          const routeStyle = getRouteStyle(group.route);
-
-          return (
-            <section key={group.route} id={toAnchorId(group.route)}>
-              <div className="mb-6">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className={`text-2xl font-semibold tracking-tight ${routeStyle.text}`}>
-                    {group.route}
-                  </h2>
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-medium ${routeStyle.pill}`}
-                  >
-                    {group.apps.length}{" "}
-                    {group.apps.length === 1 ? "sandbox" : "sandboxes"}
-                  </span>
-                </div>
-                <p className="mt-2 max-w-3xl text-sm text-slate-600">
-                  {getRouteDescription(group.route)}
-                </p>
+        {groupedApps.map((group) => (
+          <section key={group.route} id={toAnchorId(group.route)}>
+            <div className="mb-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  {group.route}
+                </h2>
+                <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
+                  {group.apps.length}{" "}
+                  {group.apps.length === 1 ? "sandbox" : "sandboxes"}
+                </span>
               </div>
+              <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                {getRouteDescription(group.route)}
+              </p>
+            </div>
 
-              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {group.apps.map((app) => (
-                  <SandboxCard key={app.slug} app={app} />
-                ))}
-              </div>
-            </section>
-          );
-        })}
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {group.apps.map((app) => (
+                <SandboxCard key={app.slug} app={app} />
+              ))}
+            </div>
+          </section>
+        ))}
 
         {groupedApps.length === 0 && (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
