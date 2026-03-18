@@ -53,11 +53,11 @@ def generate_overview_summary(results: dict, inputs: dict, uncertainty_df) -> st
     threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
 
     decision_status = get_decision_status(results, threshold)
-    complications = results["complications_avoided_total"]
-    admissions = results["admissions_avoided_total"]
-    bed_days = results["bed_days_avoided_total"]
-    net_cost = results["discounted_net_cost_total"]
-    cpy = results["discounted_cost_per_qaly"]
+    complications = results.get("complications_avoided_total", 0.0)
+    admissions = results.get("admissions_avoided_total", 0.0)
+    bed_days = results.get("bed_days_avoided_total", 0.0)
+    net_cost = results.get("discounted_net_cost_total", 0.0)
+    cpy = results.get("discounted_cost_per_qaly", 0.0)
 
     base_text = (
         f"Under the current assumptions, the intervention is estimated to avoid about "
@@ -160,12 +160,12 @@ def generate_interpretation(results: dict, inputs: dict, uncertainty_df) -> dict
     what_drives_result = (
         f"The result is driven by the interaction between baseline complication risk, intervention reach, sustained engagement, "
         f"and the assumed relative reduction in complications. In economic terms, the case strengthens when higher-risk patients are "
-        f"reached at a delivery cost below roughly £{results['break_even_cost_per_patient']:,.0f} per patient."
+        f"reached at a delivery cost below roughly £{results.get('break_even_cost_per_patient', 0):,.0f} per patient."
     )
 
     where_value_is_coming_from = (
         f"Value is mainly coming from avoided complications, fewer admissions, and reduced bed use under the selected costing method. "
-        f"The model currently reports a {net_cost_label.lower()} of £{abs(results['discounted_net_cost_total']):,.0f} over the selected horizon."
+        f"The model currently reports a {net_cost_label.lower()} of £{abs(results.get('discounted_net_cost_total', 0.0)):,.0f} over the selected horizon."
     )
 
     if decision_status == "Appears cost-saving":
