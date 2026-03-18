@@ -1,5 +1,3 @@
-Use this updated apps.ts so the live modules point to the real deployments:
-
 export const GITHUB_URL =
   "https://github.com/olivercareyncl/health-economics-scenario-lab";
 export const LINKEDIN_URL = "https://uk.linkedin.com/in/oliver-carey";
