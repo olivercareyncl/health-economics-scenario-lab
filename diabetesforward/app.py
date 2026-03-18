@@ -46,7 +46,6 @@ from utils.sensitivity import (
 from utils.summaries import (
     assess_uncertainty_robustness,
     generate_decision_readiness,
-    generate_interpretation,
     generate_overall_signal,
     generate_overview_summary,
     generate_structured_recommendation,
@@ -57,8 +56,8 @@ from utils.summaries import (
 )
 
 st.set_page_config(
-    page_title="StableHeart",
-    page_icon="❤️",
+    page_title="DiabetesForward",
+    page_icon="🩸",
     layout="wide",
 )
 
@@ -69,22 +68,22 @@ def load_defaults() -> dict:
     data_path = base_dir / "data" / "default_assumptions.json"
 
     fallback_defaults = {
-        "eligible_population": 4000,
-        "baseline_recurrent_event_rate": 0.18,
-        "admission_probability_per_event": 0.85,
-        "average_length_of_stay": 5.5,
+        "eligible_population": 5000,
+        "baseline_complication_rate": 0.14,
+        "admission_probability_per_complication": 0.35,
+        "average_length_of_stay": 4.5,
         "intervention_reach_rate": 0.65,
-        "sustained_engagement_rate": 0.80,
+        "sustained_engagement_rate": 0.75,
         "annual_participation_dropoff_rate": 0.06,
-        "risk_reduction_in_recurrent_events": 0.18,
+        "complication_risk_reduction": 0.16,
         "annual_effect_decay_rate": 0.08,
-        "intervention_cost_per_patient_reached": 260.0,
-        "cost_per_cardiovascular_event": 3200.0,
-        "cost_per_admission": 5400.0,
-        "cost_per_bed_day": 420.0,
-        "costing_method": "Event and admission savings only",
-        "qaly_gain_per_event_avoided": 0.10,
-        "targeting_mode": "Secondary prevention focus",
+        "intervention_cost_per_patient_reached": 220.0,
+        "cost_per_diabetes_complication": 1800.0,
+        "cost_per_admission": 4200.0,
+        "cost_per_bed_day": 400.0,
+        "costing_method": "Complication and admission savings only",
+        "qaly_gain_per_complication_avoided": 0.07,
+        "targeting_mode": "Complication-risk focus",
         "time_horizon_years": 3,
         "discount_rate": 0.035,
         "cost_effectiveness_threshold": 20000.0,
@@ -125,7 +124,7 @@ def build_yearly_results_table(yearly_df: pd.DataFrame) -> pd.DataFrame:
         columns={
             "year": "Year",
             "patients_reached": "Patients reached",
-            "events_avoided": "Events avoided",
+            "complications_avoided": "Complications avoided",
             "admissions_avoided": "Admissions avoided",
             "bed_days_avoided": "Bed days avoided",
             "programme_cost": "Programme cost",
@@ -146,7 +145,7 @@ def build_yearly_results_table(yearly_df: pd.DataFrame) -> pd.DataFrame:
     ]
     number_cols = [
         "Patients reached",
-        "Events avoided",
+        "Complications avoided",
         "Admissions avoided",
         "Bed days avoided",
     ]
@@ -170,14 +169,14 @@ def build_uncertainty_table(uncertainty_df: pd.DataFrame) -> pd.DataFrame:
     display_df = display_df.rename(
         columns={
             "case": "Case",
-            "events_avoided_total": "Events avoided",
+            "complications_avoided_total": "Complications avoided",
             "discounted_net_cost_total": "Discounted net cost",
             "discounted_cost_per_qaly": "Discounted cost per QALY",
             "decision_status": "Decision status",
             "dominant_domain": "Main uncertainty domain",
         }
     )
-    display_df["Events avoided"] = display_df["Events avoided"].apply(format_number)
+    display_df["Complications avoided"] = display_df["Complications avoided"].apply(format_number)
     display_df["Discounted net cost"] = display_df["Discounted net cost"].apply(format_currency)
     display_df["Discounted cost per QALY"] = display_df["Discounted cost per QALY"].apply(format_currency)
     return display_df
@@ -194,10 +193,10 @@ def build_scenario_comparison(defaults: dict, base_inputs: dict) -> pd.DataFrame
         scenario_inputs["annual_effect_decay_rate"] = base_inputs["annual_effect_decay_rate"]
         scenario_inputs["annual_participation_dropoff_rate"] = base_inputs["annual_participation_dropoff_rate"]
         scenario_inputs["costing_method"] = base_inputs["costing_method"]
-        scenario_inputs["cost_per_cardiovascular_event"] = base_inputs["cost_per_cardiovascular_event"]
+        scenario_inputs["cost_per_diabetes_complication"] = base_inputs["cost_per_diabetes_complication"]
         scenario_inputs["cost_per_admission"] = base_inputs["cost_per_admission"]
         scenario_inputs["cost_per_bed_day"] = base_inputs["cost_per_bed_day"]
-        scenario_inputs["qaly_gain_per_event_avoided"] = base_inputs["qaly_gain_per_event_avoided"]
+        scenario_inputs["qaly_gain_per_complication_avoided"] = base_inputs["qaly_gain_per_complication_avoided"]
         scenario_inputs["cost_effectiveness_threshold"] = base_inputs["cost_effectiveness_threshold"]
 
         scenario_results = run_model(scenario_inputs)
@@ -206,7 +205,7 @@ def build_scenario_comparison(defaults: dict, base_inputs: dict) -> pd.DataFrame
             {
                 "Scenario": scenario_name,
                 "Targeting": scenario_inputs["targeting_mode"],
-                "Events avoided": scenario_results["events_avoided_total"],
+                "Complications avoided": scenario_results["complications_avoided_total"],
                 "Admissions avoided": scenario_results["admissions_avoided_total"],
                 "Programme cost": scenario_results["programme_cost_total"],
                 "Discounted net cost": scenario_results["discounted_net_cost_total"],
@@ -224,7 +223,7 @@ def build_scenario_comparison(defaults: dict, base_inputs: dict) -> pd.DataFrame
 def format_scenario_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     formatted = df.copy()
 
-    for col in ["Events avoided", "Admissions avoided"]:
+    for col in ["Complications avoided", "Admissions avoided"]:
         if col in formatted.columns:
             formatted[col] = formatted[col].apply(format_number)
 
@@ -244,7 +243,7 @@ def get_best_scenario_text(df: pd.DataFrame) -> dict:
         best_cost_effective = valid_qaly_df.loc[valid_qaly_df["Discounted cost per QALY"].idxmin()]
 
     best_net_cost = df.loc[df["Discounted net cost"].idxmin()]
-    best_health_gain = df.loc[df["Events avoided"].idxmax()]
+    best_health_gain = df.loc[df["Complications avoided"].idxmax()]
 
     return {
         "best_cost_effective": best_cost_effective,
@@ -256,11 +255,11 @@ def get_best_scenario_text(df: pd.DataFrame) -> dict:
 def build_comparator_table(base_results: dict, comparator_results: dict) -> pd.DataFrame:
     rows = [
         {
-            "Metric": "Events avoided",
-            "Current selection": format_number(base_results["events_avoided_total"]),
-            "Comparator": format_number(comparator_results["events_avoided_total"]),
+            "Metric": "Complications avoided",
+            "Current selection": format_number(base_results["complications_avoided_total"]),
+            "Comparator": format_number(comparator_results["complications_avoided_total"]),
             "Delta": format_number(
-                comparator_results["events_avoided_total"] - base_results["events_avoided_total"]
+                comparator_results["complications_avoided_total"] - base_results["complications_avoided_total"]
             ),
         },
         {
@@ -294,14 +293,14 @@ def build_comparator_table(base_results: dict, comparator_results: dict) -> pd.D
 defaults = load_defaults()
 
 st.caption("Health Economics Scenario Lab - Author: Oliver Carey")
-st.title("StableHeart")
-st.subheader("Proactive Cardiovascular Management Value Sandbox")
+st.title("DiabetesForward")
+st.subheader("Proactive Diabetes Prevention and Management Value Sandbox")
 st.write(
-    "An interactive sandbox for testing whether proactive cardiovascular management in high-risk or secondary prevention populations reduces enough recurrent acute events to create value."
+    "An interactive sandbox for testing whether proactive diabetes prevention and management reduces complications enough to create value."
 )
 
 st.warning(
-    "Demo only. This is an illustrative sandbox, not a formal economic evaluation. Cardiovascular events are represented as a simplified composite proxy and results require local validation before any real-world use."
+    "Demo only. This sandbox uses synthetic assumptions for illustrative decision support and is not a formal economic evaluation. Diabetes complications are represented as a simplified composite proxy and results require local validation before any real-world use."
 )
 
 with st.sidebar:
@@ -322,21 +321,24 @@ with st.sidebar:
         value=int(scenario_inputs.get("eligible_population", defaults["eligible_population"])),
         step=50,
     )
-    baseline_recurrent_event_rate = st.slider(
-        "Baseline recurrent cardiovascular event rate",
+    baseline_complication_rate = st.slider(
+        "Baseline diabetes complication rate",
         min_value=0.0,
         max_value=1.0,
         value=float(
-            scenario_inputs.get("baseline_recurrent_event_rate", defaults["baseline_recurrent_event_rate"])
+            scenario_inputs.get("baseline_complication_rate", defaults["baseline_complication_rate"])
         ),
         step=0.01,
     )
-    admission_probability_per_event = st.slider(
-        "Admission probability per event",
+    admission_probability_per_complication = st.slider(
+        "Admission probability per complication",
         min_value=0.0,
         max_value=1.0,
         value=float(
-            scenario_inputs.get("admission_probability_per_event", defaults["admission_probability_per_event"])
+            scenario_inputs.get(
+                "admission_probability_per_complication",
+                defaults["admission_probability_per_complication"],
+            )
         ),
         step=0.01,
     )
@@ -362,15 +364,12 @@ with st.sidebar:
         value=float(scenario_inputs.get("sustained_engagement_rate", defaults["sustained_engagement_rate"])),
         step=0.01,
     )
-    risk_reduction_in_recurrent_events = st.slider(
-        "Risk reduction in recurrent events",
+    complication_risk_reduction = st.slider(
+        "Complication risk reduction",
         min_value=0.0,
         max_value=0.7,
         value=float(
-            scenario_inputs.get(
-                "risk_reduction_in_recurrent_events",
-                defaults["risk_reduction_in_recurrent_events"],
-            )
+            scenario_inputs.get("complication_risk_reduction", defaults["complication_risk_reduction"])
         ),
         step=0.01,
     )
@@ -406,11 +405,14 @@ with st.sidebar:
     )
 
     st.header("Cost assumptions")
-    cost_per_cardiovascular_event = st.number_input(
-        "Cost per cardiovascular event",
+    cost_per_diabetes_complication = st.number_input(
+        "Cost per diabetes complication",
         min_value=0.0,
         value=float(
-            scenario_inputs.get("cost_per_cardiovascular_event", defaults["cost_per_cardiovascular_event"])
+            scenario_inputs.get(
+                "cost_per_diabetes_complication",
+                defaults["cost_per_diabetes_complication"],
+            )
         ),
         step=50.0,
     )
@@ -435,11 +437,14 @@ with st.sidebar:
     )
 
     st.header("Outcome assumptions")
-    qaly_gain_per_event_avoided = st.number_input(
-        "QALY gain per event avoided",
+    qaly_gain_per_complication_avoided = st.number_input(
+        "QALY gain per complication avoided",
         min_value=0.0,
         value=float(
-            scenario_inputs.get("qaly_gain_per_event_avoided", defaults["qaly_gain_per_event_avoided"])
+            scenario_inputs.get(
+                "qaly_gain_per_complication_avoided",
+                defaults["qaly_gain_per_complication_avoided"],
+            )
         ),
         step=0.01,
     )
@@ -486,20 +491,20 @@ with st.sidebar:
 
 inputs = {
     "eligible_population": eligible_population,
-    "baseline_recurrent_event_rate": baseline_recurrent_event_rate,
-    "admission_probability_per_event": admission_probability_per_event,
+    "baseline_complication_rate": baseline_complication_rate,
+    "admission_probability_per_complication": admission_probability_per_complication,
     "average_length_of_stay": average_length_of_stay,
     "intervention_reach_rate": intervention_reach_rate,
     "sustained_engagement_rate": sustained_engagement_rate,
     "annual_participation_dropoff_rate": annual_participation_dropoff_rate,
-    "risk_reduction_in_recurrent_events": risk_reduction_in_recurrent_events,
+    "complication_risk_reduction": complication_risk_reduction,
     "annual_effect_decay_rate": annual_effect_decay_rate,
     "intervention_cost_per_patient_reached": intervention_cost_per_patient_reached,
-    "cost_per_cardiovascular_event": cost_per_cardiovascular_event,
+    "cost_per_diabetes_complication": cost_per_diabetes_complication,
     "cost_per_admission": cost_per_admission,
     "cost_per_bed_day": cost_per_bed_day,
     "costing_method": costing_method,
-    "qaly_gain_per_event_avoided": qaly_gain_per_event_avoided,
+    "qaly_gain_per_complication_avoided": qaly_gain_per_complication_avoided,
     "targeting_mode": targeting_mode,
     "time_horizon_years": time_horizon_years,
     "discount_rate": discount_rate,
@@ -516,7 +521,29 @@ uncertainty_robustness = assess_uncertainty_robustness(
 
 decision_status = get_decision_status(results, cost_effectiveness_threshold)
 overview_summary = generate_overview_summary(results, inputs, uncertainty_df)
-interpretation = generate_interpretation(results, inputs, uncertainty_df)
+
+interpretation = {
+    "what_model_suggests": overview_summary,
+    "what_drives_result": (
+        "The result is driven by the interaction between baseline complication risk, intervention reach, "
+        "sustained engagement, and the assumed reduction in complications. In practice, the value case strengthens "
+        "when higher-risk patients are reached at a manageable delivery cost."
+    ),
+    "where_value_is_coming_from": (
+        "Value is estimated from avoided complications, avoided admissions, and reduced bed-day use under the selected costing method."
+    ),
+    "what_looks_fragile": (
+        "The result is likely to remain sensitive to baseline risk, achievable effect size, engagement and persistence, and delivery cost."
+    ),
+    "what_to_validate_next": (
+        "Validate local baseline complication rates, realistic reach, persistence, and whether the selected costing method reflects genuine avoidable cost."
+    ),
+    "limitations": (
+        "Interpretation output is temporarily simplified while the summaries module is being repaired. "
+        "This sandbox remains illustrative and is not a formal economic evaluation."
+    ),
+}
+
 decision_readiness = generate_decision_readiness(inputs, results, uncertainty_df)
 structured_recommendation = generate_structured_recommendation(inputs, results, uncertainty_df)
 overall_signal = generate_overall_signal(results, inputs, uncertainty_df)
@@ -536,7 +563,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
 
 with tab1:
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Events avoided", format_number(results["events_avoided_total"]))
+    col1.metric("Complications avoided", format_number(results["complications_avoided_total"]))
     col2.metric("Admissions avoided", format_number(results["admissions_avoided_total"]))
     col3.metric("Bed days avoided", format_number(results["bed_days_avoided_total"]))
     col4.metric("Patients reached", format_number(results["patients_reached_total"]))
@@ -550,13 +577,16 @@ with tab1:
     col9, col10, col11 = st.columns(3)
     col9.metric("Return on spend", format_ratio(results["roi"]))
     col10.metric("Max intervention cost per patient", format_currency(results["break_even_cost_per_patient"]))
-    col11.metric("Required risk reduction", format_percent(results["break_even_risk_reduction_required"]))
+    col11.metric(
+        "Required complication risk reduction",
+        format_percent(results["break_even_risk_reduction_required"]),
+    )
 
     st.markdown("### Decision signal")
     if decision_status == "Appears cost-saving":
         st.success("Appears cost-saving")
         st.caption(
-            "The model suggests proactive cardiovascular management generates discounted net savings under the current assumptions and selected horizon."
+            "The model suggests proactive diabetes prevention and management generates discounted net savings under the current assumptions and selected horizon."
         )
     elif decision_status == "Appears cost-effective":
         st.info("Appears cost-effective")
@@ -589,22 +619,22 @@ with tab1:
 
     if inputs["costing_method"] == "Combined illustrative view":
         st.caption(
-            "Combined illustrative view adds event, admission, and bed-day effects together. This is useful for exploration, but may overstate value if local costing assumptions overlap."
+            "Combined illustrative view adds complication, admission, and bed-day effects together. This is useful for exploration, but may overstate value if local costing assumptions overlap."
         )
 
     chart_col1, chart_col2 = st.columns(2)
     with chart_col1:
-        st.plotly_chart(make_events_chart(results), use_container_width=True)
-    with chart_col2:
-        st.plotly_chart(make_event_cascade_chart(results), use_container_width=True)
-
-    chart_col3, chart_col4 = st.columns(2)
-    with chart_col3:
         st.plotly_chart(make_waterfall_chart(results), use_container_width=True)
-    with chart_col4:
-        st.plotly_chart(make_cumulative_costs_chart(results["yearly_results"]), use_container_width=True)
+    with chart_col2:
+        st.plotly_chart(make_impact_bar_chart(results), use_container_width=True)
 
-    st.plotly_chart(make_cumulative_net_cost_chart(results["yearly_results"]), use_container_width=True)
+    time_col1, time_col2 = st.columns(2)
+    with time_col1:
+        st.plotly_chart(make_cumulative_costs_chart(results["yearly_results"]), use_container_width=True)
+    with time_col2:
+        st.plotly_chart(make_cumulative_net_cost_chart(results["yearly_results"]), use_container_width=True)
+
+    st.plotly_chart(make_complications_avoided_chart(results["yearly_results"]), use_container_width=True)
 
     st.markdown("### Comparator view")
     st.write(
@@ -612,8 +642,10 @@ with tab1:
     )
     comp_col1, comp_col2, comp_col3 = st.columns(3)
     comp_col1.metric(
-        "Events avoided delta",
-        format_number(comparator_results["events_avoided_total"] - results["events_avoided_total"]),
+        "Complications avoided delta",
+        format_number(
+            comparator_results["complications_avoided_total"] - results["complications_avoided_total"]
+        ),
     )
     comp_col2.metric(
         "Discounted net cost delta",
@@ -640,12 +672,12 @@ with tab1:
         results["break_even_horizon"],
     )
     threshold_col3.metric(
-        "Required risk reduction",
+        "Required complication risk reduction",
         format_percent(results["break_even_risk_reduction_required"]),
     )
     threshold_col4.metric(
-        "Required baseline event rate",
-        format_percent(results["break_even_baseline_event_rate_required"]),
+        "Required baseline complication rate",
+        format_percent(results["break_even_baseline_complication_rate_required"]),
     )
 
     st.markdown("### Bounded uncertainty")
@@ -666,7 +698,7 @@ with tab1:
 with tab2:
     st.markdown("### Current assumptions")
     st.write(
-        "This sandbox is driven by editable synthetic assumptions. Secondary prevention is the default clinical anchor, but the model can also be used to explore broader cardiovascular risk strategies."
+        "This sandbox is driven by editable synthetic assumptions. Complication-risk reduction is the default clinical anchor, but the model can also be used to explore broader prevention and proactive diabetes management strategies."
     )
     st.dataframe(assumptions_df, use_container_width=True, hide_index=True)
 
@@ -705,7 +737,7 @@ with tab3:
 with tab4:
     st.markdown("### Compare scenarios")
     st.write(
-        "These preset scenarios illustrate how different proactive cardiovascular management strategies change recurrent events, hospital use, and value over the selected horizon."
+        "These preset scenarios illustrate how different proactive diabetes prevention and management strategies change complications, hospital use, and value over the selected horizon."
     )
 
     scenario_df = build_scenario_comparison(defaults, inputs)
@@ -735,7 +767,7 @@ with tab4:
         st.metric(
             "Best for impact",
             best_scenarios["best_health_gain"]["Scenario"],
-            format_number(best_scenarios["best_health_gain"]["Events avoided"]) + " events avoided",
+            format_number(best_scenarios["best_health_gain"]["Complications avoided"]) + " complications avoided",
         )
 
     st.dataframe(formatted_scenario_df, use_container_width=True, hide_index=True)
@@ -756,8 +788,9 @@ with tab5:
     st.markdown("### What the result depends on")
     st.write(interpretation["what_drives_result"])
 
-    st.markdown("### Where value is coming from")
-    st.write(interpretation["where_value_is_coming_from"])
+    if "where_value_is_coming_from" in interpretation:
+        st.markdown("### Where value is coming from")
+        st.write(interpretation["where_value_is_coming_from"])
 
     st.markdown("### What looks fragile")
     st.write(interpretation["what_looks_fragile"])
@@ -770,5 +803,5 @@ with tab5:
 
 st.markdown("---")
 st.caption(
-    "StableHeart is part of the Health Economics Scenario Lab — a series of interactive decision sandboxes for exploring value under uncertainty."
+    "DiabetesForward is part of the Health Economics Scenario Lab — a series of interactive decision sandboxes for exploring value under uncertainty."
 )
