@@ -255,4 +255,57 @@ export const apps: AppItem[] = [
     githubUrl: GITHUB_URL,
     image: "/images/diabetesforward.png",
   },
+
+    {
+    slug: "careshift",
+    name: "CareShift",
+    descriptor: "Care Setting Shift Sandbox",
+    category: "Shift Care Setting",
+    status: "Planned",
+    shortDescription:
+      "Explore how shifting care to lower-intensity settings might reduce cost and create value.",
+    longDescription:
+      "CareShift will explore how moving activity from higher-cost settings to lower-intensity community, outpatient, or home-based models might change utilisation, cost, and value under different assumptions.",
+    question:
+      "Under what conditions does shifting care to a lower-intensity setting create value?",
+    whyItMatters:
+      "Care setting shift is often strategically attractive, but the value case depends on whether activity is genuinely substituted, whether quality is maintained, and whether delivery costs remain controlled.",
+    bullets: [
+      "patients shifted in setting",
+      "acute activity avoided",
+      "bed days avoided",
+      "cost substitution",
+      "programme cost",
+      "threshold position",
+    ],
+    liveUrl: "#",
+    githubUrl: GITHUB_URL,
+    image: "/images/careshift.png",
+  },
+  {
+    slug: "signalpath",
+    name: "SignalPath",
+    descriptor: "Triage and Decision Support Sandbox",
+    category: "Improve Decisions",
+    status: "Planned",
+    shortDescription:
+      "Explore how better triage and decision support might improve routing, reduce unnecessary activity, and create value.",
+    longDescription:
+      "SignalPath will explore how triage improvement, prioritisation, and decision support might change downstream activity, escalation, and value under different assumptions.",
+    question:
+      "Under what conditions does better triage or decision support create value?",
+    whyItMatters:
+      "Decision support interventions often sound efficient in principle, but the value case depends on how much decision quality improves, whether unnecessary activity is actually avoided, and how reliably users follow the guidance.",
+    bullets: [
+      "triage accuracy",
+      "activity avoided",
+      "better routing",
+      "escalations avoided",
+      "programme cost",
+      "threshold position",
+    ],
+    liveUrl: "#",
+    githubUrl: GITHUB_URL,
+    image: "/images/signalpath.png",
+  },
 ];
