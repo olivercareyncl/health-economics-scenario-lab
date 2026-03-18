@@ -1,3 +1,5 @@
+Use this updated apps.ts so the live modules point to the real deployments:
+
 export const GITHUB_URL =
   "https://github.com/olivercareyncl/health-economics-scenario-lab";
 export const LINKEDIN_URL = "https://uk.linkedin.com/in/oliver-carey";
@@ -111,7 +113,8 @@ export const apps: AppItem[] = [
       "Explore how pathway redesign might change activity, follow-up burden, and value.",
     longDescription:
       "PathShift is designed to make pathway redesign logic more testable by separating activity change, admission impact, follow-up burden, and value.",
-    question: "Under what conditions does pathway redesign create value?",
+    question:
+      "Under what conditions does pathway redesign create value?",
     whyItMatters:
       "Pathway redesign can bundle many promised effects together. Separating activity change, admission impact, follow-up burden, and bed use makes the logic easier to test.",
     bullets: [
