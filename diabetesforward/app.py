@@ -10,11 +10,11 @@ from utils.calculations import (
     run_model,
 )
 from utils.charts import (
+    make_complications_avoided_chart,
     make_comparator_delta_chart,
     make_cumulative_costs_chart,
     make_cumulative_net_cost_chart,
-    make_event_cascade_chart,
-    make_events_chart,
+    make_impact_bar_chart,
     make_scenario_comparison_chart,
     make_scenario_outcome_chart,
     make_tornado_chart,
