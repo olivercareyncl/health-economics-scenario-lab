@@ -1,19 +1,15 @@
 import Link from "next/link";
 import type { AppItem } from "@/data/apps";
-import { getRouteStyle } from "@/lib/route-styles";
 
 export default function SandboxCard({ app }: { app: AppItem }) {
   const isLive = app.status === "Live";
   const primaryHref = isLive ? app.liveUrl : "/sandboxes";
   const primaryLabel = isLive ? "Open sandbox" : "Coming soon";
-  const routeStyle = getRouteStyle(app.category);
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-6">
       <div className="flex items-center justify-between gap-4">
-        <span
-          className={`rounded-full border px-3 py-1 text-xs font-medium ${routeStyle.pill}`}
-        >
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
           {app.category}
         </span>
         <span className="text-xs text-slate-500">{app.status}</span>
