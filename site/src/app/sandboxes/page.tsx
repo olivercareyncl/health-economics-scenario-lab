@@ -20,6 +20,16 @@ type RouteFilter = "All routes" | RouteName;
 export default function SandboxesPage() {
   const [selectedRoute, setSelectedRoute] = useState<RouteFilter>("All routes");
 
+  const liveCount = useMemo(
+    () => apps.filter((app) => app.status === "Live").length,
+    [],
+  );
+
+  const plannedCount = useMemo(
+    () => apps.filter((app) => app.status === "Planned").length,
+    [],
+  );
+
   const routeCounts = useMemo(() => {
     return routeOrder.reduce<Record<RouteName, number>>((acc, route) => {
       acc[route] = apps.filter((app) => app.category === route).length;
@@ -34,7 +44,12 @@ export default function SandboxesPage() {
     return activeRoutes
       .map((route) => ({
         route,
-        apps: apps.filter((app) => app.category === route),
+        apps: apps
+          .filter((app) => app.category === route)
+          .sort((a, b) => {
+            const statusOrder = { Live: 0, "In progress": 1, Planned: 2 };
+            return statusOrder[a.status] - statusOrder[b.status];
+          }),
       }))
       .filter((group) => group.apps.length > 0);
   }, [selectedRoute]);
@@ -52,6 +67,18 @@ export default function SandboxesPage() {
         built to support earlier-stage thinking about thresholds, trade-offs,
         and value under uncertainty.
       </p>
+
+      <div className="mt-8 flex flex-wrap gap-3">
+        <span className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">
+          {apps.length} total
+        </span>
+        <span className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">
+          {liveCount} live
+        </span>
+        <span className="rounded-full border border-slate-200 px-4 py-2 text-sm text-slate-700">
+          {plannedCount} planned
+        </span>
+      </div>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[320px_1fr] lg:items-start">
         <div>
