@@ -50,8 +50,8 @@ export default function HowToUsePage() {
             "targeting of higher-risk groups",
           ]}
           signal="The programme appears valuable if it meaningfully reduces falls in a sufficiently high-risk population at a controlled delivery cost."
-          appHref="/sandboxes"
-          appLabel="Open SafeStep"
+          appHref="https://safestep-mnjcyn8idt5rrddqsmnncd.streamlit.app/"
+          appLabel="Open sandbox"
         />
 
         <ExampleCard
@@ -78,7 +78,7 @@ export default function HowToUsePage() {
           ]}
           signal="Value is created only if unnecessary activity is genuinely reduced, not redistributed."
           appHref="/sandboxes"
-          appLabel="Open WaitWise"
+          appLabel="Open sandbox"
         />
 
         <ExampleCard
@@ -107,7 +107,7 @@ export default function HowToUsePage() {
           ]}
           signal="The intervention creates value if risk reduction is real, sustained, and concentrated in higher-risk patients."
           appHref="/sandboxes"
-          appLabel="Open StableHeart"
+          appLabel="Open sandbox"
         />
 
         <div className="rounded-2xl border border-slate-200 p-6">
@@ -144,16 +144,14 @@ export default function HowToUsePage() {
 
         <div className="rounded-2xl border border-slate-200 p-6">
           <h2 className="text-xl font-semibold">What it gives instead</h2>
-          <p className="mt-3 text-slate-600">
-            A clearer decision:
-          </p>
+          <p className="mt-3 text-slate-600">A clearer decision.</p>
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-lg font-medium tracking-tight text-slate-900">
               This is likely to work if these conditions hold.
             </p>
           </div>
           <p className="mt-4 text-slate-600">
-            In practice, that usually leads to targeted pilots, focused data
+            In practice, this usually leads to targeted pilots, focused data
             collection, refinement of assumptions, or prioritisation against
             alternatives.
           </p>
@@ -161,9 +159,7 @@ export default function HowToUsePage() {
 
         <div className="rounded-2xl border border-slate-200 p-6">
           <h2 className="text-xl font-semibold">One consistent question</h2>
-          <p className="mt-3 text-slate-600">
-            Across all sandboxes:
-          </p>
+          <p className="mt-3 text-slate-600">Across all sandboxes:</p>
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p className="text-lg font-medium tracking-tight text-slate-900">
               What would need to be true for this to create value?
@@ -196,6 +192,8 @@ function ExampleCard({
   appHref: string;
   appLabel: string;
 }) {
+  const isExternal = appHref.startsWith("http");
+
   return (
     <div className="rounded-2xl border border-slate-200 p-6">
       <div className="flex flex-wrap items-center gap-3">
@@ -274,6 +272,7 @@ function ExampleCard({
         <div className="pt-1">
           <Link
             href={appHref}
+            {...(isExternal ? { target: "_blank", rel: "noreferrer" } : {})}
             className="inline-flex rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             {appLabel}
