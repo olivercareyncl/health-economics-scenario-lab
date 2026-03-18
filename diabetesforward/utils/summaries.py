@@ -199,7 +199,6 @@ def generate_interpretation(results: dict, inputs: dict, uncertainty_df) -> dict
         "limitations": limitations,
     }
 
-
 def summarise_scenario_strengths(scenario_df) -> str:
     if scenario_df.empty:
         return "No scenario comparison is available."
