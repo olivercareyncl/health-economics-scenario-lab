@@ -1,0 +1,21 @@
+{
+  "eligible_population": 5000,
+  "baseline_complication_rate": 0.14,
+  "admission_probability_per_complication": 0.35,
+  "average_length_of_stay": 4.5,
+  "intervention_reach_rate": 0.65,
+  "sustained_engagement_rate": 0.75,
+  "annual_participation_dropoff_rate": 0.06,
+  "complication_risk_reduction": 0.16,
+  "annual_effect_decay_rate": 0.08,
+  "intervention_cost_per_patient_reached": 220.0,
+  "cost_per_diabetes_complication": 1800.0,
+  "cost_per_admission": 4200.0,
+  "cost_per_bed_day": 400.0,
+  "costing_method": "Complication and admission savings only",
+  "qaly_gain_per_complication_avoided": 0.07,
+  "targeting_mode": "Complication-risk focus",
+  "time_horizon_years": 3,
+  "discount_rate": 0.035,
+  "cost_effectiveness_threshold": 20000.0
+}
