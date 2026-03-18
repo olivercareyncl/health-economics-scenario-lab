@@ -1,7 +1,11 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import SandboxCard from "@/components/sandbox-card";
 import { apps } from "@/data/apps";
 
 const categoryOrder = [
+  "All routes",
   "Prevent Need",
   "Detect Earlier",
   "Stabilise Risk",
@@ -9,15 +13,27 @@ const categoryOrder = [
   "Redesign Flow",
   "Shift Care Setting",
   "Improve Decisions",
-];
+] as const;
+
+type CategoryFilter = (typeof categoryOrder)[number];
 
 export default function SandboxesPage() {
-  const groupedApps = categoryOrder
-    .map((category) => ({
-      category,
-      apps: apps.filter((app) => app.category === category),
-    }))
-    .filter((group) => group.apps.length > 0);
+  const [selectedCategory, setSelectedCategory] =
+    useState<CategoryFilter>("All routes");
+
+  const groupedApps = useMemo(() => {
+    const activeCategories =
+      selectedCategory === "All routes"
+        ? categoryOrder.filter((item) => item !== "All routes")
+        : [selectedCategory];
+
+    return activeCategories
+      .map((category) => ({
+        category,
+        apps: apps.filter((app) => app.category === category),
+      }))
+      .filter((group) => group.apps.length > 0);
+  }, [selectedCategory]);
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-16">
@@ -32,6 +48,29 @@ export default function SandboxesPage() {
         built to support earlier-stage thinking about thresholds, trade-offs,
         and value under uncertainty.
       </p>
+
+      <div className="mt-10 max-w-sm">
+        <label
+          htmlFor="route-filter"
+          className="mb-2 block text-sm font-medium text-slate-700"
+        >
+          Route to system value
+        </label>
+        <select
+          id="route-filter"
+          value={selectedCategory}
+          onChange={(e) =>
+            setSelectedCategory(e.target.value as CategoryFilter)
+          }
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+        >
+          {categoryOrder.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="mt-12 space-y-14">
         {groupedApps.map((group) => (
@@ -52,6 +91,12 @@ export default function SandboxesPage() {
             </div>
           </section>
         ))}
+
+        {groupedApps.length === 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
+            No sandboxes are currently mapped to this route.
+          </div>
+        )}
       </div>
     </div>
   );
