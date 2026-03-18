@@ -72,6 +72,21 @@ const controls: Record<
   },
 };
 
+const logicChips: {
+  label: string;
+  key?: AdjustableKey;
+}[] = [
+  { label: "Population" },
+  { label: "Coverage", key: "coverage" },
+  { label: "Risk", key: "baselineRisk" },
+  { label: "Effect", key: "effectSize" },
+  { label: "Cost per event", key: "costPerEvent" },
+  { label: "Intervention cost", key: "interventionCostPerPatient" },
+  { label: "Events avoided" },
+  { label: "Savings" },
+  { label: "Net value" },
+];
+
 export default function DemoSlider() {
   const [selectedAssumption, setSelectedAssumption] =
     useState<AdjustableKey>("effectSize");
@@ -171,22 +186,22 @@ export default function DemoSlider() {
           />
 
           <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-600">
-            {[
-              "Population",
-              "Coverage",
-              "Risk",
-              "Effect",
-              "Events avoided",
-              "Savings",
-              "Net value",
-            ].map((item) => (
-              <span
-                key={item}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1"
-              >
-                {item}
-              </span>
-            ))}
+            {logicChips.map((chip) => {
+              const isActive = chip.key === selectedAssumption;
+
+              return (
+                <span
+                  key={chip.label}
+                  className={`rounded-full border px-3 py-1 transition ${
+                    isActive
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-white text-slate-600"
+                  }`}
+                >
+                  {chip.label}
+                </span>
+              );
+            })}
           </div>
         </div>
 
