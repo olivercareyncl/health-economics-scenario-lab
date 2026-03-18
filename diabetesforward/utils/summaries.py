@@ -50,7 +50,9 @@ def assess_uncertainty_robustness(uncertainty_df, threshold: float) -> str:
 
 
 def generate_overview_summary(results: dict, inputs: dict, uncertainty_df) -> str:
-    decision_status = get_decision_status(results, inputs["cost_effectiveness_threshold"])
+    threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
+
+    decision_status = get_decision_status(results, threshold)
     complications = results["complications_avoided_total"]
     admissions = results["admissions_avoided_total"]
     bed_days = results["bed_days_avoided_total"]
@@ -58,9 +60,9 @@ def generate_overview_summary(results: dict, inputs: dict, uncertainty_df) -> st
     cpy = results["discounted_cost_per_qaly"]
 
     base_text = (
-        f"Under the current assumptions, the intervention reaches around {complications / max(inputs.get('complication_risk_reduction', 0.01), 0.01):,.0f} "
-        f"effective patient-equivalents over the modelled horizon and is estimated to avoid about {complications:,.0f} complications, "
-        f"{admissions:,.0f} admissions, and {bed_days:,.0f} bed days."
+        f"Under the current assumptions, the intervention is estimated to avoid about "
+        f"{complications:,.0f} complications, {admissions:,.0f} admissions, and {bed_days:,.0f} bed days "
+        f"over the selected horizon."
     )
 
     if decision_status == "Appears cost-saving":
@@ -69,25 +71,25 @@ def generate_overview_summary(results: dict, inputs: dict, uncertainty_df) -> st
         )
     elif decision_status == "Appears cost-effective":
         value_text = (
-            f"On this basis, the model suggests a discounted cost per QALY of about £{cpy:,.0f}, which is below the selected threshold."
+            f"On this basis, the model suggests a discounted cost per QALY of about £{cpy:,.0f}, "
+            f"which is below the selected threshold."
         )
     else:
         value_text = (
-            f"On this basis, the model suggests a discounted cost per QALY of about £{cpy:,.0f}, which remains above the selected threshold."
+            f"On this basis, the model suggests a discounted cost per QALY of about £{cpy:,.0f}, "
+            f"which remains above the selected threshold."
         )
 
-    uncertainty_text = assess_uncertainty_robustness(
-        uncertainty_df, inputs["cost_effectiveness_threshold"]
-    )
+    uncertainty_text = assess_uncertainty_robustness(uncertainty_df, threshold)
 
     return f"{base_text} {value_text} {uncertainty_text}"
 
 
 def generate_overall_signal(results: dict, inputs: dict, uncertainty_df) -> str:
-    decision_status = get_decision_status(results, inputs["cost_effectiveness_threshold"])
-    robustness = assess_uncertainty_robustness(
-        uncertainty_df, inputs["cost_effectiveness_threshold"]
-    )
+    threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
+
+    decision_status = get_decision_status(results, threshold)
+    robustness = assess_uncertainty_robustness(uncertainty_df, threshold)
 
     if decision_status == "Appears cost-saving":
         return f"The current configuration looks economically strong. {robustness}"
@@ -96,10 +98,9 @@ def generate_overall_signal(results: dict, inputs: dict, uncertainty_df) -> str:
     return f"The current configuration does not yet show a strong value case. {robustness}"
 
 
-def generate_structured_recommendation(results_inputs_or_inputs: dict, results: dict, uncertainty_df) -> dict:
-    # Kept signature compatible with app imports: (inputs, results, uncertainty_df)
-    inputs = results_inputs_or_inputs
-    decision_status = get_decision_status(results, inputs["cost_effectiveness_threshold"])
+def generate_structured_recommendation(inputs: dict, results: dict, uncertainty_df) -> dict:
+    threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
+    decision_status = get_decision_status(results, threshold)
 
     if inputs.get("targeting_mode") == "Complication-risk focus":
         main_dependency = "The case depends heavily on working in a population with genuinely high baseline complication risk."
@@ -130,6 +131,8 @@ def generate_structured_recommendation(results_inputs_or_inputs: dict, results: 
 
 
 def generate_decision_readiness(inputs: dict, results: dict, uncertainty_df) -> dict:
+    threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
+
     checks = [
         "Validate the true size of the eligible cohort and how many patients can realistically be reached.",
         "Check whether the baseline complication rate is grounded in local operational or audit data.",
@@ -137,15 +140,13 @@ def generate_decision_readiness(inputs: dict, results: dict, uncertainty_df) -> 
         "Confirm whether local costing already embeds any overlap between complication, admission, and bed-day value.",
     ]
 
-    if get_decision_status(results, inputs["cost_effectiveness_threshold"]) == "Above current threshold":
+    if get_decision_status(results, threshold) == "Above current threshold":
         checks.insert(
             0,
             "Clarify whether a narrower higher-risk subgroup would produce a more credible value case."
         )
 
-    readiness_note = assess_uncertainty_robustness(
-        uncertainty_df, inputs["cost_effectiveness_threshold"]
-    )
+    readiness_note = assess_uncertainty_robustness(uncertainty_df, threshold)
 
     return {
         "validate_next": checks[:5],
@@ -154,7 +155,9 @@ def generate_decision_readiness(inputs: dict, results: dict, uncertainty_df) -> 
 
 
 def generate_interpretation(results: dict, inputs: dict, uncertainty_df) -> dict:
-    decision_status = get_decision_status(results, inputs["cost_effectiveness_threshold"])
+    threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
+
+    decision_status = get_decision_status(results, threshold)
     net_cost_label = get_net_cost_label(results)
 
     what_model_suggests = generate_overview_summary(results, inputs, uncertainty_df)
@@ -198,6 +201,7 @@ def generate_interpretation(results: dict, inputs: dict, uncertainty_df) -> dict
         "what_to_validate_next": what_to_validate_next,
         "limitations": limitations,
     }
+
 
 def summarise_scenario_strengths(scenario_df) -> str:
     if scenario_df.empty:
