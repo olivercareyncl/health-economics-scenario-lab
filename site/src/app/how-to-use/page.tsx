@@ -77,7 +77,7 @@ export default function HowToUsePage() {
             "sustainability of change",
           ]}
           signal="Value is created only if unnecessary activity is genuinely reduced, not redistributed."
-          appHref="/sandboxes"
+          appHref="https://health-economics-scenario-lab-7nhwymodtxwru3ftvwhdoc.streamlit.app/"
           appLabel="Open sandbox"
         />
 
@@ -106,7 +106,7 @@ export default function HowToUsePage() {
             "cost per patient",
           ]}
           signal="The intervention creates value if risk reduction is real, sustained, and concentrated in higher-risk patients."
-          appHref="/sandboxes"
+          appHref="https://health-economics-scenario-lab-jvqybhvadqymamynbwmhov.streamlit.app/"
           appLabel="Open sandbox"
         />
 
