@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function FrameworkPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-16">
@@ -26,9 +28,9 @@ export default function FrameworkPage() {
         <div className="rounded-2xl border border-slate-200 p-6">
           <h2 className="text-xl font-semibold">Basic structure</h2>
           <p className="mt-3 text-slate-600">
-            Most sandboxes in the lab follow the same broad logic:
-            population reached, baseline event risk, intervention effect, and
-            delivery cost combine to determine whether value appears.
+            Most sandboxes in the lab follow the same broad logic: population
+            reached, baseline event risk, intervention effect, and delivery cost
+            combine to determine whether value appears.
           </p>
           <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-700">
             {[
@@ -40,6 +42,34 @@ export default function FrameworkPage() {
               "System savings",
               "Intervention cost",
               "Net system value",
+            ].map((item) => (
+              <span
+                key={item}
+                className="rounded-full border border-slate-200 px-3 py-1"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-xl font-semibold">How value appears</h2>
+          <p className="mt-3 text-slate-600">
+            Across the sandboxes, value usually emerges through the same chain:
+            a population is identified, risk is estimated, an intervention is
+            applied, events are avoided, and those avoided events translate into
+            system impact and economic value.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-700">
+            {[
+              "Population",
+              "Risk",
+              "Intervention",
+              "Effect",
+              "Events avoided",
+              "Cost change",
+              "Net value",
             ].map((item) => (
               <span
                 key={item}
@@ -78,6 +108,16 @@ export default function FrameworkPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-xl font-semibold">Different modules, shared logic</h2>
+          <p className="mt-3 text-slate-600">
+            SafeStep, ClearPath, WaitWise, PathShift, and FrailtyForward all
+            explore different intervention archetypes, but they use the same
+            broad decision structure: assumptions, system impact, thresholds,
+            uncertainty, and interpretation.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 p-6">
           <h2 className="text-xl font-semibold">Why decision sandboxes?</h2>
           <p className="mt-3 text-slate-600">
             Static models are useful for formal evaluation, but they are often
@@ -85,6 +125,22 @@ export default function FrameworkPage() {
             visible and adjustable so users can test thresholds, fragility, and
             strategic plausibility.
           </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-xl font-semibold">From framework to use</h2>
+          <p className="mt-3 text-slate-600">
+            The framework explains the shared structure. The next step is seeing
+            how that structure is used in practice to test an intervention idea.
+          </p>
+          <div className="mt-4">
+            <Link
+              href="/how-to-use"
+              className="inline-flex rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              View decision walkthroughs
+            </Link>
+          </div>
         </div>
       </section>
     </div>
