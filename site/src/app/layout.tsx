@@ -24,6 +24,7 @@ export default function RootLayout({
               <Link href="/">Home</Link>
               <Link href="/framework">Framework</Link>
               <Link href="/sandboxes">Sandboxes</Link>
+              <Link href="/how-to-use">How to use</Link>
               <Link href="/about">About</Link>
             </nav>
           </div>
