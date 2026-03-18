@@ -19,9 +19,9 @@ export default function HomePage() {
         </h1>
         <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
           Health Economics Scenario Lab is a suite of lightweight interactive
-          sandboxes for testing how interventions and service changes might
-          affect activity, cost, outcomes, and value before ideas harden into
-          static business cases.
+          decision sandboxes for exploring how interventions and service changes
+          might affect activity, cost, outcomes, and value before ideas harden
+          into static business cases.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-4">
@@ -36,6 +36,12 @@ export default function HomePage() {
             className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
           >
             View framework
+          </Link>
+          <Link
+            href="/how-to-use"
+            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+          >
+            How to use the lab
           </Link>
           <Link
             href={GITHUB_URL}
@@ -56,6 +62,31 @@ export default function HomePage() {
         <DemoSlider />
         <RoutesGrid />
 
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                In practice
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                From idea to decision
+              </h2>
+              <p className="mt-3 max-w-3xl text-slate-600">
+                The lab is designed to help structure an intervention idea,
+                translate it into assumptions, test uncertainty, and clarify
+                what would need to be true for value to appear.
+              </p>
+            </div>
+
+            <Link
+              href="/how-to-use"
+              className="text-sm font-medium text-slate-700"
+            >
+              View walkthrough →
+            </Link>
+          </div>
+        </section>
+
         <section>
           <div className="mb-8 flex items-end justify-between gap-4">
             <div>
@@ -67,8 +98,8 @@ export default function HomePage() {
               </h2>
               <p className="mt-3 max-w-3xl text-slate-600">
                 Each sandbox explores a different intervention archetype while
-                using the same broad logic: population, risk, effect, cost, and
-                value.
+                using the same broad logic: population, risk, effect size,
+                delivery cost, and value.
               </p>
             </div>
 
