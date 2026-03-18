@@ -66,9 +66,7 @@ def generate_overview_summary(results: dict, inputs: dict, uncertainty_df) -> st
     )
 
     if decision_status == "Appears cost-saving":
-        value_text = (
-            f"On this basis, the model suggests a discounted net saving of £{abs(net_cost):,.0f}."
-        )
+        value_text = f"On this basis, the model suggests a discounted net saving of £{abs(net_cost):,.0f}."
     elif decision_status == "Appears cost-effective":
         value_text = (
             f"On this basis, the model suggests a discounted cost per QALY of about £{cpy:,.0f}, "
@@ -81,13 +79,11 @@ def generate_overview_summary(results: dict, inputs: dict, uncertainty_df) -> st
         )
 
     uncertainty_text = assess_uncertainty_robustness(uncertainty_df, threshold)
-
     return f"{base_text} {value_text} {uncertainty_text}"
 
 
 def generate_overall_signal(results: dict, inputs: dict, uncertainty_df) -> str:
     threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
-
     decision_status = get_decision_status(results, threshold)
     robustness = assess_uncertainty_robustness(uncertainty_df, threshold)
 
@@ -143,7 +139,7 @@ def generate_decision_readiness(inputs: dict, results: dict, uncertainty_df) -> 
     if get_decision_status(results, threshold) == "Above current threshold":
         checks.insert(
             0,
-            "Clarify whether a narrower higher-risk subgroup would produce a more credible value case."
+            "Clarify whether a narrower higher-risk subgroup would produce a more credible value case.",
         )
 
     readiness_note = assess_uncertainty_robustness(uncertainty_df, threshold)
@@ -156,7 +152,6 @@ def generate_decision_readiness(inputs: dict, results: dict, uncertainty_df) -> 
 
 def generate_interpretation(results: dict, inputs: dict, uncertainty_df) -> dict:
     threshold = float(inputs.get("cost_effectiveness_threshold", 20000.0))
-
     decision_status = get_decision_status(results, threshold)
     net_cost_label = get_net_cost_label(results)
 
