@@ -153,7 +153,7 @@ def generate_decision_readiness(inputs: dict, results: dict, uncertainty_df) -> 
     }
 
 
-def generate_interpretation(inputs: dict, results: dict, uncertainty_df) -> dict:
+def generate_interpretation(results: dict, inputs: dict, uncertainty_df) -> dict:
     decision_status = get_decision_status(results, inputs["cost_effectiveness_threshold"])
     net_cost_label = get_net_cost_label(results)
 
