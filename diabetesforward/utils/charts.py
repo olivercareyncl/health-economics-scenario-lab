@@ -1,58 +1,34 @@
-import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import pandas as pd
 
 
-def _standard_layout(fig: go.Figure, title: str = "", yaxis_title: str = "") -> go.Figure:
-    fig.update_layout(
-        title=title,
-        template="plotly_white",
-        margin=dict(l=20, r=20, t=60, b=20),
-        height=420,
-        legend_title_text="",
-        xaxis_title="",
-        yaxis_title=yaxis_title,
-    )
-    return fig
+def _base_layout(title: str, yaxis_title: str = "") -> dict:
+    return {
+        "title": title,
+        "template": "plotly_white",
+        "height": 420,
+        "margin": dict(l=20, r=20, t=60, b=20),
+        "xaxis_title": "",
+        "yaxis_title": yaxis_title,
+        "showlegend": False,
+    }
 
 
-def make_waterfall_chart(results: dict) -> go.Figure:
-    net_value = results["gross_savings_total"] - results["programme_cost_total"]
-
-    fig = go.Figure(
-        go.Waterfall(
-            name="Value bridge",
-            orientation="v",
-            measure=["relative", "relative", "total"],
-            x=["Programme cost", "Gross savings", "Net value"],
-            y=[
-                -results["programme_cost_total"],
-                results["gross_savings_total"],
-                net_value,
-            ],
-            connector={"line": {"width": 1}},
-        )
-    )
-
-    fig.update_traces(textposition="outside")
-    fig.update_yaxes(tickprefix="£")
-    return _standard_layout(fig, "How value is generated", "£")
-
-
-def make_impact_bar_chart(results: dict) -> go.Figure:
+def make_events_chart(results: dict) -> go.Figure:
     df = pd.DataFrame(
         {
             "Metric": [
-                "Complications avoided",
+                "Events avoided",
                 "Admissions avoided",
                 "Bed days avoided",
                 "Patients reached",
             ],
             "Value": [
-                results["complications_avoided_total"],
-                results["admissions_avoided_total"],
-                results["bed_days_avoided_total"],
-                results["patients_reached_total"],
+                results.get("events_avoided_total", 0.0),
+                results.get("admissions_avoided_total", 0.0),
+                results.get("bed_days_avoided_total", 0.0),
+                results.get("patients_reached_total", 0.0),
             ],
         }
     )
@@ -64,7 +40,52 @@ def make_impact_bar_chart(results: dict) -> go.Figure:
         text="Value",
     )
     fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
-    return _standard_layout(fig, "Clinical impact summary", "")
+    fig.update_layout(**_base_layout("Clinical impact profile", "Volume"))
+    return fig
+
+
+def make_event_cascade_chart(results: dict) -> go.Figure:
+    labels = [
+        "Patients reached",
+        "Events avoided",
+        "Admissions avoided",
+        "Bed days avoided",
+    ]
+    values = [
+        results.get("patients_reached_total", 0.0),
+        results.get("events_avoided_total", 0.0),
+        results.get("admissions_avoided_total", 0.0),
+        results.get("bed_days_avoided_total", 0.0),
+    ]
+
+    fig = go.Figure(
+        go.Funnel(
+            y=labels,
+            x=values,
+            texttemplate="%{x:,.0f}",
+        )
+    )
+    fig.update_layout(**_base_layout("Event cascade"))
+    return fig
+
+
+def make_waterfall_chart(results: dict) -> go.Figure:
+    programme_cost = results.get("programme_cost_total", 0.0)
+    gross_savings = results.get("gross_savings_total", 0.0)
+    net_cost = results.get("discounted_net_cost_total", 0.0)
+
+    fig = go.Figure(
+        go.Waterfall(
+            orientation="v",
+            measure=["relative", "relative", "total"],
+            x=["Programme cost", "Gross savings", "Discounted net cost"],
+            y=[programme_cost, -gross_savings, net_cost],
+            text=[f"£{programme_cost:,.0f}", f"£{gross_savings:,.0f}", f"£{net_cost:,.0f}"],
+            textposition="outside",
+        )
+    )
+    fig.update_layout(**_base_layout("Economic waterfall", "£"))
+    return fig
 
 
 def make_cumulative_costs_chart(yearly_results: pd.DataFrame) -> go.Figure:
@@ -78,7 +99,7 @@ def make_cumulative_costs_chart(yearly_results: pd.DataFrame) -> go.Figure:
             x=df["year"],
             y=df["cumulative_programme_cost"],
             mode="lines+markers",
-            name="Cumulative programme cost",
+            name="Programme cost",
         )
     )
     fig.add_trace(
@@ -86,48 +107,43 @@ def make_cumulative_costs_chart(yearly_results: pd.DataFrame) -> go.Figure:
             x=df["year"],
             y=df["cumulative_gross_savings"],
             mode="lines+markers",
-            name="Cumulative gross savings",
+            name="Gross savings",
         )
     )
-
-    fig.update_xaxes(dtick=1)
-    fig.update_yaxes(tickprefix="£")
-    return _standard_layout(fig, "Cumulative costs and savings", "£")
+    fig.update_layout(
+        title="Cumulative costs and savings",
+        template="plotly_white",
+        height=420,
+        margin=dict(l=20, r=20, t=60, b=20),
+        xaxis_title="Year",
+        yaxis_title="£",
+        showlegend=True,
+    )
+    return fig
 
 
 def make_cumulative_net_cost_chart(yearly_results: pd.DataFrame) -> go.Figure:
     df = yearly_results.copy()
 
-    fig = go.Figure()
-    fig.add_trace(
+    fig = go.Figure(
         go.Scatter(
             x=df["year"],
             y=df["cumulative_net_cost"],
             mode="lines+markers",
-            name="Cumulative discounted net cost",
+            fill="tozeroy",
+            name="Cumulative net cost",
         )
     )
-
-    fig.add_hline(y=0, line_width=1, line_dash="dash")
-    fig.update_xaxes(dtick=1)
-    fig.update_yaxes(tickprefix="£")
-    return _standard_layout(fig, "Cumulative discounted net cost", "£")
-
-
-def make_complications_avoided_chart(yearly_results: pd.DataFrame) -> go.Figure:
-    df = yearly_results.copy()
-
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=df["year"],
-            y=df["complications_avoided"],
-            name="Complications avoided",
-        )
+    fig.update_layout(
+        title="Cumulative discounted net cost",
+        template="plotly_white",
+        height=420,
+        margin=dict(l=20, r=20, t=60, b=20),
+        xaxis_title="Year",
+        yaxis_title="£",
+        showlegend=False,
     )
-
-    fig.update_xaxes(dtick=1)
-    return _standard_layout(fig, "Complications avoided over time", "")
+    return fig
 
 
 def make_uncertainty_chart(uncertainty_df: pd.DataFrame) -> go.Figure:
@@ -137,47 +153,73 @@ def make_uncertainty_chart(uncertainty_df: pd.DataFrame) -> go.Figure:
     fig.add_trace(
         go.Bar(
             x=df["case"],
+            y=df["discounted_net_cost_total"],
+            name="Discounted net cost",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df["case"],
             y=df["discounted_cost_per_qaly"],
-            text=df["discounted_cost_per_qaly"].map(lambda x: f"£{x:,.0f}"),
-            textposition="outside",
+            mode="lines+markers",
             name="Discounted cost per QALY",
+            yaxis="y2",
         )
     )
 
-    fig.update_yaxes(tickprefix="£")
-    return _standard_layout(fig, "Bounded uncertainty", "£ per QALY")
+    fig.update_layout(
+        title="Bounded uncertainty view",
+        template="plotly_white",
+        height=420,
+        margin=dict(l=20, r=20, t=60, b=20),
+        xaxis_title="Case",
+        yaxis=dict(title="Discounted net cost (£)"),
+        yaxis2=dict(
+            title="Discounted cost per QALY (£)",
+            overlaying="y",
+            side="right",
+        ),
+        showlegend=True,
+    )
+    return fig
 
 
 def make_tornado_chart(sensitivity_df: pd.DataFrame) -> go.Figure:
     df = sensitivity_df.copy()
+    if "range" not in df.columns:
+        df["range"] = (df["high_outcome"] - df["low_outcome"]).abs()
 
-    if "impact_range" not in df.columns:
-        df["impact_range"] = (df["high_value"] - df["low_value"]).abs()
-
-    df = df.sort_values("impact_range", ascending=True)
+    df = df.sort_values("range", ascending=True)
 
     fig = go.Figure()
-
     fig.add_trace(
         go.Bar(
             y=df["label"],
-            x=df["low_value"] - df["base_value"],
-            name="Low case",
+            x=df["high_outcome"] - df["base_outcome"],
             orientation="h",
+            name="High",
         )
     )
     fig.add_trace(
         go.Bar(
             y=df["label"],
-            x=df["high_value"] - df["base_value"],
-            name="High case",
+            x=df["low_outcome"] - df["base_outcome"],
             orientation="h",
+            name="Low",
         )
     )
 
-    fig.update_layout(barmode="relative")
-    fig.update_xaxes(tickprefix="£")
-    return _standard_layout(fig, "One-way sensitivity analysis", "Change vs base (£ per QALY)")
+    fig.update_layout(
+        title="One-way sensitivity analysis",
+        template="plotly_white",
+        height=max(420, 42 * len(df) + 120),
+        margin=dict(l=20, r=20, t=60, b=20),
+        xaxis_title="Change in discounted cost per QALY",
+        yaxis_title="",
+        barmode="overlay",
+        showlegend=True,
+    )
+    return fig
 
 
 def make_scenario_comparison_chart(scenario_df: pd.DataFrame) -> go.Figure:
@@ -187,11 +229,12 @@ def make_scenario_comparison_chart(scenario_df: pd.DataFrame) -> go.Figure:
         df,
         x="Scenario",
         y="Discounted net cost",
-        text="Discounted net cost",
+        color="Decision status",
+        barmode="group",
     )
-    fig.update_traces(texttemplate="£%{text:,.0f}", textposition="outside")
-    fig.update_yaxes(tickprefix="£")
-    return _standard_layout(fig, "Scenario comparison: discounted net cost", "£")
+    fig.update_layout(**_base_layout("Scenario comparison: discounted net cost", "£"))
+    fig.update_layout(showlegend=True)
+    return fig
 
 
 def make_scenario_outcome_chart(scenario_df: pd.DataFrame) -> go.Figure:
@@ -201,33 +244,27 @@ def make_scenario_outcome_chart(scenario_df: pd.DataFrame) -> go.Figure:
     fig.add_trace(
         go.Bar(
             x=df["Scenario"],
-            y=df["Complications avoided"],
-            name="Complications avoided",
+            y=df["Events avoided"],
+            name="Events avoided",
         )
     )
     fig.add_trace(
-        go.Scatter(
+        go.Bar(
             x=df["Scenario"],
-            y=df["Discounted cost per QALY"],
-            mode="lines+markers",
-            name="Discounted cost per QALY",
-            yaxis="y2",
+            y=df["Admissions avoided"],
+            name="Admissions avoided",
         )
     )
 
     fig.update_layout(
+        title="Scenario comparison: health impact",
         template="plotly_white",
-        margin=dict(l=20, r=20, t=60, b=20),
         height=420,
-        xaxis_title="",
-        yaxis=dict(title="Complications avoided"),
-        yaxis2=dict(
-            title="£ per QALY",
-            overlaying="y",
-            side="right",
-            tickprefix="£",
-        ),
-        legend_title_text="",
+        margin=dict(l=20, r=20, t=60, b=20),
+        xaxis_title="Scenario",
+        yaxis_title="Volume",
+        barmode="group",
+        showlegend=True,
     )
     return fig
 
@@ -240,16 +277,20 @@ def make_comparator_delta_chart(
     df = pd.DataFrame(
         {
             "Metric": [
-                "Complications avoided",
+                "Events avoided",
                 "Admissions avoided",
                 "Discounted net cost",
                 "Discounted cost per QALY",
             ],
             "Delta": [
-                comparator_results["complications_avoided_total"] - base_results["complications_avoided_total"],
-                comparator_results["admissions_avoided_total"] - base_results["admissions_avoided_total"],
-                comparator_results["discounted_net_cost_total"] - base_results["discounted_net_cost_total"],
-                comparator_results["discounted_cost_per_qaly"] - base_results["discounted_cost_per_qaly"],
+                comparator_results.get("events_avoided_total", 0.0)
+                - base_results.get("events_avoided_total", 0.0),
+                comparator_results.get("admissions_avoided_total", 0.0)
+                - base_results.get("admissions_avoided_total", 0.0),
+                comparator_results.get("discounted_net_cost_total", 0.0)
+                - base_results.get("discounted_net_cost_total", 0.0),
+                comparator_results.get("discounted_cost_per_qaly", 0.0)
+                - base_results.get("discounted_cost_per_qaly", 0.0),
             ],
         }
     )
@@ -260,13 +301,7 @@ def make_comparator_delta_chart(
         y="Delta",
         text="Delta",
     )
-
-    text_values = []
-    for metric, value in zip(df["Metric"], df["Delta"]):
-        if "cost" in metric.lower():
-            text_values.append(f"£{value:,.0f}")
-        else:
-            text_values.append(f"{value:,.0f}")
-
-    fig.update_traces(text=text_values, textposition="outside")
-    return _standard_layout(fig, f"Comparator impact: {comparator_mode}", "")
+    fig.update_traces(texttemplate="%{text:,.0f}", textposition="outside")
+    fig.update_layout(
+        **_base_layout(f"Comparator deltas vs {comparator_mode}", "Delta"))
+    return fig
