@@ -112,10 +112,20 @@ export default function FrameworkPage() {
         <div className="rounded-2xl border border-slate-200 p-6">
           <h2 className="text-xl font-semibold">Different modules, shared logic</h2>
           <p className="mt-3 text-slate-600">
-            SafeStep, ClearPath, WaitWise, PathShift, and FrailtyForward all
-            explore different intervention archetypes, but they use the same
-            broad decision structure: assumptions, system impact, thresholds,
-            uncertainty, and interpretation.
+            SafeStep, ClearPath, WaitWise, PathShift, FrailtyForward, and
+            StableHeart all explore different intervention archetypes, but they
+            use the same broad decision structure: assumptions, system impact,
+            thresholds, uncertainty, and interpretation.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 p-6">
+          <h2 className="text-xl font-semibold">Current platform shape</h2>
+          <p className="mt-3 text-slate-600">
+            The live library now spans six deployed modules across prevention,
+            diagnosis, access, pathway redesign, and risk stabilisation, with
+            additional planned modules extending the framework into care setting
+            shift and decision support.
           </p>
         </div>
 
