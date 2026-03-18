@@ -46,7 +46,6 @@ from utils.sensitivity import (
 from utils.summaries import (
     assess_uncertainty_robustness,
     generate_decision_readiness,
-    generate_interpretation,
     generate_overall_signal,
     generate_overview_summary,
     generate_structured_recommendation,
@@ -522,7 +521,29 @@ uncertainty_robustness = assess_uncertainty_robustness(
 
 decision_status = get_decision_status(results, cost_effectiveness_threshold)
 overview_summary = generate_overview_summary(results, inputs, uncertainty_df)
-interpretation = generate_interpretation(results, inputs, uncertainty_df)
+
+interpretation = {
+    "what_model_suggests": overview_summary,
+    "what_drives_result": (
+        "The result is driven by the interaction between baseline complication risk, intervention reach, "
+        "sustained engagement, and the assumed reduction in complications. In practice, the value case strengthens "
+        "when higher-risk patients are reached at a manageable delivery cost."
+    ),
+    "where_value_is_coming_from": (
+        "Value is estimated from avoided complications, avoided admissions, and reduced bed-day use under the selected costing method."
+    ),
+    "what_looks_fragile": (
+        "The result is likely to remain sensitive to baseline risk, achievable effect size, engagement and persistence, and delivery cost."
+    ),
+    "what_to_validate_next": (
+        "Validate local baseline complication rates, realistic reach, persistence, and whether the selected costing method reflects genuine avoidable cost."
+    ),
+    "limitations": (
+        "Interpretation output is temporarily simplified while the summaries module is being repaired. "
+        "This sandbox remains illustrative and is not a formal economic evaluation."
+    ),
+}
+
 decision_readiness = generate_decision_readiness(inputs, results, uncertainty_df)
 structured_recommendation = generate_structured_recommendation(inputs, results, uncertainty_df)
 overall_signal = generate_overall_signal(results, inputs, uncertainty_df)
