@@ -67,6 +67,37 @@ export default function HomePage() {
       </section>
 
       <div className="space-y-20">
+        <section>
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                Live sandboxes
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                Current library
+              </h2>
+              <p className="mt-3 max-w-3xl text-slate-600">
+                Each sandbox explores a different intervention archetype while
+                using the same broad logic: population, risk, effect size,
+                delivery cost, and value.
+              </p>
+            </div>
+
+            <Link
+              href="/sandboxes"
+              className="text-sm font-medium text-slate-700"
+            >
+              View all →
+            </Link>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {liveApps.map((app) => (
+              <SandboxCard key={app.slug} app={app} />
+            ))}
+          </div>
+        </section>
+
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
@@ -113,37 +144,6 @@ export default function HomePage() {
         </section>
 
         <RoutesGrid />
-
-        <section>
-          <div className="mb-8 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
-                Live sandboxes
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                Current library
-              </h2>
-              <p className="mt-3 max-w-3xl text-slate-600">
-                Each sandbox explores a different intervention archetype while
-                using the same broad logic: population, risk, effect size,
-                delivery cost, and value.
-              </p>
-            </div>
-
-            <Link
-              href="/sandboxes"
-              className="text-sm font-medium text-slate-700"
-            >
-              View all →
-            </Link>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            {liveApps.map((app) => (
-              <SandboxCard key={app.slug} app={app} />
-            ))}
-          </div>
-        </section>
 
         <DemoSlider />
 
