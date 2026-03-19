@@ -8,15 +8,15 @@ export default function SandboxCard({ app }: { app: AppItem }) {
   const isExternal = isLive && primaryHref.startsWith("http");
 
   return (
-    <article className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-6 transition hover:border-slate-300 hover:shadow-sm">
-      <div className="flex items-center justify-between gap-4">
+    <article className="flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:shadow-sm md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
           {app.category}
         </span>
         <span className="text-xs font-medium text-slate-500">{app.status}</span>
       </div>
 
-      <h3 className="mt-4 text-xl font-semibold tracking-tight text-slate-900">
+      <h3 className="mt-4 text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
         {app.name}
       </h3>
       <p className="mt-1 text-sm text-slate-500">{app.descriptor}</p>
@@ -32,11 +32,11 @@ export default function SandboxCard({ app }: { app: AppItem }) {
         {app.shortDescription}
       </p>
 
-      <div className="mt-6 flex flex-wrap gap-3">
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Link
           href={primaryHref}
           {...(isExternal ? { target: "_blank", rel: "noreferrer" } : {})}
-          className={`inline-flex rounded-xl px-4 py-2 text-sm font-medium transition ${
+          className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition sm:w-auto ${
             isLive
               ? "bg-slate-900 text-white hover:bg-slate-800"
               : "border border-slate-300 text-slate-700 hover:bg-slate-50"
@@ -49,7 +49,7 @@ export default function SandboxCard({ app }: { app: AppItem }) {
           href={app.githubUrl}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto"
         >
           GitHub
         </Link>
