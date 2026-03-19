@@ -1,33 +1,50 @@
 import Link from "next/link";
+import {
+  ArrowRightLeft,
+  BrainCircuit,
+  Clock3,
+  GitBranch,
+  Layers3,
+  Search,
+  ShieldPlus,
+  Sparkles,
+} from "lucide-react";
 
 const routes = [
   {
     name: "Prevent Need",
     description: "Reduce avoidable events before they happen.",
+    icon: ShieldPlus,
   },
   {
     name: "Detect Earlier",
     description: "Shift patients into earlier and less costly states.",
+    icon: Search,
   },
   {
     name: "Stabilise Risk",
     description: "Reduce deterioration and unplanned activity.",
+    icon: Sparkles,
   },
   {
     name: "Improve Access",
     description: "Reduce delay, backlog, and misallocation.",
+    icon: Clock3,
   },
   {
     name: "Redesign Flow",
     description: "Remove inefficiency within pathways.",
+    icon: GitBranch,
   },
   {
     name: "Shift Care Setting",
     description: "Substitute higher-cost care with lower-intensity care.",
+    icon: ArrowRightLeft,
   },
   {
     name: "Improve Decisions",
     description: "Improve triage, prioritisation, and clinical choices.",
+    icon: BrainCircuit,
   },
 ] as const;
 
@@ -41,6 +58,23 @@ const modelSteps = [
   "Intervention cost",
   "Net system value",
 ] as const;
+
+function SectionHeading({
+  icon: Icon,
+  title,
+}: {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  title: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-700">
+        <Icon className="h-5 w-5" strokeWidth={1.8} />
+      </div>
+      <h2 className="text-xl font-semibold">{title}</h2>
+    </div>
+  );
+}
 
 export default function FrameworkPage() {
   return (
@@ -59,8 +93,8 @@ export default function FrameworkPage() {
 
       <section className="mt-12 space-y-10">
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <h2 className="text-xl font-semibold">Core question</h2>
-          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
+          <SectionHeading icon={Sparkles} title="Core question" />
+          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             The key question is not simply whether an intervention sounds
             worthwhile, but what would need to be true for it to generate value
             in a real system.
@@ -74,8 +108,8 @@ export default function FrameworkPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <h2 className="text-xl font-semibold">Seven routes to system value</h2>
-          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
+          <SectionHeading icon={Layers3} title="Seven routes to system value" />
+          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             The sandboxes are organised around recurring ways healthcare systems
             create value. Different interventions may look very different in
             practice, but they often work through the same small number of
@@ -83,25 +117,35 @@ export default function FrameworkPage() {
           </p>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {routes.map((route) => (
-              <div
-                key={route.name}
-                className="rounded-2xl border border-slate-200 bg-white p-5"
-              >
-                <h3 className="text-base font-semibold text-slate-900">
-                  {route.name}
-                </h3>
-                <p className="mt-2 text-sm leading-7 text-slate-600">
-                  {route.description}
-                </p>
-              </div>
-            ))}
+            {routes.map((route) => {
+              const Icon = route.icon;
+              return (
+                <div
+                  key={route.name}
+                  className="rounded-2xl border border-slate-200 bg-white p-5"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 text-slate-700">
+                      <Icon className="h-5 w-5" strokeWidth={1.8} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-slate-900">
+                        {route.name}
+                      </h3>
+                      <p className="mt-2 text-sm leading-7 text-slate-600">
+                        {route.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <h2 className="text-xl font-semibold">The intervention value model</h2>
-          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
+          <SectionHeading icon={GitBranch} title="The intervention value model" />
+          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             Across the lab, value is explored through a shared model. A
             population is defined, baseline risk is estimated, an intervention
             is applied, and the effect on events, system savings, and delivery
@@ -125,8 +169,8 @@ export default function FrameworkPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <h2 className="text-xl font-semibold">From idea to decision</h2>
-          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
+          <SectionHeading icon={ArrowRightLeft} title="From idea to decision" />
+          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             The framework is applied across the live library of sandboxes. Each
             module explores a different intervention archetype, such as falls
             prevention, earlier diagnosis, waiting list strategy, pathway
@@ -149,8 +193,8 @@ export default function FrameworkPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <h2 className="text-xl font-semibold">Boundaries of use</h2>
-          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
+          <SectionHeading icon={BrainCircuit} title="Boundaries of use" />
+          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             These tools are exploratory and illustrative. They are designed to
             support earlier-stage thinking and make assumptions more transparent,
             not to replace formal economic evaluation or local validation.
