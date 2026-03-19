@@ -67,7 +67,31 @@ export default function HomePage() {
       </section>
 
       <div className="space-y-20">
-        <RoutesGrid />
+        <section>
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                Shared framework
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                A common structure across the lab
+              </h2>
+              <p className="mt-3 max-w-3xl text-slate-600">
+                The sandboxes are organised around recurring routes to system
+                value and a shared intervention value model.
+              </p>
+            </div>
+
+            <Link
+              href="/framework"
+              className="text-sm font-medium text-slate-700"
+            >
+              View framework →
+            </Link>
+          </div>
+
+          <RoutesGrid />
+        </section>
 
         <section>
           <div className="mb-8 flex items-end justify-between gap-4">
@@ -130,17 +154,28 @@ export default function HomePage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
-            Method
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-            A simple intervention value model
-          </h2>
-          <p className="mt-3 max-w-3xl text-slate-600">
-            The sandboxes are built around a simple question: what would need to
-            be true for this intervention to create value? In practice that
-            usually comes down to scale, risk, effect size, and delivery cost.
-          </p>
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                Method
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                A simple intervention value model
+              </h2>
+              <p className="mt-3 max-w-3xl text-slate-600">
+                The sandboxes are built around a simple question: what would need
+                to be true for this intervention to create value? In practice that
+                usually comes down to scale, risk, effect size, and delivery cost.
+              </p>
+            </div>
+
+            <Link
+              href="/framework"
+              className="text-sm font-medium text-slate-700"
+            >
+              Read the framework →
+            </Link>
+          </div>
 
           <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-700">
             {[
