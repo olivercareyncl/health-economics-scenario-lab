@@ -120,9 +120,7 @@ export function generateStructuredRecommendation(
   } else if (inputs.costing_method === "Combined illustrative view") {
     bestNextStep =
       "Stress-test the costing approach using a cleaner local method before using the result in a live decision conversation.";
-  } else if (
-    results.discounted_cost_per_qaly > threshold
-  ) {
+  } else if (results.discounted_cost_per_qaly > threshold) {
     bestNextStep =
       "Validate the highest-leverage assumptions locally, especially cost inputs and expected persistence of effect.";
   } else {
@@ -140,7 +138,6 @@ export function generateStructuredRecommendation(
 export function generateDecisionReadiness(
   inputs: SafeStepInputs,
   results: ModelResult,
-  uncertaintyRows: UncertaintyRow[],
 ) {
   const validateNext: string[] = [];
 
@@ -240,7 +237,7 @@ export function generateInterpretation(
     threshold,
   );
   const dependency = getMainDriverText(inputs);
-  const readiness = generateDecisionReadiness(inputs, results, uncertaintyRows);
+  const readiness = generateDecisionReadiness(inputs, results);
 
   let whatModelSuggests = "";
   if (results.discounted_net_cost_total < 0) {
