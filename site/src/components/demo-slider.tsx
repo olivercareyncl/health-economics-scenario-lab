@@ -105,7 +105,8 @@ export default function DemoSlider() {
           <h2 className="mt-2 text-2xl font-semibold tracking-tight">
             How interventions create value
           </h2>
-          <p className="mt-3 max-w-2xl text-slate-600">
+
+          <p className="mt-3 hidden max-w-2xl text-slate-600 md:block">
             Adjust one assumption and watch the economics change. This is the core
             logic behind every sandbox.
           </p>
