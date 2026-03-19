@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import SiteHeader from "@/components/site-header";
 import { GITHUB_URL, LINKEDIN_URL } from "@/data/apps";
 import "./globals.css";
 
@@ -16,43 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-white text-slate-900 antialiased">
         <div className="flex min-h-screen flex-col">
-          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-            <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
-              <Link
-                href="/"
-                className="text-sm font-semibold tracking-tight text-slate-900 transition hover:text-slate-700"
-              >
-                Health Economics Scenario Lab
-              </Link>
-
-              <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 md:justify-end md:gap-6">
-                <Link href="/" className="transition hover:text-slate-900">
-                  Home
-                </Link>
-                <Link
-                  href="/framework"
-                  className="transition hover:text-slate-900"
-                >
-                  Framework
-                </Link>
-                <Link
-                  href="/sandboxes"
-                  className="transition hover:text-slate-900"
-                >
-                  Sandboxes
-                </Link>
-                <Link
-                  href="/how-to-use"
-                  className="transition hover:text-slate-900"
-                >
-                  How to use
-                </Link>
-                <Link href="/about" className="transition hover:text-slate-900">
-                  About
-                </Link>
-              </nav>
-            </div>
-          </header>
+          <SiteHeader />
 
           <main className="flex-1">{children}</main>
 
