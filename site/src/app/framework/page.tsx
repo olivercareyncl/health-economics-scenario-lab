@@ -123,6 +123,130 @@ export default function FrameworkPage() {
               );
             })}
           </div>
+
+          <details className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 group">
+            <summary className="cursor-pointer list-none text-sm font-medium text-slate-800">
+              <span className="inline-flex items-center gap-2">
+                Read more about the seven routes
+                <span className="text-slate-400 transition group-open:rotate-180">
+                  ↓
+                </span>
+              </span>
+            </summary>
+
+            <div className="mt-5 space-y-6 text-slate-600">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Why the routes matter
+                </h3>
+                <p className="mt-2 leading-8">
+                  Most healthcare transformation strategies create value through
+                  a small number of recurring mechanisms. The routes help make
+                  that logic more explicit, so teams can ask not just whether an
+                  intervention sounds promising, but how it is expected to
+                  generate value.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    1. Prevent Need
+                  </h3>
+                  <p className="mt-2 leading-8">
+                    This route focuses on reducing avoidable events before they
+                    happen. The value case depends on whether the cost of
+                    prevention is offset by meaningful reductions in downstream
+                    acute activity.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    2. Detect Earlier
+                  </h3>
+                  <p className="mt-2 leading-8">
+                    This route creates value by shifting patients into earlier,
+                    less acute, and potentially less costly states. The key
+                    question is whether earlier detection genuinely changes
+                    outcomes and total pathway cost.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    3. Stabilise Risk
+                  </h3>
+                  <p className="mt-2 leading-8">
+                    This route focuses on proactive management to reduce
+                    deterioration and unplanned activity. The value logic is
+                    about preventing crisis events and avoiding the
+                    highest-cost parts of the system.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    4. Improve Access
+                  </h3>
+                  <p className="mt-2 leading-8">
+                    This route focuses on reducing delay, backlog, and friction
+                    in access to care. The strategic question is whether an
+                    intervention creates real system value or simply increases
+                    throughput without reducing downstream pressure.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    5. Redesign Flow
+                  </h3>
+                  <p className="mt-2 leading-8">
+                    This route aims to remove inefficiency within existing care
+                    pathways. The focus is not just on doing more, but on
+                    changing the pathway so that activity, follow-up burden, or
+                    bed use are reduced.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    6. Shift Care Setting
+                  </h3>
+                  <p className="mt-2 leading-8">
+                    This route generates value by substituting higher-cost care
+                    with lower-intensity alternatives where appropriate. The
+                    value case depends on whether care can genuinely be shifted
+                    without recreating cost elsewhere.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">
+                    7. Improve Decisions
+                  </h3>
+                  <p className="mt-2 leading-8">
+                    This route focuses on improving triage, prioritisation, and
+                    clinical choice. It is often cross-cutting, because better
+                    decisions can improve how patients are routed, matched, and
+                    managed across several other routes.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Why categorising value helps
+                </h3>
+                <p className="mt-2 leading-8">
+                  Categorising an intervention by route helps make its value
+                  logic more testable. It moves the conversation from a general
+                  improvement ambition to a clearer statement of how the
+                  intervention is actually expected to create system value.
+                </p>
+              </div>
+            </div>
+          </details>
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
