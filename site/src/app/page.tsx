@@ -141,31 +141,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section>
-          <div className="mb-8 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
-                Routes to system value
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                A shared way of framing impact
-              </h2>
-              <p className="mt-3 max-w-3xl text-slate-600">
-                The lab organises interventions around recurring ways healthcare
-                systems create value.
-              </p>
-            </div>
-
-            <Link
-              href="/framework"
-              className="text-sm font-medium text-slate-700"
-            >
-              View framework →
-            </Link>
-          </div>
-
-          <RoutesGrid />
-        </section>
+        <RoutesGrid />
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
