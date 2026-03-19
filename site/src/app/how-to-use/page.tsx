@@ -1,4 +1,5 @@
 import Link from "next/link";
+import DemoSlider from "@/components/demo-slider";
 
 export default function HowToUsePage() {
   return (
@@ -24,6 +25,8 @@ export default function HowToUsePage() {
             results are sensitive, and clarifying what needs validating next.
           </p>
         </section>
+
+        <DemoSlider />
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
           <h2 className="text-xl font-semibold">What this process does</h2>
