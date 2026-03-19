@@ -35,18 +35,13 @@ import {
   getNetCostLabel,
 } from "@/lib/safestep/summaries";
 import type {
-  AssumptionKey,
   CostingMethod,
   SafeStepInputs,
   ScenarioName,
   TargetingMode,
 } from "@/lib/safestep/types";
 
-type TabKey =
-  | "overview"
-  | "assumptions"
-  | "uncertainty"
-  | "interpretation";
+type TabKey = "overview" | "assumptions" | "uncertainty" | "interpretation";
 
 const scenarioOptions = Object.keys(SCENARIO_MAP) as ScenarioName[];
 
@@ -179,7 +174,11 @@ export default function SafeStepApp() {
         <p className="mt-2 text-lg text-slate-600">
           Falls Prevention Sandbox
         </p>
-        <p className="mt-5 max-w-3xl leading-8 text-slate-600">
+        <p className="mt-5 max-w-3xl leading-8 text-slate-600 md:hidden">
+          Explore how falls prevention changes falls, admissions, bed use, and
+          value under different assumptions.
+        </p>
+        <p className="mt-5 hidden max-w-3xl leading-8 text-slate-600 md:block">
           Explore how falls prevention might change falls, admissions, bed use,
           and value under different assumptions about targeting, uptake,
           effectiveness, and delivery cost.
@@ -198,8 +197,12 @@ export default function SafeStepApp() {
       </div>
 
       <div className="mt-8 grid gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="space-y-6">
-          <Panel title="Scenario">
+        <aside className="order-2 space-y-4 xl:order-1">
+          <AccordionPanel
+            title="Scenario"
+            summary={selectedScenario}
+            defaultOpen
+          >
             <Field label="Scenario preset">
               <select
                 value={selectedScenario}
@@ -215,9 +218,12 @@ export default function SafeStepApp() {
                 ))}
               </select>
             </Field>
-          </Panel>
+          </AccordionPanel>
 
-          <Panel title="Population and delivery">
+          <AccordionPanel
+            title="Population and delivery"
+            summary={`${formatNumber(inputs.eligible_population)} eligible • ${formatPercent(inputs.uptake_rate)} uptake`}
+          >
             <Field label="Eligible population">
               <input
                 type="number"
@@ -262,9 +268,12 @@ export default function SafeStepApp() {
                 updateInput("participation_dropoff_rate", value)
               }
             />
-          </Panel>
+          </AccordionPanel>
 
-          <Panel title="Targeting and risk">
+          <AccordionPanel
+            title="Targeting and risk"
+            summary={`${inputs.targeting_mode} • ${formatPercent(inputs.annual_fall_risk)} fall risk`}
+          >
             <Field label="Targeting mode">
               <select
                 value={inputs.targeting_mode}
@@ -318,9 +327,12 @@ export default function SafeStepApp() {
                 className="input"
               />
             </Field>
-          </Panel>
+          </AccordionPanel>
 
-          <Panel title="Intervention">
+          <AccordionPanel
+            title="Intervention"
+            summary={`${formatCurrency(inputs.intervention_cost_per_person)} per participant • ${formatPercent(inputs.relative_risk_reduction)} reduction`}
+          >
             <Field label="Cost per participant">
               <input
                 type="number"
@@ -358,9 +370,12 @@ export default function SafeStepApp() {
               display={formatPercent(inputs.effect_decay_rate)}
               onChange={(value) => updateInput("effect_decay_rate", value)}
             />
-          </Panel>
+          </AccordionPanel>
 
-          <Panel title="Economic assumptions">
+          <AccordionPanel
+            title="Economic assumptions"
+            summary={`${inputs.costing_method} • ${formatCurrency(inputs.cost_effectiveness_threshold)} threshold`}
+          >
             <Field label="Costing method">
               <select
                 value={inputs.costing_method}
@@ -437,9 +452,12 @@ export default function SafeStepApp() {
                 className="input"
               />
             </Field>
-          </Panel>
+          </AccordionPanel>
 
-          <Panel title="Time horizon">
+          <AccordionPanel
+            title="Time horizon"
+            summary={`${inputs.time_horizon_years} years • ${formatPercent(inputs.discount_rate)} discount`}
+          >
             <Field label="Time horizon">
               <select
                 value={inputs.time_horizon_years}
@@ -468,9 +486,12 @@ export default function SafeStepApp() {
                 className="input"
               />
             </Field>
-          </Panel>
+          </AccordionPanel>
 
-          <Panel title="Comparator">
+          <AccordionPanel
+            title="Comparator"
+            summary={comparatorMode}
+          >
             <Field label="Compare current selection with">
               <select
                 value={comparatorMode}
@@ -486,71 +507,11 @@ export default function SafeStepApp() {
                 ))}
               </select>
             </Field>
-          </Panel>
+          </AccordionPanel>
         </aside>
 
-        <main className="min-w-0">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              label="Falls avoided"
-              value={formatNumber(results.falls_avoided_total)}
-            />
-            <MetricCard
-              label="Admissions avoided"
-              value={formatNumber(results.admissions_avoided_total)}
-            />
-            <MetricCard
-              label={netCostLabel}
-              value={formatCurrency(Math.abs(results.discounted_net_cost_total))}
-            />
-            <MetricCard
-              label="Discounted cost per QALY"
-              value={formatCurrency(results.discounted_cost_per_qaly)}
-            />
-          </div>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              label="People treated"
-              value={formatNumber(results.treated_population_year_1)}
-              subtle
-            />
-            <MetricCard
-              label="Bed days avoided"
-              value={formatNumber(results.bed_days_avoided_total)}
-              subtle
-            />
-            <MetricCard
-              label="Programme cost"
-              value={formatCurrency(results.programme_cost_total)}
-              subtle
-            />
-            <MetricCard
-              label="Gross savings"
-              value={formatCurrency(results.gross_savings_total)}
-              subtle
-            />
-          </div>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <MetricCard
-              label="Return on spend"
-              value={formatRatio(results.roi)}
-              subtle
-            />
-            <MetricCard
-              label="Max cost per participant"
-              value={formatCurrency(results.break_even_cost_per_participant)}
-              subtle
-            />
-            <MetricCard
-              label="Required fall reduction"
-              value={formatPercent(results.break_even_effectiveness)}
-              subtle
-            />
-          </div>
-
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <main className="order-1 min-w-0 xl:order-2">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6">
             <h2 className="text-xl font-semibold">Decision verdict</h2>
 
             <div className="mt-4">
@@ -575,44 +536,30 @@ export default function SafeStepApp() {
               )}
             </div>
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <InfoBox title="Overall signal" body={overallSignal} />
-              <InfoBox
-                title="Main dependency"
-                body={structuredRecommendation.mainDependency}
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                label="Falls avoided"
+                value={formatNumber(results.falls_avoided_total)}
               />
-              <InfoBox
-                title="Main fragility"
-                body={structuredRecommendation.mainFragility}
+              <MetricCard
+                label="Admissions avoided"
+                value={formatNumber(results.admissions_avoided_total)}
               />
-              <InfoBox
-                title="Best next step"
-                body={structuredRecommendation.bestNextStep}
+              <MetricCard
+                label={netCostLabel}
+                value={formatCurrency(Math.abs(results.discounted_net_cost_total))}
+              />
+              <MetricCard
+                label="Discounted cost per QALY"
+                value={formatCurrency(results.discounted_cost_per_qaly)}
               />
             </div>
 
             <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Strategic summary
+                Overall signal
               </p>
-              <p className="mt-3 leading-8 text-slate-700">{overviewSummary}</p>
-            </div>
-
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-              <InfoBox
-                title="Primary economic driver"
-                body={getMainDriverText(inputs)}
-              />
-              <InfoBox
-                title="Comparator snapshot"
-                body={`${comparatorMode} produces ${formatNumber(
-                  comparatorResults.falls_avoided_total -
-                    results.falls_avoided_total,
-                )} change in falls avoided and ${formatCurrency(
-                  comparatorResults.discounted_net_cost_total -
-                    results.discounted_net_cost_total,
-                )} change in discounted net cost versus the current selection.`}
-              />
+              <p className="mt-3 leading-8 text-slate-700">{overallSignal}</p>
             </div>
           </div>
 
@@ -643,30 +590,79 @@ export default function SafeStepApp() {
             {activeTab === "overview" && (
               <div className="space-y-5">
                 <SectionHeading
-                  title="What the model suggests"
-                  body="A simplified headline view of how the current assumptions translate into activity, cost, and value."
+                  title="Overview"
+                  body="A summary of the current decision signal and the main assumptions driving it."
                 />
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <InfoBox
-                    title="What the model suggests"
-                    body={interpretation.whatModelSuggests}
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <MetricCard
+                    label="People treated"
+                    value={formatNumber(results.treated_population_year_1)}
+                    subtle
                   />
-                  <InfoBox
-                    title="What drives the result"
-                    body={interpretation.whatDrivesResult}
+                  <MetricCard
+                    label="Bed days avoided"
+                    value={formatNumber(results.bed_days_avoided_total)}
+                    subtle
+                  />
+                  <MetricCard
+                    label="Programme cost"
+                    value={formatCurrency(results.programme_cost_total)}
+                    subtle
+                  />
+                  <MetricCard
+                    label="Gross savings"
+                    value={formatCurrency(results.gross_savings_total)}
+                    subtle
+                  />
+                  <MetricCard
+                    label="Return on spend"
+                    value={formatRatio(results.roi)}
+                    subtle
+                  />
+                  <MetricCard
+                    label="Max cost per participant"
+                    value={formatCurrency(results.break_even_cost_per_participant)}
+                    subtle
                   />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 lg:grid-cols-2">
                   <InfoBox
-                    title="What looks fragile"
-                    body={interpretation.whatLooksFragile}
+                    title="Strategic summary"
+                    body={overviewSummary}
                   />
                   <InfoBox
-                    title="What to validate next"
-                    body={interpretation.whatToValidateNext}
+                    title="Primary economic driver"
+                    body={getMainDriverText(inputs)}
                   />
+                  <InfoBox
+                    title="Main fragility"
+                    body={structuredRecommendation.mainFragility}
+                  />
+                  <InfoBox
+                    title="Best next step"
+                    body={structuredRecommendation.bestNextStep}
+                  />
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Comparator snapshot
+                  </p>
+                  <p className="mt-3 leading-8 text-slate-700">
+                    {comparatorMode} produces{" "}
+                    {formatNumber(
+                      comparatorResults.falls_avoided_total -
+                        results.falls_avoided_total,
+                    )}{" "}
+                    change in falls avoided and{" "}
+                    {formatCurrency(
+                      comparatorResults.discounted_net_cost_total -
+                        results.discounted_net_cost_total,
+                    )}{" "}
+                    change in discounted net cost versus the current selection.
+                  </p>
                 </div>
               </div>
             )}
@@ -675,7 +671,7 @@ export default function SafeStepApp() {
               <div className="space-y-5">
                 <SectionHeading
                   title="Current assumptions"
-                  body="This sandbox is driven by editable synthetic assumptions. Review the current values below before interpreting results."
+                  body="Review the current values and metadata behind the model inputs."
                 />
 
                 <div className="grid gap-4 sm:grid-cols-3">
@@ -696,7 +692,39 @@ export default function SafeStepApp() {
                   />
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="space-y-3 md:hidden">
+                  {assumptionsTable.map((row) => (
+                    <div
+                      key={row.key}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <p className="font-semibold text-slate-900">
+                        {row.assumption}
+                      </p>
+                      <p className="mt-2 text-lg font-medium text-slate-900">
+                        {row.value}
+                        {row.unit ? (
+                          <span className="ml-2 text-sm font-normal text-slate-500">
+                            {row.unit}
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="mt-3 text-sm text-slate-600">
+                        {row.notes}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-600">
+                          {row.sourceType}
+                        </span>
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-600">
+                          {row.confidence}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                   <table className="min-w-full border-separate border-spacing-0 text-sm">
                     <thead>
                       <tr>
@@ -750,10 +778,55 @@ export default function SafeStepApp() {
               <div className="space-y-5">
                 <SectionHeading
                   title="Bounded uncertainty"
-                  body="These low, base, and high cases give a simple deterministic view of how fragile or robust the result looks under a bounded change in key assumptions."
+                  body="A simple deterministic view of how robust or fragile the result looks under bounded changes in key assumptions."
                 />
 
-                <div className="overflow-x-auto">
+                <div className="space-y-3 md:hidden">
+                  {uncertaintyTable.map((row) => (
+                    <div
+                      key={row.case}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="font-semibold text-slate-900">
+                          {row.case}
+                        </p>
+                        <span className="text-sm text-slate-500">
+                          {row.decisionStatus}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-2 text-sm">
+                        <div className="flex justify-between gap-4">
+                          <span className="text-slate-500">Falls avoided</span>
+                          <span className="text-slate-800">
+                            {row.fallsAvoided}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-slate-500">
+                            Discounted net cost
+                          </span>
+                          <span className="text-slate-800">
+                            {row.discountedNetCost}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-slate-500">
+                            Discounted cost per QALY
+                          </span>
+                          <span className="text-slate-800">
+                            {row.discountedCostPerQaly}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-sm text-slate-600">
+                        Main uncertainty domain: {row.dominantDomain}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto md:block">
                   <table className="min-w-full border-separate border-spacing-0 text-sm">
                     <thead>
                       <tr>
@@ -858,20 +931,37 @@ export default function SafeStepApp() {
   );
 }
 
-function Panel({
+function AccordionPanel({
   title,
+  summary,
   children,
+  defaultOpen = false,
 }: {
   title: string;
+  summary: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-      <h2 className="text-base font-semibold tracking-tight text-slate-900">
-        {title}
-      </h2>
+    <details
+      open={defaultOpen}
+      className="rounded-2xl border border-slate-200 bg-slate-50 p-5 group"
+    >
+      <summary className="cursor-pointer list-none">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold tracking-tight text-slate-900">
+              {title}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">{summary}</p>
+          </div>
+          <span className="mt-1 text-slate-400 transition group-open:rotate-180">
+            ↓
+          </span>
+        </div>
+      </summary>
       <div className="mt-4 space-y-4">{children}</div>
-    </section>
+    </details>
   );
 }
 
@@ -942,7 +1032,7 @@ function MetricCard({
       className={`rounded-2xl border p-4 ${
         subtle
           ? "border-slate-200 bg-white"
-          : "border-slate-200 bg-slate-50"
+          : "border-slate-200 bg-white"
       }`}
     >
       <p className="text-sm text-slate-500">{label}</p>
