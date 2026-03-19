@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import SandboxCard from "@/components/sandbox-card";
 import { apps } from "@/data/apps";
 
@@ -15,54 +15,87 @@ const routeOrder = [
 ] as const;
 
 type RouteName = (typeof routeOrder)[number];
+type FilterValue = "All routes" | RouteName;
 
 export default function SandboxesPage() {
+  const [selectedRoute, setSelectedRoute] =
+    useState<FilterValue>("All routes");
+
   const groupedApps = useMemo(() => {
-    return routeOrder
+    const groups = routeOrder
       .map((route) => ({
         route,
         apps: apps.filter((app) => app.category === route),
       }))
       .filter((group) => group.apps.length > 0);
-  }, []);
+
+    if (selectedRoute === "All routes") {
+      return groups;
+    }
+
+    return groups.filter((group) => group.route === selectedRoute);
+  }, [selectedRoute]);
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
       <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
         Sandbox library
       </p>
-      <h1 className="mt-4 text-4xl font-semibold tracking-tight">
+      <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
         Explore the sandbox library
       </h1>
-      <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+      <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
         Each sandbox focuses on a different intervention context, but all are
         designed to support earlier-stage thinking about thresholds,
         trade-offs, and value under uncertainty.
       </p>
 
-      <div className="sticky top-[73px] z-20 mt-10 border-y border-slate-200 bg-white/95 py-4 backdrop-blur">
-        <p className="mb-3 text-sm font-medium text-slate-700">
-          Jump to a route
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {groupedApps.map((group) => (
-            <a
-              key={group.route}
-              href={`#${toAnchorId(group.route)}`}
-              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
-            >
-              {group.route} ({group.apps.length})
-            </a>
-          ))}
-        </div>
-      </div>
+      <section className="mt-10 rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+              Filter
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+              Browse by route
+            </h2>
+            <p className="mt-3 max-w-3xl text-slate-600">
+              View the full library or focus on a specific route to system
+              value.
+            </p>
+          </div>
 
-      <div className="mt-12 space-y-10">
+          <div className="w-full md:w-[320px]">
+            <label
+              htmlFor="route-filter"
+              className="mb-2 block text-sm font-medium text-slate-700"
+            >
+              Route
+            </label>
+            <select
+              id="route-filter"
+              value={selectedRoute}
+              onChange={(e) =>
+                setSelectedRoute(e.target.value as FilterValue)
+              }
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400"
+            >
+              <option value="All routes">All routes</option>
+              {routeOrder.map((route) => (
+                <option key={route} value={route}>
+                  {route}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <div className="mt-12 space-y-8 md:space-y-10">
         {groupedApps.map((group) => (
           <section
             key={group.route}
-            id={toAnchorId(group.route)}
-            className="scroll-mt-36 rounded-3xl border border-slate-200 bg-slate-50 p-8"
+            className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8"
           >
             <div className="mb-6">
               <div className="flex flex-wrap items-center gap-3">
@@ -89,10 +122,6 @@ export default function SandboxesPage() {
       </div>
     </div>
   );
-}
-
-function toAnchorId(route: string) {
-  return route.toLowerCase().replace(/\s+/g, "-");
 }
 
 function getRouteDescription(route: string) {
