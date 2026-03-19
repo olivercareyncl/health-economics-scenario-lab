@@ -95,7 +95,7 @@ export default function DemoSlider() {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex w-full items-center justify-between gap-6 px-8 py-6 text-left"
+        className="flex w-full flex-col items-start gap-4 px-6 py-6 text-left md:flex-row md:items-center md:justify-between md:gap-6 md:px-8"
         aria-expanded={isOpen}
       >
         <div>
@@ -117,7 +117,7 @@ export default function DemoSlider() {
       </button>
 
       {isOpen && (
-        <div className="border-t border-slate-200 px-8 py-8">
+        <div className="border-t border-slate-200 px-6 py-6 md:px-8 md:py-8">
           <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
             <div>
               <label
@@ -176,7 +176,7 @@ export default function DemoSlider() {
                 />
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-600">
+              <div className="mt-6 flex flex-wrap gap-2 text-sm text-slate-600 md:gap-3">
                 {[
                   "Population",
                   "Coverage",
@@ -196,7 +196,7 @@ export default function DemoSlider() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
               <Metric label="People reached" value={model.peopleReached.toFixed(0)} />
               <Metric label="Events avoided" value={model.eventsAvoided.toFixed(0)} />
               <Metric label="Gross system savings" value={money(model.grossSavings)} />
@@ -230,7 +230,11 @@ function Metric({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <p className="text-sm text-slate-500">{label}</p>
-      <p className={`mt-1 text-2xl tracking-tight ${strong ? "font-semibold" : "font-medium"}`}>
+      <p
+        className={`mt-1 text-xl tracking-tight md:text-2xl ${
+          strong ? "font-semibold" : "font-medium"
+        }`}
+      >
         {value}
       </p>
     </div>
