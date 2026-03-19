@@ -10,7 +10,13 @@ export default function HowToUsePage() {
       <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
         From idea to decision
       </h1>
-      <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
+
+      <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:hidden">
+        A structured way to test what would need to be true for an intervention
+        to create value.
+      </p>
+
+      <p className="mt-6 hidden max-w-3xl text-base leading-8 text-slate-600 md:block md:text-lg">
         The Health Economics Scenario Lab is designed to explore a simple
         question: what would need to be true for an intervention to create
         value?
@@ -19,7 +25,13 @@ export default function HowToUsePage() {
       <div className="mt-12 space-y-8 md:space-y-10">
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">How the sandboxes are used</h2>
-          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+
+          <p className="mt-4 max-w-3xl leading-8 text-slate-600 md:hidden">
+            Each sandbox helps structure assumptions, test value, and clarify
+            what needs validating next.
+          </p>
+
+          <p className="mt-4 hidden max-w-3xl leading-8 text-slate-600 md:block">
             Each sandbox is not a final answer. It is a way of structuring
             assumptions, testing how value is generated, understanding where
             results are sensitive, and clarifying what needs validating next.
@@ -30,7 +42,8 @@ export default function HowToUsePage() {
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">What this process does</h2>
-          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+
+          <p className="mt-4 hidden max-w-3xl leading-8 text-slate-600 md:block">
             Across different intervention types, the process is consistent.
           </p>
 
@@ -107,7 +120,8 @@ export default function HowToUsePage() {
             <h2 className="mt-2 text-2xl font-semibold tracking-tight">
               Three example decision questions
             </h2>
-            <p className="mt-3 max-w-3xl text-slate-600">
+
+            <p className="mt-3 hidden max-w-3xl text-slate-600 md:block">
               Different sandboxes focus on different intervention contexts, but
               the pattern is the same: define the base case, review the model
               signal, and test which assumptions matter most.
@@ -221,7 +235,8 @@ export default function HowToUsePage() {
               This is likely to work if these conditions hold.
             </p>
           </div>
-          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+
+          <p className="mt-4 hidden max-w-3xl leading-8 text-slate-600 md:block">
             In practice, this usually leads to targeted pilots, focused data
             collection, refinement of assumptions, or prioritisation against
             alternatives.
