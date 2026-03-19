@@ -336,8 +336,8 @@ function generateInterpretation(
   const uncertaintySignal =
     worstCase && bestCase
       ? worstCase.decision_status === bestCase.decision_status
-        ? "The uncertainty range is directionally stable across the bounded scenarios."
-        : "The uncertainty range crosses decision boundaries, so the case is sensitive to modest assumption changes."
+        ? "The bounded range stays directionally consistent across the tested cases."
+        : "The bounded range crosses decision boundaries, so the case is sensitive to modest assumption changes."
       : "The uncertainty range should be treated cautiously.";
 
   const whatLooksFragile =
@@ -356,6 +356,83 @@ function generateInterpretation(
     what_looks_fragile: whatLooksFragile,
     what_to_validate_next: whatToValidateNext,
   };
+}
+
+function getUncertaintyFraming(
+  uncertainty: LocalUncertaintyRow[],
+  threshold: number,
+) {
+  const low = uncertainty.find((row) => row.case === "Low case");
+  const base = uncertainty.find((row) => row.case === "Base case");
+  const high = uncertainty.find((row) => row.case === "High case");
+
+  if (!low || !base || !high) {
+    return {
+      headline: "Uncertainty should be interpreted cautiously.",
+      detail:
+        "The bounded scenario set is incomplete, so the current uncertainty read should be treated as indicative only.",
+    };
+  }
+
+  const statuses = new Set([
+    low.decision_status,
+    base.decision_status,
+    high.decision_status,
+  ]);
+
+  if (statuses.size === 1) {
+    return {
+      headline: "The current bounded uncertainty read is directionally stable.",
+      detail: `Low, base, and high cases all remain ${base.decision_status.toLowerCase()} against the current threshold of ${formatCurrency(
+        threshold,
+      )}.`,
+    };
+  }
+
+  if (
+    low.discounted_cost_per_qaly <= threshold &&
+    high.discounted_cost_per_qaly > threshold
+  ) {
+    return {
+      headline: "The case is finely balanced around the current threshold.",
+      detail:
+        "Small changes in core assumptions are enough to move the result from acceptable value to above threshold.",
+    };
+  }
+
+  return {
+    headline: "The current conclusion changes across bounded scenarios.",
+    detail:
+      "The result is sensitive to plausible variation in risk, effect size, and delivery cost, so validation of the core assumptions matters.",
+  };
+}
+
+function getDecisionNarrative({
+  results,
+  decisionStatus,
+  netCostLabel,
+  threshold,
+}: {
+  results: ModelResults;
+  decisionStatus: string;
+  netCostLabel: string;
+  threshold: number;
+}) {
+  const netValue = formatCurrency(Math.abs(results.discounted_net_cost_total));
+  const costPerQaly = formatCurrency(results.discounted_cost_per_qaly);
+  const thresholdText = formatCurrency(threshold);
+
+  if (decisionStatus === "Appears cost-saving") {
+    return `Under the current base case, SafeStep appears cost-saving. The model estimates ${formatNumber(
+      results.falls_avoided_total,
+    )} falls avoided and a ${netCostLabel.toLowerCase()} of ${netValue} over the selected horizon.`;
+  }
+
+  if (decisionStatus === "Appears cost-effective") {
+    return `Under the current base case, SafeStep appears cost-effective. The model estimates a discounted cost per QALY of ${costPerQaly}, which sits below the current threshold of ${thresholdText}.`;
+  }
+
+  return `Under the current base case, SafeStep is above the current threshold. The model estimates a discounted cost per QALY of ${costPerQaly}, compared with a threshold of ${thresholdText}.`;
 }
 
 function CurrencyTooltip({
@@ -714,6 +791,47 @@ function MiniInsight({
   );
 }
 
+function DesktopAnalysisCard({
+  title,
+  text,
+}: {
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {title}
+      </p>
+      <p className="mt-2 text-sm leading-6 text-slate-700">{text}</p>
+    </div>
+  );
+}
+
+function DesktopNarrativeBanner({
+  tone,
+  text,
+}: {
+  tone: "saving" | "effective" | "warning";
+  text: string;
+}) {
+  return (
+    <div
+      className={cx(
+        "rounded-2xl border p-4",
+        tone === "saving" && "border-emerald-200 bg-emerald-50",
+        tone === "effective" && "border-blue-200 bg-blue-50",
+        tone === "warning" && "border-amber-200 bg-amber-50",
+      )}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Analyst read
+      </p>
+      <p className="mt-2 text-sm leading-6 text-slate-800">{text}</p>
+    </div>
+  );
+}
+
 function MobileTabButton({
   active,
   onClick,
@@ -940,6 +1058,20 @@ export default function SafeStepApp() {
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty),
     [results, inputs, uncertainty],
+  );
+  const uncertaintyFraming = useMemo(
+    () => getUncertaintyFraming(uncertainty, inputs.cost_effectiveness_threshold),
+    [uncertainty, inputs.cost_effectiveness_threshold],
+  );
+  const decisionNarrative = useMemo(
+    () =>
+      getDecisionNarrative({
+        results,
+        decisionStatus,
+        netCostLabel,
+        threshold: inputs.cost_effectiveness_threshold,
+      }),
+    [results, decisionStatus, netCostLabel, inputs.cost_effectiveness_threshold],
   );
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
@@ -1529,6 +1661,13 @@ export default function SafeStepApp() {
     </div>
   );
 
+  const desktopNarrativeTone =
+    decisionStatus === "Appears cost-saving"
+      ? "saving"
+      : decisionStatus === "Appears cost-effective"
+        ? "effective"
+        : "warning";
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-8">
       <div className="mb-5">
@@ -1685,9 +1824,40 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden lg:block")}>
           <SectionCard
             title="Analysis"
-            description="Review the current assumption set and the bounded uncertainty around the case."
+            description="Use this view to read the case, understand uncertainty, and identify what should be validated next."
           >
             <div className="space-y-5">
+              <DesktopNarrativeBanner
+                tone={desktopNarrativeTone}
+                text={decisionNarrative}
+              />
+
+              <div className="grid gap-3 xl:grid-cols-2">
+                <DesktopAnalysisCard
+                  title="Decision framing"
+                  text={interpretation.what_model_suggests}
+                />
+                <DesktopAnalysisCard
+                  title="Uncertainty framing"
+                  text={`${uncertaintyFraming.headline} ${uncertaintyFraming.detail}`}
+                />
+              </div>
+
+              <div className="grid gap-3 xl:grid-cols-3">
+                <DesktopAnalysisCard
+                  title="Main driver"
+                  text={`The current result is most shaped by ${mainDriver}. ${interpretation.what_drives_result}`}
+                />
+                <DesktopAnalysisCard
+                  title="What looks fragile"
+                  text={interpretation.what_looks_fragile}
+                />
+                <DesktopAnalysisCard
+                  title="Validate next"
+                  text={interpretation.what_to_validate_next}
+                />
+              </div>
+
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
                   Assumption review
@@ -1713,11 +1883,12 @@ export default function SafeStepApp() {
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  Interpretation
+                  Interpretation notes
                 </h3>
                 <div className="mt-3 space-y-3 text-sm leading-6 text-slate-700">
                   <p>{interpretation.what_model_suggests}</p>
                   <p>{interpretation.what_drives_result}</p>
+                  <p>{uncertaintyFraming.detail}</p>
                   <p>{interpretation.what_to_validate_next}</p>
                 </div>
               </div>
