@@ -33,21 +33,36 @@ export default function HowToUsePage() {
           <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             Across different intervention types, the process is consistent.
           </p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {[
-              "Define a plausible intervention",
-              "Translate it into assumptions",
-              "Observe the implied value",
-              "Test uncertainty",
-              "Identify key dependencies",
-            ].map((item) => (
-              <div
-                key={item}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
-              >
-                {item}
+
+          <div className="mt-8 overflow-x-auto">
+            <div className="min-w-[1100px] rounded-2xl border border-slate-200 bg-white p-6">
+              <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-4">
+                <ProcessStep
+                  title="Intervention idea"
+                  body="Start with a plausible service change or intervention."
+                />
+                <Arrow />
+                <ProcessStep
+                  title="Translate assumptions"
+                  body="Turn the idea into explicit assumptions about scale, risk, effect, and cost."
+                />
+                <Arrow />
+                <ProcessStep
+                  title="Observe model signal"
+                  body="Review the implied effect on events, cost, and value."
+                />
+                <Arrow />
+                <ProcessStep
+                  title="Test uncertainty"
+                  body="Change assumptions to see where the case is robust or fragile."
+                />
+                <Arrow />
+                <ProcessStep
+                  title="Clarify what to validate"
+                  body="Identify what matters most and what needs testing next."
+                />
               </div>
-            ))}
+            </div>
           </div>
         </section>
 
@@ -192,6 +207,49 @@ export default function HowToUsePage() {
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function ProcessStep({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+        {title}
+      </p>
+      <p className="mt-2 text-sm leading-7 text-slate-700">{body}</p>
+    </div>
+  );
+}
+
+function Arrow() {
+  return (
+    <div
+      className="flex items-center justify-center text-slate-300"
+      aria-hidden="true"
+    >
+      <svg
+        width="28"
+        height="12"
+        viewBox="0 0 28 12"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="block"
+      >
+        <path
+          d="M1 6H25M25 6L20 1M25 6L20 11"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </div>
   );
 }
