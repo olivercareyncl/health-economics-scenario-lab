@@ -11,46 +11,46 @@ export default function HomePage() {
     .map((app) => app.name);
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
-      <section className="pb-16">
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
+      <section className="pb-12 md:pb-16">
         <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
           Decision sandboxes for healthcare strategy
         </p>
-        <h1 className="mt-4 max-w-4xl text-5xl font-semibold tracking-tight text-slate-950">
+        <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">
           Explore how healthcare interventions generate value under uncertainty.
         </h1>
-        <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+        <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
           Health Economics Scenario Lab is a suite of lightweight interactive
           sandboxes for exploring how interventions and service changes might
           affect activity, cost, outcomes, and value before ideas harden into
           static business cases.
         </p>
 
-        <div className="mt-8 flex flex-wrap gap-4">
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
           <Link
             href="/sandboxes"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto"
           >
             <LayoutGrid className="h-4 w-4" strokeWidth={1.8} />
             Explore sandboxes
           </Link>
           <Link
             href="/framework"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto"
           >
             <Layers3 className="h-4 w-4" strokeWidth={1.8} />
             View framework
           </Link>
           <Link
             href="/how-to-use"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto"
           >
             <Route className="h-4 w-4" strokeWidth={1.8} />
             How to use the lab
           </Link>
           <Link
             href={GITHUB_URL}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:w-auto"
           >
             <Github className="h-4 w-4" strokeWidth={1.8} />
             View GitHub
@@ -64,9 +64,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="space-y-20">
+      <div className="space-y-16 md:space-y-20">
         <section>
-          <div className="mb-8 flex items-end justify-between gap-4">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
                 Live sandboxes
@@ -95,7 +95,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
@@ -143,7 +143,7 @@ export default function HomePage() {
 
         <RoutesGrid />
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
