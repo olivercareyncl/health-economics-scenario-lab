@@ -32,7 +32,8 @@ const routes = [
   },
   {
     name: "Improve Access",
-    description: "Reduce delay, backlog, and escalation caused by constrained access.",
+    description:
+      "Reduce delay, backlog, and escalation caused by constrained access.",
     href: "/sandboxes#improve-access",
     icon: Clock3,
   },
@@ -59,7 +60,7 @@ const routes = [
 export default function RoutesGrid() {
   return (
     <section>
-      <div className="mb-8">
+      <div className="mb-6 md:mb-8">
         <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
           Routes to system value
         </p>
@@ -72,7 +73,7 @@ export default function RoutesGrid() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
         {routes.map((route) => {
           const Icon = route.icon;
 
@@ -80,15 +81,15 @@ export default function RoutesGrid() {
             <Link
               key={route.name}
               href={route.href}
-              className="group rounded-3xl border border-slate-200 bg-slate-50 p-6 transition hover:border-slate-300 hover:bg-white"
+              className="group rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 hover:bg-white md:p-6"
             >
-              <div className="flex items-start gap-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-3 text-slate-700">
+              <div className="flex items-start gap-3 md:gap-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-700 md:p-3">
                   <Icon className="h-5 w-5" strokeWidth={1.8} />
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+                  <h3 className="text-base font-semibold tracking-tight text-slate-900 md:text-lg">
                     {route.name}
                   </h3>
                   <p className="mt-2 text-sm leading-7 text-slate-600">
