@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Github, Layers3, LayoutGrid, Route } from "lucide-react";
 import RoutesGrid from "@/components/routes-grid";
 import SandboxCard from "@/components/sandbox-card";
-import EmbeddedSandboxPreview from "@/components/embedded-sandbox-preview";
 import { apps, GITHUB_URL } from "@/data/apps";
 
 export default function HomePage() {
@@ -22,36 +21,36 @@ export default function HomePage() {
         </h1>
         <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
           Health Economics Scenario Lab is a suite of lightweight interactive
-          decision sandboxes for exploring how interventions and service changes
-          might affect activity, cost, outcomes, and value before ideas harden
-          into static business cases.
+          sandboxes for exploring how interventions and service changes might
+          affect activity, cost, outcomes, and value before ideas harden into
+          static business cases.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
             href="/sandboxes"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <LayoutGrid className="h-4 w-4" strokeWidth={1.8} />
             Explore sandboxes
           </Link>
           <Link
             href="/framework"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <Layers3 className="h-4 w-4" strokeWidth={1.8} />
             View framework
           </Link>
           <Link
             href="/how-to-use"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <Route className="h-4 w-4" strokeWidth={1.8} />
             How to use the lab
           </Link>
           <Link
             href={GITHUB_URL}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <Github className="h-4 w-4" strokeWidth={1.8} />
             View GitHub
@@ -76,9 +75,8 @@ export default function HomePage() {
                 Current library
               </h2>
               <p className="mt-3 max-w-3xl text-slate-600">
-                Each sandbox explores a different intervention archetype while
-                using the same broad logic: population, risk, effect size,
-                delivery cost, and value.
+                Open live modules and explore how different intervention types
+                behave under different assumptions.
               </p>
             </div>
 
@@ -86,7 +84,7 @@ export default function HomePage() {
               href="/sandboxes"
               className="text-sm font-medium text-slate-700"
             >
-              View all →
+              View all sandboxes →
             </Link>
           </div>
 
@@ -107,9 +105,10 @@ export default function HomePage() {
                 A simple intervention value model
               </h2>
               <p className="mt-3 max-w-3xl text-slate-600">
-                The sandboxes are built around a simple question: what would need
-                to be true for this intervention to create value? In practice that
-                usually comes down to scale, risk, effect size, and delivery cost.
+                The sandboxes are built around a simple question: what would
+                need to be true for this intervention to create value? In
+                practice, that usually comes down to scale, risk, effect size,
+                and delivery cost.
               </p>
             </div>
 
@@ -142,9 +141,31 @@ export default function HomePage() {
           </div>
         </section>
 
-        <RoutesGrid />
+        <section>
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                Routes to system value
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                A shared way of framing impact
+              </h2>
+              <p className="mt-3 max-w-3xl text-slate-600">
+                The lab organises interventions around recurring ways healthcare
+                systems create value.
+              </p>
+            </div>
 
-        <EmbeddedSandboxPreview />
+            <Link
+              href="/framework"
+              className="text-sm font-medium text-slate-700"
+            >
+              View framework →
+            </Link>
+          </div>
+
+          <RoutesGrid />
+        </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -156,9 +177,9 @@ export default function HomePage() {
                 From idea to decision
               </h2>
               <p className="mt-3 max-w-3xl text-slate-600">
-                The lab is designed to help structure an intervention idea,
-                translate it into assumptions, test uncertainty, and clarify
-                what would need to be true for value to appear.
+                The lab helps structure an intervention idea, translate it into
+                assumptions, test uncertainty, and clarify what would need to be
+                true for value to appear.
               </p>
             </div>
 
@@ -166,7 +187,7 @@ export default function HomePage() {
               href="/how-to-use"
               className="text-sm font-medium text-slate-700"
             >
-              View walkthrough →
+              See how it works →
             </Link>
           </div>
         </section>
