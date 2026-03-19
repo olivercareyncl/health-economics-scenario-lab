@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
@@ -13,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { formatCurrency, formatNumber } from "@/lib/safestep/formatters";
-import type { YearlyResultRow } from "@/lib/safestep/types";
+import type { UncertaintyRow, YearlyResultRow } from "@/lib/safestep/types";
 
 type YearlyChartRow = {
   year: string;
@@ -22,12 +23,28 @@ type YearlyChartRow = {
   cumulativeGrossSavings: number;
 };
 
+type UncertaintyChartRow = {
+  case: string;
+  discountedCostPerQaly: number;
+  decisionStatus: string;
+};
+
 function buildYearlyChartData(yearlyResults: YearlyResultRow[]): YearlyChartRow[] {
   return yearlyResults.map((row) => ({
     year: `Year ${row.year}`,
     fallsAvoided: row.falls_avoided,
     cumulativeProgrammeCost: row.cumulative_programme_cost,
     cumulativeGrossSavings: row.cumulative_gross_savings,
+  }));
+}
+
+function buildUncertaintyChartData(
+  uncertaintyRows: UncertaintyRow[],
+): UncertaintyChartRow[] {
+  return uncertaintyRows.map((row) => ({
+    case: row.case,
+    discountedCostPerQaly: row.discounted_cost_per_qaly,
+    decisionStatus: row.decision_status,
   }));
 }
 
@@ -193,6 +210,92 @@ export function CostVsSavingsChart({
             />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+export function BoundedUncertaintyChart({
+  uncertaintyRows,
+  threshold,
+}: {
+  uncertaintyRows: UncertaintyRow[];
+  threshold: number;
+}) {
+  const data = buildUncertaintyChartData(uncertaintyRows);
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold tracking-tight text-slate-900">
+          Bounded uncertainty on discounted cost per QALY
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Compares low, base, and high cases against the current threshold.
+        </p>
+      </div>
+
+      <div className="h-64 w-full md:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis
+              dataKey="case"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
+            <YAxis
+              tickFormatter={(value) => {
+                const numeric = Number(value);
+                if (Math.abs(numeric) >= 1000) {
+                  return `£${(numeric / 1000).toFixed(0)}k`;
+                }
+                return formatCurrency(numeric);
+              }}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={56}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Bar
+              dataKey="discountedCostPerQaly"
+              name="Discounted cost per QALY"
+              radius={[8, 8, 0, 0]}
+            >
+              {data.map((entry) => {
+                const belowThreshold = entry.discountedCostPerQaly <= threshold;
+                return (
+                  <Cell
+                    key={`cell-${entry.case}`}
+                    fill={belowThreshold ? "#0f172a" : "#94a3b8"}
+                  />
+                );
+              })}
+            </Bar>
+            <Line
+              type="monotone"
+              dataKey={() => threshold}
+              name="Threshold"
+              strokeWidth={2}
+              dot={false}
+              stroke="#c2410c"
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+          Dark bars = at or below threshold
+        </span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+          Light bars = above threshold
+        </span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+          Orange line = current threshold
+        </span>
       </div>
     </div>
   );
