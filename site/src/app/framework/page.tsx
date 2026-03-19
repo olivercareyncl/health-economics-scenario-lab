@@ -49,22 +49,22 @@ const routes = [
 
 export default function FrameworkPage() {
   return (
-    <div className="mx-auto max-w-5xl px-6 py-16">
+    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 md:py-16">
       <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
         Framework
       </p>
-      <h1 className="mt-4 text-4xl font-semibold tracking-tight">
+      <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
         The intervention value model
       </h1>
-      <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+      <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
         Most healthcare interventions can be explored using the same broad
         structure: a population at risk, an intervention applied to part of that
         population, a change in events, and a resulting effect on cost and
         value.
       </p>
 
-      <section className="mt-12 space-y-10">
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+      <section className="mt-12 space-y-8 md:space-y-10">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">Core question</h2>
           <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             The key question is not simply whether an intervention sounds
@@ -79,7 +79,7 @@ export default function FrameworkPage() {
           </p>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">Seven routes to system value</h2>
           <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             The sandboxes are organised around recurring ways healthcare systems
@@ -88,7 +88,7 @@ export default function FrameworkPage() {
             underlying mechanisms.
           </p>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             {routes.map((route) => {
               const Icon = route.icon;
               return (
@@ -239,7 +239,7 @@ export default function FrameworkPage() {
           </details>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">The intervention value model</h2>
           <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             Across the lab, value is explored through a shared model. A
@@ -252,39 +252,78 @@ export default function FrameworkPage() {
             assumptions, and see where a case is strong or fragile.
           </p>
 
-          <div className="mt-8 overflow-x-auto">
-            <div className="min-w-[980px] rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-4">
-                <ModelStep
-                  title="Population"
-                  body="Define the eligible population and the proportion reached."
-                />
-                <Arrow />
-                <ModelStep
-                  title="Risk"
-                  body="Estimate baseline event risk without intervention."
-                />
-                <Arrow />
-                <ModelStep
-                  title="Effect size"
-                  body="Model the expected reduction in events."
-                />
-                <Arrow />
-                <ModelStep
-                  title="Impact and value"
-                  body="Translate events avoided into savings, cost, and net value."
-                />
-              </div>
+          <div className="mt-8">
+            <div className="block md:hidden">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <div className="space-y-4">
+                  <ModelStep
+                    title="Population"
+                    body="Define the eligible population and the proportion reached."
+                  />
+                  <ArrowVertical />
+                  <ModelStep
+                    title="Risk"
+                    body="Estimate baseline event risk without intervention."
+                  />
+                  <ArrowVertical />
+                  <ModelStep
+                    title="Effect size"
+                    body="Model the expected reduction in events."
+                  />
+                  <ArrowVertical />
+                  <ModelStep
+                    title="Impact and value"
+                    body="Translate events avoided into savings, cost, and net value."
+                  />
+                </div>
 
-              <div className="mt-6 grid grid-cols-4 gap-4">
-                <MiniMetric label="Population at risk" />
-                <MiniMetric label="Coverage" />
-                <MiniMetric label="Baseline event risk" />
-                <MiniMetric label="Effect size" />
-                <MiniMetric label="Events avoided" />
-                <MiniMetric label="Gross savings" />
-                <MiniMetric label="Intervention cost" />
-                <MiniMetric label="Net value" />
+                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <MiniMetric label="Population at risk" />
+                  <MiniMetric label="Coverage" />
+                  <MiniMetric label="Baseline event risk" />
+                  <MiniMetric label="Effect size" />
+                  <MiniMetric label="Events avoided" />
+                  <MiniMetric label="Gross savings" />
+                  <MiniMetric label="Intervention cost" />
+                  <MiniMetric label="Net value" />
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <div className="min-w-[980px] rounded-2xl border border-slate-200 bg-white p-6">
+                <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-4">
+                  <ModelStep
+                    title="Population"
+                    body="Define the eligible population and the proportion reached."
+                  />
+                  <Arrow />
+                  <ModelStep
+                    title="Risk"
+                    body="Estimate baseline event risk without intervention."
+                  />
+                  <Arrow />
+                  <ModelStep
+                    title="Effect size"
+                    body="Model the expected reduction in events."
+                  />
+                  <Arrow />
+                  <ModelStep
+                    title="Impact and value"
+                    body="Translate events avoided into savings, cost, and net value."
+                  />
+                </div>
+
+                <div className="mt-6 grid grid-cols-4 gap-4">
+                  <MiniMetric label="Population at risk" />
+                  <MiniMetric label="Coverage" />
+                  <MiniMetric label="Baseline event risk" />
+                  <MiniMetric label="Effect size" />
+                  <MiniMetric label="Events avoided" />
+                  <MiniMetric label="Gross savings" />
+                  <MiniMetric label="Intervention cost" />
+                  <MiniMetric label="Net value" />
+                </div>
               </div>
             </div>
           </div>
@@ -389,7 +428,7 @@ export default function FrameworkPage() {
           </details>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">From idea to decision</h2>
           <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             The framework is applied across the live library of sandboxes. Each
@@ -413,7 +452,7 @@ export default function FrameworkPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">Boundaries of use</h2>
           <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             These tools are exploratory and illustrative. They are designed to
@@ -482,6 +521,32 @@ function Arrow() {
       >
         <path
           d="M1 6H25M25 6L20 1M25 6L20 11"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function ArrowVertical() {
+  return (
+    <div
+      className="flex items-center justify-center text-slate-300"
+      aria-hidden="true"
+    >
+      <svg
+        width="12"
+        height="28"
+        viewBox="0 0 12 28"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="block"
+      >
+        <path
+          d="M6 1V25M6 25L1 20M6 25L11 20"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
