@@ -262,6 +262,43 @@ export default function FrameworkPage() {
             assumptions, and see where a case is strong or fragile.
           </p>
 
+          <div className="mt-8 overflow-x-auto">
+            <div className="min-w-[980px] rounded-2xl border border-slate-200 bg-white p-6">
+              <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-4">
+                <ModelStep
+                  title="Population"
+                  body="Define the eligible population and the proportion reached."
+                />
+                <Arrow />
+                <ModelStep
+                  title="Risk"
+                  body="Estimate baseline event risk without intervention."
+                />
+                <Arrow />
+                <ModelStep
+                  title="Effect size"
+                  body="Model the expected reduction in events."
+                />
+                <Arrow />
+                <ModelStep
+                  title="Impact and value"
+                  body="Translate events avoided into savings, cost, and net value."
+                />
+              </div>
+
+              <div className="mt-6 grid grid-cols-4 gap-4">
+                <MiniMetric label="Population at risk" />
+                <MiniMetric label="Coverage" />
+                <MiniMetric label="Baseline event risk" />
+                <MiniMetric label="Effect size" />
+                <MiniMetric label="Events avoided" />
+                <MiniMetric label="Gross savings" />
+                <MiniMetric label="Intervention cost" />
+                <MiniMetric label="Net value" />
+              </div>
+            </div>
+          </div>
+
           <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-700">
             {modelSteps.map((item) => (
               <span
@@ -421,6 +458,57 @@ export default function FrameworkPage() {
           </div>
         </section>
       </section>
+    </div>
+  );
+}
+
+function ModelStep({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-medium uppercase tracking-[0.14em] text-slate-500">
+        {title}
+      </p>
+      <p className="mt-2 text-sm leading-7 text-slate-700">{body}</p>
+    </div>
+  );
+}
+
+function MiniMetric({ label }: { label: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+      {label}
+    </div>
+  );
+}
+
+function Arrow() {
+  return (
+    <div
+      className="flex items-center justify-center text-slate-300"
+      aria-hidden="true"
+    >
+      <svg
+        width="28"
+        height="12"
+        viewBox="0 0 28 12"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="block"
+      >
+        <path
+          d="M1 6H25M25 6L20 1M25 6L20 11"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
     </div>
   );
 }
