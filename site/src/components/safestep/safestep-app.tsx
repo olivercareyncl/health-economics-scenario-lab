@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   RotateCcw,
   ChevronDown,
@@ -9,40 +9,342 @@ import {
   FileSearch,
 } from "lucide-react";
 import {
-  runModel,
-  runBoundedUncertainty,
-  getDecisionStatus,
-  getNetCostLabel,
-  getMainDriverText,
-  generateInterpretation,
-} from "@/lib/safestep/model";
-import {
   formatCurrency,
   formatNumber,
   formatPercent,
 } from "@/lib/safestep/formatters";
+import type { UncertaintyRow, YearlyResultRow } from "@/lib/safestep/types";
 import {
-  DEFAULT_INPUTS,
-  COSTING_METHOD_OPTIONS,
-  TARGETING_MODE_OPTIONS,
-} from "@/lib/safestep/constants";
-import {
-  DiscountedImpactChart,
-  FallsAvoidedByYearChart,
+  FallsAvoidedChart,
+  CostVsSavingsChart,
   BoundedUncertaintyChart,
 } from "@/components/safestep/safestep-charts";
 
-type Inputs = typeof DEFAULT_INPUTS;
+type Inputs = {
+  targeting_mode: "Universal" | "Risk-targeted" | "High-risk only";
+  costing_method: "Admission costs only" | "Admission + bed days";
+  eligible_population: number;
+  annual_fall_risk: number;
+  intervention_cost_per_person: number;
+  relative_risk_reduction: number;
+  time_horizon_years: 1 | 3 | 5;
+  uptake_rate: number;
+  adherence_rate: number;
+  participation_dropoff_rate: number;
+  effect_decay_rate: number;
+  admission_rate_after_fall: number;
+  average_length_of_stay: number;
+  cost_per_admission: number;
+  cost_per_bed_day: number;
+  qaly_loss_per_serious_fall: number;
+  cost_effectiveness_threshold: number;
+  discount_rate: number;
+};
+
 type MobileTab = "summary" | "assumptions" | "analysis";
 
 type AssumptionSectionKey =
-  | "quick"
   | "advanced-delivery"
   | "advanced-risk"
   | "advanced-economics";
 
+type ModelResults = {
+  falls_avoided_total: number;
+  admissions_avoided_total: number;
+  bed_days_avoided_total: number;
+  discounted_programme_cost_total: number;
+  discounted_gross_savings_total: number;
+  discounted_net_cost_total: number;
+  discounted_qalys_gained_total: number;
+  discounted_cost_per_qaly: number;
+  yearly_results: YearlyResultRow[];
+};
+
+const DEFAULT_INPUTS: Inputs = {
+  targeting_mode: "Risk-targeted",
+  costing_method: "Admission + bed days",
+  eligible_population: 5000,
+  annual_fall_risk: 0.24,
+  intervention_cost_per_person: 180,
+  relative_risk_reduction: 0.18,
+  time_horizon_years: 3,
+  uptake_rate: 0.7,
+  adherence_rate: 0.75,
+  participation_dropoff_rate: 0.08,
+  effect_decay_rate: 0.06,
+  admission_rate_after_fall: 0.22,
+  average_length_of_stay: 7,
+  cost_per_admission: 3200,
+  cost_per_bed_day: 420,
+  qaly_loss_per_serious_fall: 0.055,
+  cost_effectiveness_threshold: 20000,
+  discount_rate: 0.035,
+};
+
+const COSTING_METHOD_OPTIONS: readonly Inputs["costing_method"][] = [
+  "Admission costs only",
+  "Admission + bed days",
+];
+
+const TARGETING_MODE_OPTIONS: readonly Inputs["targeting_mode"][] = [
+  "Universal",
+  "Risk-targeted",
+  "High-risk only",
+];
+
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function clamp(value: number, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function round(value: number) {
+  return Number.isFinite(value) ? Math.round(value) : 0;
+}
+
+function getTargetingMultiplier(mode: Inputs["targeting_mode"]) {
+  switch (mode) {
+    case "Universal":
+      return 0.9;
+    case "Risk-targeted":
+      return 1;
+    case "High-risk only":
+      return 1.15;
+    default:
+      return 1;
+  }
+}
+
+function runModel(inputs: Inputs): ModelResults {
+  const yearlyResults: YearlyResultRow[] = [];
+
+  let cumulativeProgrammeCost = 0;
+  let cumulativeGrossSavings = 0;
+  let discountedFallsAvoidedTotal = 0;
+  let discountedAdmissionsAvoidedTotal = 0;
+  let discountedBedDaysAvoidedTotal = 0;
+  let discountedQalysTotal = 0;
+
+  const targetingMultiplier = getTargetingMultiplier(inputs.targeting_mode);
+
+  for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
+    const participants =
+      inputs.eligible_population *
+      inputs.uptake_rate *
+      inputs.adherence_rate *
+      Math.pow(1 - inputs.participation_dropoff_rate, year - 1);
+
+    const effectiveRiskReduction =
+      inputs.relative_risk_reduction *
+      Math.pow(1 - inputs.effect_decay_rate, year - 1) *
+      targetingMultiplier;
+
+    const fallsAvoidedRaw =
+      participants * inputs.annual_fall_risk * clamp(effectiveRiskReduction, 0, 1);
+
+    const admissionsAvoidedRaw =
+      fallsAvoidedRaw * clamp(inputs.admission_rate_after_fall, 0, 1);
+
+    const bedDaysAvoidedRaw =
+      admissionsAvoidedRaw * Math.max(0, inputs.average_length_of_stay);
+
+    const programmeCostRaw =
+      participants * Math.max(0, inputs.intervention_cost_per_person);
+
+    const grossSavingsRaw =
+      inputs.costing_method === "Admission + bed days"
+        ? admissionsAvoidedRaw * inputs.cost_per_admission +
+          bedDaysAvoidedRaw * inputs.cost_per_bed_day
+        : admissionsAvoidedRaw * inputs.cost_per_admission;
+
+    const discountFactor = 1 / Math.pow(1 + inputs.discount_rate, year - 1);
+
+    const fallsAvoidedDiscounted = fallsAvoidedRaw * discountFactor;
+    const admissionsAvoidedDiscounted = admissionsAvoidedRaw * discountFactor;
+    const bedDaysAvoidedDiscounted = bedDaysAvoidedRaw * discountFactor;
+    const programmeCostDiscounted = programmeCostRaw * discountFactor;
+    const grossSavingsDiscounted = grossSavingsRaw * discountFactor;
+    const qalysDiscounted =
+      fallsAvoidedRaw *
+      Math.max(0, inputs.qaly_loss_per_serious_fall) *
+      discountFactor;
+
+    discountedFallsAvoidedTotal += fallsAvoidedDiscounted;
+    discountedAdmissionsAvoidedTotal += admissionsAvoidedDiscounted;
+    discountedBedDaysAvoidedTotal += bedDaysAvoidedDiscounted;
+    discountedQalysTotal += qalysDiscounted;
+
+    cumulativeProgrammeCost += programmeCostDiscounted;
+    cumulativeGrossSavings += grossSavingsDiscounted;
+
+    yearlyResults.push({
+      year,
+      falls_avoided: round(fallsAvoidedDiscounted),
+      cumulative_programme_cost: cumulativeProgrammeCost,
+      cumulative_gross_savings: cumulativeGrossSavings,
+    });
+  }
+
+  const discountedNetCostTotal = cumulativeProgrammeCost - cumulativeGrossSavings;
+  const discountedCostPerQaly =
+    discountedQalysTotal > 0
+      ? discountedNetCostTotal / discountedQalysTotal
+      : Number.POSITIVE_INFINITY;
+
+  return {
+    falls_avoided_total: round(discountedFallsAvoidedTotal),
+    admissions_avoided_total: round(discountedAdmissionsAvoidedTotal),
+    bed_days_avoided_total: round(discountedBedDaysAvoidedTotal),
+    discounted_programme_cost_total: cumulativeProgrammeCost,
+    discounted_gross_savings_total: cumulativeGrossSavings,
+    discounted_net_cost_total: discountedNetCostTotal,
+    discounted_qalys_gained_total: discountedQalysTotal,
+    discounted_cost_per_qaly: Number.isFinite(discountedCostPerQaly)
+      ? discountedCostPerQaly
+      : 0,
+    yearly_results: yearlyResults,
+  };
+}
+
+function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
+  const scenarios = [
+    {
+      case: "Low case",
+      riskMultiplier: 0.85,
+      effectMultiplier: 0.8,
+      costMultiplier: 1.1,
+    },
+    {
+      case: "Base case",
+      riskMultiplier: 1,
+      effectMultiplier: 1,
+      costMultiplier: 1,
+    },
+    {
+      case: "High case",
+      riskMultiplier: 1.15,
+      effectMultiplier: 1.15,
+      costMultiplier: 0.92,
+    },
+  ] as const;
+
+  return scenarios.map((scenario) => {
+    const scenarioInputs: Inputs = {
+      ...inputs,
+      annual_fall_risk: clamp(inputs.annual_fall_risk * scenario.riskMultiplier, 0, 1),
+      relative_risk_reduction: clamp(
+        inputs.relative_risk_reduction * scenario.effectMultiplier,
+        0,
+        1,
+      ),
+      intervention_cost_per_person: Math.max(
+        0,
+        inputs.intervention_cost_per_person * scenario.costMultiplier,
+      ),
+    };
+
+    const results = runModel(scenarioInputs);
+    const decisionStatus = getDecisionStatus(
+      results,
+      inputs.cost_effectiveness_threshold,
+    );
+
+    return {
+      case: scenario.case,
+      discounted_cost_per_qaly: results.discounted_cost_per_qaly,
+      falls_avoided_total: results.falls_avoided_total,
+      decision_status: decisionStatus,
+    };
+  });
+}
+
+function getDecisionStatus(results: ModelResults, threshold: number) {
+  if (results.discounted_net_cost_total < 0) {
+    return "Appears cost-saving";
+  }
+
+  if (results.discounted_cost_per_qaly <= threshold) {
+    return "Appears cost-effective";
+  }
+
+  return "Above current threshold";
+}
+
+function getNetCostLabel(results: ModelResults) {
+  return results.discounted_net_cost_total < 0 ? "Net saving" : "Net cost";
+}
+
+function getMainDriverText(inputs: Inputs) {
+  const candidates = [
+    {
+      label: "annual fall risk",
+      score: inputs.annual_fall_risk,
+    },
+    {
+      label: "reduction in falls",
+      score: inputs.relative_risk_reduction,
+    },
+    {
+      label: "cost per participant",
+      score: inputs.intervention_cost_per_person / 1000,
+    },
+    {
+      label: "uptake and adherence",
+      score: inputs.uptake_rate * inputs.adherence_rate,
+    },
+  ];
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.label ?? "the core programme assumptions";
+}
+
+function generateInterpretation(
+  results: ModelResults,
+  inputs: Inputs,
+  uncertainty: UncertaintyRow[],
+) {
+  const decisionStatus = getDecisionStatus(
+    results,
+    inputs.cost_effectiveness_threshold,
+  );
+  const baseCase = uncertainty.find((row) => row.case === "Base case");
+  const worstCase = uncertainty.find((row) => row.case === "Low case");
+  const bestCase = uncertainty.find((row) => row.case === "High case");
+
+  const whatModelSuggests =
+    decisionStatus === "Appears cost-saving"
+      ? "The base case suggests the programme could save more than it costs while reducing falls and admissions."
+      : decisionStatus === "Appears cost-effective"
+        ? "The base case suggests the programme may be economically reasonable at the current threshold."
+        : "The base case currently sits above the threshold, so value depends on stronger impact or lower delivery cost.";
+
+  const whatDrivesResult = `The result is mainly shaped by fall risk, treatment effect, uptake, and the delivery cost per participant.`;
+
+  const uncertaintySignal =
+    worstCase && bestCase
+      ? worstCase.decision_status === bestCase.decision_status
+        ? "The uncertainty range is directionally stable across the bounded scenarios."
+        : "The uncertainty range crosses decision boundaries, so the case is sensitive to modest assumption changes."
+      : "The uncertainty range should be treated cautiously.";
+
+  const whatLooksFragile =
+    baseCase && baseCase.discounted_cost_per_qaly > inputs.cost_effectiveness_threshold * 0.85
+      ? "The economic case looks finely balanced around the threshold, so small shifts in effect size or cost could change the conclusion."
+      : uncertaintySignal;
+
+  const whatToValidateNext =
+    inputs.intervention_cost_per_person > inputs.cost_per_admission
+      ? "Validate delivery cost realism and likely uptake before leaning on the result."
+      : "Validate achievable effect size, uptake, and the share of falls that truly translate into avoided admissions.";
+
+  return {
+    what_model_suggests: whatModelSuggests,
+    what_drives_result: whatDrivesResult,
+    what_looks_fragile: whatLooksFragile,
+    what_to_validate_next: whatToValidateNext,
+  };
 }
 
 function MobileAccordion({
@@ -52,7 +354,7 @@ function MobileAccordion({
 }: {
   title: string;
   defaultOpen?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -68,12 +370,12 @@ function MobileAccordion({
         <ChevronDown
           className={cx(
             "h-4 w-4 text-slate-500 transition-transform",
-            open && "rotate-180"
+            open && "rotate-180",
           )}
         />
       </button>
 
-      {open && <div className="border-t border-slate-200 p-4">{children}</div>}
+      {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
     </div>
   );
 }
@@ -86,8 +388,8 @@ function SectionCard({
 }: {
   title: string;
   description?: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section className="rounded-3xl border border-slate-200 bg-slate-50 p-5 md:p-6">
@@ -126,7 +428,7 @@ function MetricCard({
       <p
         className={cx(
           "mt-2 tracking-tight text-slate-950",
-          tone === "strong" ? "text-2xl font-semibold" : "text-xl font-medium"
+          tone === "strong" ? "text-2xl font-semibold" : "text-xl font-medium",
         )}
       >
         {value}
@@ -160,8 +462,8 @@ function MobileTabButton({
 }: {
   active: boolean;
   onClick: () => void;
-  icon: React.ReactNode;
-  children: React.ReactNode;
+  icon: ReactNode;
+  children: ReactNode;
 }) {
   return (
     <button
@@ -171,7 +473,7 @@ function MobileTabButton({
         "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition",
         active
           ? "bg-slate-900 text-white"
-          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
       )}
     >
       {icon}
@@ -310,9 +612,9 @@ export default function SafeStepApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-
-  const [openSections, setOpenSections] = useState<Record<AssumptionSectionKey, boolean>>({
-    quick: true,
+  const [openSections, setOpenSections] = useState<
+    Record<AssumptionSectionKey, boolean>
+  >({
     "advanced-delivery": false,
     "advanced-risk": false,
     "advanced-economics": false,
@@ -323,14 +625,14 @@ export default function SafeStepApp() {
 
   const decisionStatus = useMemo(
     () => getDecisionStatus(results, inputs.cost_effectiveness_threshold),
-    [results, inputs.cost_effectiveness_threshold]
+    [results, inputs.cost_effectiveness_threshold],
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
   const mainDriver = useMemo(() => getMainDriverText(inputs), [inputs]);
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty),
-    [results, inputs, uncertainty]
+    [results, inputs, uncertainty],
   );
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
@@ -338,10 +640,9 @@ export default function SafeStepApp() {
   };
 
   const resetToBaseCase = () => {
-    setInputs(DEFAULT_INPUTS);
+    setInputs({ ...DEFAULT_INPUTS });
     setShowAdvancedMobile(false);
     setOpenSections({
-      quick: true,
       "advanced-delivery": false,
       "advanced-risk": false,
       "advanced-economics": false,
@@ -452,7 +753,9 @@ export default function SafeStepApp() {
           label="Time horizon"
           value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
           options={["1", "3", "5"]}
-          onChange={(value) => updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)}
+          onChange={(value) =>
+            updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
+          }
           help="Longer horizons can change the economic picture materially."
         />
       </div>
@@ -474,12 +777,12 @@ export default function SafeStepApp() {
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
-              openSections["advanced-delivery"] && "rotate-180"
+              openSections["advanced-delivery"] && "rotate-180",
             )}
           />
         </button>
 
-        {openSections["advanced-delivery"] && (
+        {openSections["advanced-delivery"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 md:grid-cols-2">
               <SliderInput
@@ -503,7 +806,9 @@ export default function SafeStepApp() {
               <SliderInput
                 label="Annual participation drop-off"
                 value={inputs.participation_dropoff_rate}
-                onChange={(value) => updateInput("participation_dropoff_rate", value)}
+                onChange={(value) =>
+                  updateInput("participation_dropoff_rate", value)
+                }
                 min={0}
                 max={0.5}
                 step={0.01}
@@ -520,7 +825,7 @@ export default function SafeStepApp() {
               />
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -536,12 +841,12 @@ export default function SafeStepApp() {
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
-              openSections["advanced-risk"] && "rotate-180"
+              openSections["advanced-risk"] && "rotate-180",
             )}
           />
         </button>
 
-        {openSections["advanced-risk"] && (
+        {openSections["advanced-risk"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 md:grid-cols-2">
               <SliderInput
@@ -561,7 +866,7 @@ export default function SafeStepApp() {
               />
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -577,12 +882,12 @@ export default function SafeStepApp() {
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
-              openSections["advanced-economics"] && "rotate-180"
+              openSections["advanced-economics"] && "rotate-180",
             )}
           />
         </button>
 
-        {openSections["advanced-economics"] && (
+        {openSections["advanced-economics"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 md:grid-cols-2">
               <NumberInput
@@ -600,7 +905,9 @@ export default function SafeStepApp() {
               <NumberInput
                 label="QALY loss per serious fall"
                 value={inputs.qaly_loss_per_serious_fall}
-                onChange={(value) => updateInput("qaly_loss_per_serious_fall", value)}
+                onChange={(value) =>
+                  updateInput("qaly_loss_per_serious_fall", value)
+                }
                 step={0.01}
               />
               <NumberInput
@@ -619,7 +926,7 @@ export default function SafeStepApp() {
               />
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -665,32 +972,30 @@ export default function SafeStepApp() {
   const desktopCharts = (
     <div className="hidden gap-6 lg:grid">
       <div className="grid gap-6 xl:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 md:p-5">
-          <DiscountedImpactChart results={results} />
-        </div>
-        <div className="rounded-3xl border border-slate-200 bg-white p-4 md:p-5">
-          <FallsAvoidedByYearChart yearlyResults={results.yearly_results} />
-        </div>
+        <FallsAvoidedChart yearlyResults={results.yearly_results} />
+        <CostVsSavingsChart yearlyResults={results.yearly_results} />
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-4 md:p-5">
-        <BoundedUncertaintyChart uncertainty={uncertainty} />
-      </div>
+      <BoundedUncertaintyChart
+        uncertaintyRows={uncertainty}
+        threshold={inputs.cost_effectiveness_threshold}
+      />
     </div>
   );
 
   const mobileCharts = (
     <div className="space-y-4 lg:hidden">
-      <div className="rounded-3xl border border-slate-200 bg-white p-4">
-        <DiscountedImpactChart results={results} />
-      </div>
+      <FallsAvoidedChart yearlyResults={results.yearly_results} />
 
-      <MobileAccordion title="Falls avoided over time">
-        <FallsAvoidedByYearChart yearlyResults={results.yearly_results} />
+      <MobileAccordion title="Programme cost vs savings">
+        <CostVsSavingsChart yearlyResults={results.yearly_results} />
       </MobileAccordion>
 
       <MobileAccordion title="Bounded uncertainty">
-        <BoundedUncertaintyChart uncertainty={uncertainty} />
+        <BoundedUncertaintyChart
+          uncertaintyRows={uncertainty}
+          threshold={inputs.cost_effectiveness_threshold}
+        />
       </MobileAccordion>
     </div>
   );
@@ -776,7 +1081,7 @@ export default function SafeStepApp() {
                   decisionStatus === "Appears cost-effective" &&
                     "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
                   decisionStatus === "Above current threshold" &&
-                    "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                    "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
                 )}
               >
                 {decisionStatus}
@@ -833,7 +1138,7 @@ export default function SafeStepApp() {
                   <ChevronDown
                     className={cx(
                       "h-4 w-4 text-slate-500 transition-transform",
-                      showAdvancedMobile && "rotate-180"
+                      showAdvancedMobile && "rotate-180",
                     )}
                   />
                 </button>
