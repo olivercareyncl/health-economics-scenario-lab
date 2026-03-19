@@ -377,7 +377,7 @@ export default function FrameworkPage() {
           <h2 className="text-xl font-semibold">From idea to decision</h2>
           <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             The framework is applied across the live library of sandboxes. Each
-            module explores a different intervention archetype, such as falls
+            module explores a different intervention context, such as falls
             prevention, earlier diagnosis, waiting list strategy, pathway
             redesign, frailty support, or cardiovascular prevention.
           </p>
@@ -392,7 +392,7 @@ export default function FrameworkPage() {
               href="/how-to-use"
               className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
             >
-              View decision walkthroughs
+              See how it works
             </Link>
           </div>
         </section>
