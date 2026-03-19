@@ -3,11 +3,10 @@ import {
   ArrowRightLeft,
   BrainCircuit,
   Clock3,
-  GitBranch,
-  Layers3,
+  HeartPulse,
   Search,
   ShieldPlus,
-  Sparkles,
+  Workflow,
 } from "lucide-react";
 
 const routes = [
@@ -24,7 +23,7 @@ const routes = [
   {
     name: "Stabilise Risk",
     description: "Reduce deterioration and unplanned activity.",
-    icon: Sparkles,
+    icon: HeartPulse,
   },
   {
     name: "Improve Access",
@@ -34,7 +33,7 @@ const routes = [
   {
     name: "Redesign Flow",
     description: "Remove inefficiency within pathways.",
-    icon: GitBranch,
+    icon: Workflow,
   },
   {
     name: "Shift Care Setting",
@@ -59,23 +58,6 @@ const modelSteps = [
   "Net system value",
 ] as const;
 
-function SectionHeading({
-  icon: Icon,
-  title,
-}: {
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  title: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-700">
-        <Icon className="h-5 w-5" strokeWidth={1.8} />
-      </div>
-      <h2 className="text-xl font-semibold">{title}</h2>
-    </div>
-  );
-}
-
 export default function FrameworkPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-16">
@@ -93,8 +75,8 @@ export default function FrameworkPage() {
 
       <section className="mt-12 space-y-10">
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <SectionHeading icon={Sparkles} title="Core question" />
-          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+          <h2 className="text-xl font-semibold">Core question</h2>
+          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             The key question is not simply whether an intervention sounds
             worthwhile, but what would need to be true for it to generate value
             in a real system.
@@ -108,8 +90,8 @@ export default function FrameworkPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <SectionHeading icon={Layers3} title="Seven routes to system value" />
-          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+          <h2 className="text-xl font-semibold">Seven routes to system value</h2>
+          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             The sandboxes are organised around recurring ways healthcare systems
             create value. Different interventions may look very different in
             practice, but they often work through the same small number of
@@ -144,8 +126,8 @@ export default function FrameworkPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <SectionHeading icon={GitBranch} title="The intervention value model" />
-          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+          <h2 className="text-xl font-semibold">The intervention value model</h2>
+          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             Across the lab, value is explored through a shared model. A
             population is defined, baseline risk is estimated, an intervention
             is applied, and the effect on events, system savings, and delivery
@@ -166,11 +148,110 @@ export default function FrameworkPage() {
               </span>
             ))}
           </div>
+
+          <details className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 group">
+            <summary className="cursor-pointer list-none text-sm font-medium text-slate-800">
+              <span className="inline-flex items-center gap-2">
+                Read more about the intervention value model
+                <span className="text-slate-400 transition group-open:rotate-180">
+                  ↓
+                </span>
+              </span>
+            </summary>
+
+            <div className="mt-5 space-y-6 text-slate-600">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  1. Defining scale: population and coverage
+                </h3>
+                <p className="mt-2 leading-8">
+                  The model begins with the population at risk: the total group
+                  eligible for an intervention. Because no service reaches every
+                  patient, the model then applies an intervention coverage
+                  assumption, representing the realistic proportion of that
+                  population the programme is expected to reach.
+                </p>
+                <p className="mt-2 leading-8">
+                  Together, these assumptions define the practical ceiling for
+                  the intervention’s impact.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  2. Measuring potential: baseline risk and effect size
+                </h3>
+                <p className="mt-2 leading-8">
+                  Once scale is defined, the model considers baseline event
+                  risk: the expected frequency of the negative outcome without
+                  intervention. That might be a fall, an admission, a crisis
+                  event, or another form of system activity.
+                </p>
+                <p className="mt-2 leading-8">
+                  Effect size then represents the anticipated reduction in those
+                  events attributable to the intervention. This allows users to
+                  test whether value depends more on targeting high-risk groups,
+                  achieving a strong effect, or some combination of both.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  3. Calculating impact: events avoided and gross savings
+                </h3>
+                <p className="mt-2 leading-8">
+                  The interaction between scale, risk, and effect produces the
+                  modelled number of events avoided. This is the primary system
+                  impact measure.
+                </p>
+                <p className="mt-2 leading-8">
+                  To translate that impact into economic terms, the model
+                  applies a cost per event. This produces gross system savings:
+                  the estimated avoided cost associated with reducing activity.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  4. The economic reality: intervention cost and net value
+                </h3>
+                <p className="mt-2 leading-8">
+                  The model then introduces intervention cost, representing the
+                  resource required to deliver the programme at the chosen
+                  scale.
+                </p>
+                <p className="mt-2 leading-8">
+                  Net value is the result of gross savings minus intervention
+                  cost. This gives a bottom-line view of whether the
+                  intervention appears cost-saving, cost-neutral, or likely to
+                  require net investment under the selected assumptions.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Why this matters for strategy
+                </h3>
+                <p className="mt-2 leading-8">
+                  The purpose of the model is not to produce a single definitive
+                  answer. It is to create a decision sandbox in which strategy
+                  teams can test assumptions, explore break-even points, and
+                  clarify the specific conditions required for value to appear.
+                </p>
+                <p className="mt-2 leading-8">
+                  In practice, that means making it easier to ask better
+                  questions earlier: how much effect is needed, how much cost is
+                  tolerable, where the fragility sits, and what should be
+                  validated next.
+                </p>
+              </div>
+            </div>
+          </details>
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <SectionHeading icon={ArrowRightLeft} title="From idea to decision" />
-          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+          <h2 className="text-xl font-semibold">From idea to decision</h2>
+          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             The framework is applied across the live library of sandboxes. Each
             module explores a different intervention archetype, such as falls
             prevention, earlier diagnosis, waiting list strategy, pathway
@@ -193,8 +274,8 @@ export default function FrameworkPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <SectionHeading icon={BrainCircuit} title="Boundaries of use" />
-          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+          <h2 className="text-xl font-semibold">Boundaries of use</h2>
+          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             These tools are exploratory and illustrative. They are designed to
             support earlier-stage thinking and make assumptions more transparent,
             not to replace formal economic evaluation or local validation.
