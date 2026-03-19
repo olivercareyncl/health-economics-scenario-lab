@@ -19,7 +19,10 @@ export default function SandboxCard({ app }: { app: AppItem }) {
       <h3 className="mt-4 text-lg font-semibold tracking-tight text-slate-900 md:text-xl">
         {app.name}
       </h3>
-      <p className="mt-1 text-sm text-slate-500">{app.descriptor}</p>
+
+      <p className="mt-1 hidden text-sm text-slate-500 md:block">
+        {app.descriptor}
+      </p>
 
       <div className="mt-5">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
