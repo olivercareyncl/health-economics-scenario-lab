@@ -2,6 +2,7 @@ import Link from "next/link";
 import DemoSlider from "@/components/demo-slider";
 import RoutesGrid from "@/components/routes-grid";
 import SandboxCard from "@/components/sandbox-card";
+import EmbeddedSandboxPreview from "@/components/embedded-sandbox-preview";
 import { apps, GITHUB_URL } from "@/data/apps";
 
 export default function HomePage() {
@@ -63,6 +64,7 @@ export default function HomePage() {
       <div className="space-y-20">
         <DemoSlider />
         <RoutesGrid />
+        <EmbeddedSandboxPreview />
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -113,7 +115,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2">
             {liveApps.map((app) => (
               <SandboxCard key={app.slug} app={app} />
             ))}
