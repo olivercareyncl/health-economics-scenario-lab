@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Github, Layers3, LayoutGrid, Route } from "lucide-react";
 import DemoSlider from "@/components/demo-slider";
 import RoutesGrid from "@/components/routes-grid";
 import SandboxCard from "@/components/sandbox-card";
@@ -30,26 +31,30 @@ export default function HomePage() {
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
             href="/sandboxes"
-            className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
           >
+            <LayoutGrid className="h-4 w-4" strokeWidth={1.8} />
             Explore sandboxes
           </Link>
           <Link
             href="/framework"
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
           >
+            <Layers3 className="h-4 w-4" strokeWidth={1.8} />
             View framework
           </Link>
           <Link
             href="/how-to-use"
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
           >
+            <Route className="h-4 w-4" strokeWidth={1.8} />
             How to use the lab
           </Link>
           <Link
             href={GITHUB_URL}
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700"
           >
+            <Github className="h-4 w-4" strokeWidth={1.8} />
             View GitHub
           </Link>
         </div>
