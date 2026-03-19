@@ -47,17 +47,6 @@ const routes = [
   },
 ] as const;
 
-const modelSteps = [
-  "Population at risk",
-  "Intervention coverage",
-  "Baseline event risk",
-  "Effect size",
-  "Events avoided",
-  "System savings",
-  "Intervention cost",
-  "Net system value",
-] as const;
-
 export default function FrameworkPage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-16">
@@ -70,7 +59,8 @@ export default function FrameworkPage() {
       <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
         Most healthcare interventions can be explored using the same broad
         structure: a population at risk, an intervention applied to part of that
-        population, a change in events, and a resulting effect on cost and value.
+        population, a change in events, and a resulting effect on cost and
+        value.
       </p>
 
       <section className="mt-12 space-y-10">
@@ -297,17 +287,6 @@ export default function FrameworkPage() {
                 <MiniMetric label="Net value" />
               </div>
             </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-700">
-            {modelSteps.map((item) => (
-              <span
-                key={item}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1"
-              >
-                {item}
-              </span>
-            ))}
           </div>
 
           <details className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 group">
