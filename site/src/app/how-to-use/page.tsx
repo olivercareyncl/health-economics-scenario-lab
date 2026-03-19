@@ -2,6 +2,68 @@ import Link from "next/link";
 import DemoSlider from "@/components/demo-slider";
 
 export default function HowToUsePage() {
+  const examples = [
+    {
+      tag: "Prevent Need",
+      title: "Falls prevention (SafeStep)",
+      question:
+        "Can a falls prevention programme reduce admissions and bed use enough to create value?",
+      baseCase: [
+        "population size",
+        "baseline risk",
+        "intervention reach",
+        "expected risk reduction",
+        "cost per participant",
+      ],
+      outputs: [
+        "falls avoided",
+        "admissions avoided",
+        "bed days avoided",
+        "net cost",
+        "cost per QALY",
+      ],
+      sensitivities: [
+        "effectiveness",
+        "engagement",
+        "delivery cost",
+        "targeting of higher-risk groups",
+      ],
+      signal:
+        "The programme appears valuable if it meaningfully reduces falls in a sufficiently high-risk population at a controlled delivery cost.",
+      appHref: "https://safestep-mnjcyn8idt5rrddqsmnncd.streamlit.app/",
+      appLabel: "Open sandbox",
+    },
+    {
+      tag: "Improve Access",
+      title: "Waiting list optimisation (WaitWise)",
+      question:
+        "Can waiting list interventions reduce pressure without simply shifting activity elsewhere?",
+      baseCase: [
+        "size of waiting list",
+        "proportion suitable for removal or redirection",
+        "downstream activity assumptions",
+        "delivery cost",
+      ],
+      outputs: [
+        "waiting list reduction",
+        "escalations avoided",
+        "admissions avoided",
+        "cost impact",
+        "overall value signal",
+      ],
+      sensitivities: [
+        "avoidable activity",
+        "downstream pathway costs",
+        "sustainability of change",
+      ],
+      signal:
+        "Value is created only if unnecessary activity is genuinely reduced, not redistributed.",
+      appHref:
+        "https://health-economics-scenario-lab-7nhwymodtxwru3ftvwhdoc.streamlit.app/",
+      appLabel: "Open sandbox",
+    },
+  ];
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
       <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
@@ -118,7 +180,7 @@ export default function HowToUsePage() {
               In practice
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-              Three example decision questions
+              Two example decision questions
             </h2>
 
             <p className="mt-3 hidden max-w-3xl text-slate-600 md:block">
@@ -128,91 +190,23 @@ export default function HowToUsePage() {
             </p>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-3">
-            <ExampleCard
-              tag="Prevent Need"
-              title="Falls prevention (SafeStep)"
-              question="Can a falls prevention programme reduce admissions and bed use enough to create value?"
-              baseCase={[
-                "population size",
-                "baseline risk",
-                "intervention reach",
-                "expected risk reduction",
-                "cost per participant",
-              ]}
-              outputs={[
-                "falls avoided",
-                "admissions avoided",
-                "bed days avoided",
-                "net cost",
-                "cost per QALY",
-              ]}
-              sensitivities={[
-                "effectiveness",
-                "engagement",
-                "delivery cost",
-                "targeting of higher-risk groups",
-              ]}
-              signal="The programme appears valuable if it meaningfully reduces falls in a sufficiently high-risk population at a controlled delivery cost."
-              appHref="https://safestep-mnjcyn8idt5rrddqsmnncd.streamlit.app/"
-              appLabel="Open sandbox"
-            />
+          <div className="lg:hidden">
+            <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2">
+              {examples.map((example) => (
+                <div
+                  key={example.title}
+                  className="w-[88%] min-w-[88%] snap-center sm:w-[70%] sm:min-w-[70%]"
+                >
+                  <ExampleCard {...example} />
+                </div>
+              ))}
+            </div>
+          </div>
 
-            <ExampleCard
-              tag="Improve Access"
-              title="Waiting list optimisation (WaitWise)"
-              question="Can waiting list interventions reduce pressure without simply shifting activity elsewhere?"
-              baseCase={[
-                "size of waiting list",
-                "proportion suitable for removal or redirection",
-                "downstream activity assumptions",
-                "delivery cost",
-              ]}
-              outputs={[
-                "waiting list reduction",
-                "escalations avoided",
-                "admissions avoided",
-                "cost impact",
-                "overall value signal",
-              ]}
-              sensitivities={[
-                "avoidable activity",
-                "downstream pathway costs",
-                "sustainability of change",
-              ]}
-              signal="Value is created only if unnecessary activity is genuinely reduced, not redistributed."
-              appHref="https://health-economics-scenario-lab-7nhwymodtxwru3ftvwhdoc.streamlit.app/"
-              appLabel="Open sandbox"
-            />
-
-            <ExampleCard
-              tag="Prevent Need"
-              title="Cardiovascular prevention (StableHeart)"
-              question="Can proactive cardiovascular management reduce enough recurrent events to generate value?"
-              baseCase={[
-                "eligible population",
-                "baseline event risk",
-                "reach and engagement",
-                "risk reduction",
-                "intervention cost",
-              ]}
-              outputs={[
-                "events avoided",
-                "admissions avoided",
-                "bed days avoided",
-                "net cost",
-                "cost per QALY",
-              ]}
-              sensitivities={[
-                "achievable risk reduction",
-                "sustained engagement",
-                "targeting strategy",
-                "cost per patient",
-              ]}
-              signal="The intervention creates value if risk reduction is real, sustained, and concentrated in higher-risk patients."
-              appHref="https://health-economics-scenario-lab-jvqybhvadqymamynbwmhov.streamlit.app/"
-              appLabel="Open sandbox"
-            />
+          <div className="hidden lg:grid lg:grid-cols-2 lg:gap-6">
+            {examples.map((example) => (
+              <ExampleCard key={example.title} {...example} />
+            ))}
           </div>
         </section>
 
