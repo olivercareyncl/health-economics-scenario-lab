@@ -1,621 +1,331 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   RotateCcw,
   ChevronDown,
   SlidersHorizontal,
   BarChart3,
   FileSearch,
+  Link2,
+  Check,
+  Download,
+  Image as ImageIcon,
+  FileDown,
 } from "lucide-react";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+  runModel,
+  runBoundedUncertainty,
+  getDecisionStatus,
+  getNetCostLabel,
+  getMainDriverText,
+  generateInterpretation,
+} from "@/lib/safestep/model";
 import {
   formatCurrency,
   formatNumber,
   formatPercent,
 } from "@/lib/safestep/formatters";
+import {
+  DEFAULT_INPUTS,
+  COSTING_METHOD_OPTIONS,
+  TARGETING_MODE_OPTIONS,
+} from "@/lib/safestep/constants";
+import {
+  CostVsSavingsChart,
+  FallsAvoidedChart,
+  BoundedUncertaintyChart,
+} from "@/components/safestep/safestep-charts";
 
-type Inputs = {
-  targeting_mode: "Universal" | "Risk-targeted" | "High-risk only";
-  costing_method: "Admission costs only" | "Admission + bed days";
-  eligible_population: number;
-  annual_fall_risk: number;
-  intervention_cost_per_person: number;
-  relative_risk_reduction: number;
-  time_horizon_years: 1 | 3 | 5;
-  uptake_rate: number;
-  adherence_rate: number;
-  participation_dropoff_rate: number;
-  effect_decay_rate: number;
-  admission_rate_after_fall: number;
-  average_length_of_stay: number;
-  cost_per_admission: number;
-  cost_per_bed_day: number;
-  qaly_loss_per_serious_fall: number;
-  cost_effectiveness_threshold: number;
-  discount_rate: number;
-};
-
+type Inputs = typeof DEFAULT_INPUTS;
 type MobileTab = "summary" | "assumptions" | "analysis";
 
 type AssumptionSectionKey =
+  | "quick"
   | "advanced-delivery"
   | "advanced-risk"
   | "advanced-economics";
 
-type LocalYearlyResultRow = {
-  year: number;
-  falls_avoided: number;
-  cumulative_programme_cost: number;
-  cumulative_gross_savings: number;
+type ScenarioPatch = Partial<Inputs>;
+
+type SensitivityRow = {
+  key: keyof Inputs;
+  label: string;
+  baselineValue: number | string;
+  testValue: number | string;
+  deltaCostPerQaly: number;
+  absoluteImpact: number;
+  direction: "improves" | "worsens" | "neutral";
+  decisionFlip: boolean;
+  note: string;
 };
 
-type LocalUncertaintyRow = {
-  case: string;
-  discounted_cost_per_qaly: number;
-  falls_avoided_total: number;
-  decision_status: string;
-};
-
-type ModelResults = {
-  falls_avoided_total: number;
-  admissions_avoided_total: number;
-  bed_days_avoided_total: number;
-  discounted_programme_cost_total: number;
-  discounted_gross_savings_total: number;
-  discounted_net_cost_total: number;
-  discounted_qalys_gained_total: number;
-  discounted_cost_per_qaly: number;
-  yearly_results: LocalYearlyResultRow[];
-};
-
-const DEFAULT_INPUTS: Inputs = {
-  targeting_mode: "Risk-targeted",
-  costing_method: "Admission + bed days",
-  eligible_population: 5000,
-  annual_fall_risk: 0.24,
-  intervention_cost_per_person: 180,
-  relative_risk_reduction: 0.18,
-  time_horizon_years: 3,
-  uptake_rate: 0.7,
-  adherence_rate: 0.75,
-  participation_dropoff_rate: 0.08,
-  effect_decay_rate: 0.06,
-  admission_rate_after_fall: 0.22,
-  average_length_of_stay: 7,
-  cost_per_admission: 3200,
-  cost_per_bed_day: 420,
-  qaly_loss_per_serious_fall: 0.055,
-  cost_effectiveness_threshold: 20000,
-  discount_rate: 0.035,
-};
-
-const COSTING_METHOD_OPTIONS: readonly Inputs["costing_method"][] = [
-  "Admission costs only",
-  "Admission + bed days",
-];
-
-const TARGETING_MODE_OPTIONS: readonly Inputs["targeting_mode"][] = [
-  "Universal",
-  "Risk-targeted",
-  "High-risk only",
-];
+const SCENARIO_QUERY_KEY = "s";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function clamp(value: number, min = 0, max = 1) {
-  return Math.min(max, Math.max(min, value));
+function roundNumber(value: number, decimals = 6) {
+  return Number(value.toFixed(decimals));
 }
 
-function round(value: number) {
-  return Number.isFinite(value) ? Math.round(value) : 0;
+function buildScenarioPatch(inputs: Inputs): ScenarioPatch {
+  const patch: ScenarioPatch = {};
+
+  (Object.keys(DEFAULT_INPUTS) as Array<keyof Inputs>).forEach((key) => {
+    const baseValue = DEFAULT_INPUTS[key];
+    const currentValue = inputs[key];
+
+    if (typeof baseValue === "number" && typeof currentValue === "number") {
+      if (roundNumber(baseValue) !== roundNumber(currentValue)) {
+        patch[key] = currentValue;
+      }
+      return;
+    }
+
+    if (baseValue !== currentValue) {
+      patch[key] = currentValue;
+    }
+  });
+
+  return patch;
 }
 
-function getTargetingMultiplier(mode: Inputs["targeting_mode"]) {
-  switch (mode) {
-    case "Universal":
-      return 0.9;
-    case "Risk-targeted":
-      return 1;
-    case "High-risk only":
-      return 1.15;
-    default:
-      return 1;
+function encodeScenario(inputs: Inputs): string {
+  const patch = buildScenarioPatch(inputs);
+  const json = JSON.stringify(patch);
+
+  if (typeof window === "undefined") return "";
+
+  return window
+    .btoa(encodeURIComponent(json))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function decodeScenario(value: string): ScenarioPatch | null {
+  if (!value || typeof window === "undefined") return null;
+
+  try {
+    const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = padded + "=".repeat((4 - (padded.length % 4)) % 4);
+    const decoded = decodeURIComponent(window.atob(normalized));
+    const parsed = JSON.parse(decoded) as ScenarioPatch;
+    return parsed;
+  } catch {
+    return null;
   }
 }
 
-function runModel(inputs: Inputs): ModelResults {
-  const yearlyResults: LocalYearlyResultRow[] = [];
-
-  let cumulativeProgrammeCost = 0;
-  let cumulativeGrossSavings = 0;
-  let discountedFallsAvoidedTotal = 0;
-  let discountedAdmissionsAvoidedTotal = 0;
-  let discountedBedDaysAvoidedTotal = 0;
-  let discountedQalysTotal = 0;
-
-  const targetingMultiplier = getTargetingMultiplier(inputs.targeting_mode);
-
-  for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const participants =
-      inputs.eligible_population *
-      inputs.uptake_rate *
-      inputs.adherence_rate *
-      Math.pow(1 - inputs.participation_dropoff_rate, year - 1);
-
-    const effectiveRiskReduction =
-      inputs.relative_risk_reduction *
-      Math.pow(1 - inputs.effect_decay_rate, year - 1) *
-      targetingMultiplier;
-
-    const fallsAvoidedRaw =
-      participants * inputs.annual_fall_risk * clamp(effectiveRiskReduction, 0, 1);
-
-    const admissionsAvoidedRaw =
-      fallsAvoidedRaw * clamp(inputs.admission_rate_after_fall, 0, 1);
-
-    const bedDaysAvoidedRaw =
-      admissionsAvoidedRaw * Math.max(0, inputs.average_length_of_stay);
-
-    const programmeCostRaw =
-      participants * Math.max(0, inputs.intervention_cost_per_person);
-
-    const grossSavingsRaw =
-      inputs.costing_method === "Admission + bed days"
-        ? admissionsAvoidedRaw * inputs.cost_per_admission +
-          bedDaysAvoidedRaw * inputs.cost_per_bed_day
-        : admissionsAvoidedRaw * inputs.cost_per_admission;
-
-    const discountFactor = 1 / Math.pow(1 + inputs.discount_rate, year - 1);
-
-    const fallsAvoidedDiscounted = fallsAvoidedRaw * discountFactor;
-    const admissionsAvoidedDiscounted = admissionsAvoidedRaw * discountFactor;
-    const bedDaysAvoidedDiscounted = bedDaysAvoidedRaw * discountFactor;
-    const programmeCostDiscounted = programmeCostRaw * discountFactor;
-    const grossSavingsDiscounted = grossSavingsRaw * discountFactor;
-    const qalysDiscounted =
-      fallsAvoidedRaw *
-      Math.max(0, inputs.qaly_loss_per_serious_fall) *
-      discountFactor;
-
-    discountedFallsAvoidedTotal += fallsAvoidedDiscounted;
-    discountedAdmissionsAvoidedTotal += admissionsAvoidedDiscounted;
-    discountedBedDaysAvoidedTotal += bedDaysAvoidedDiscounted;
-    discountedQalysTotal += qalysDiscounted;
-
-    cumulativeProgrammeCost += programmeCostDiscounted;
-    cumulativeGrossSavings += grossSavingsDiscounted;
-
-    yearlyResults.push({
-      year,
-      falls_avoided: round(fallsAvoidedDiscounted),
-      cumulative_programme_cost: cumulativeProgrammeCost,
-      cumulative_gross_savings: cumulativeGrossSavings,
-    });
-  }
-
-  const discountedNetCostTotal = cumulativeProgrammeCost - cumulativeGrossSavings;
-  const discountedCostPerQaly =
-    discountedQalysTotal > 0
-      ? discountedNetCostTotal / discountedQalysTotal
-      : Number.POSITIVE_INFINITY;
-
+function applyScenarioPatch(patch: ScenarioPatch): Inputs {
   return {
-    falls_avoided_total: round(discountedFallsAvoidedTotal),
-    admissions_avoided_total: round(discountedAdmissionsAvoidedTotal),
-    bed_days_avoided_total: round(discountedBedDaysAvoidedTotal),
-    discounted_programme_cost_total: cumulativeProgrammeCost,
-    discounted_gross_savings_total: cumulativeGrossSavings,
-    discounted_net_cost_total: discountedNetCostTotal,
-    discounted_qalys_gained_total: discountedQalysTotal,
-    discounted_cost_per_qaly: Number.isFinite(discountedCostPerQaly)
-      ? discountedCostPerQaly
-      : 0,
-    yearly_results: yearlyResults,
+    ...DEFAULT_INPUTS,
+    ...patch,
   };
 }
 
-function runBoundedUncertainty(inputs: Inputs): LocalUncertaintyRow[] {
-  const scenarios = [
-    {
-      case: "Low case",
-      riskMultiplier: 0.85,
-      effectMultiplier: 0.8,
-      costMultiplier: 1.1,
-    },
-    {
-      case: "Base case",
-      riskMultiplier: 1,
-      effectMultiplier: 1,
-      costMultiplier: 1,
-    },
-    {
-      case: "High case",
-      riskMultiplier: 1.15,
-      effectMultiplier: 1.15,
-      costMultiplier: 0.92,
-    },
-  ] as const;
+function updateUrlForInputs(inputs: Inputs) {
+  if (typeof window === "undefined") return;
 
-  return scenarios.map((scenario) => {
-    const scenarioInputs: Inputs = {
-      ...inputs,
-      annual_fall_risk: clamp(inputs.annual_fall_risk * scenario.riskMultiplier, 0, 1),
-      relative_risk_reduction: clamp(
-        inputs.relative_risk_reduction * scenario.effectMultiplier,
-        0,
-        1,
-      ),
-      intervention_cost_per_person: Math.max(
-        0,
-        inputs.intervention_cost_per_person * scenario.costMultiplier,
-      ),
-    };
+  const url = new URL(window.location.href);
+  const encoded = encodeScenario(inputs);
+  const hasChanges = Object.keys(buildScenarioPatch(inputs)).length > 0;
 
-    const results = runModel(scenarioInputs);
-    const decisionStatus = getDecisionStatus(
-      results,
-      inputs.cost_effectiveness_threshold,
-    );
-
-    return {
-      case: scenario.case,
-      discounted_cost_per_qaly: results.discounted_cost_per_qaly,
-      falls_avoided_total: results.falls_avoided_total,
-      decision_status: decisionStatus,
-    };
-  });
-}
-
-function getDecisionStatus(results: ModelResults, threshold: number) {
-  if (results.discounted_net_cost_total < 0) {
-    return "Appears cost-saving";
+  if (hasChanges && encoded) {
+    url.searchParams.set(SCENARIO_QUERY_KEY, encoded);
+  } else {
+    url.searchParams.delete(SCENARIO_QUERY_KEY);
   }
 
-  if (results.discounted_cost_per_qaly <= threshold) {
-    return "Appears cost-effective";
+  window.history.replaceState({}, "", url.toString());
+}
+
+function getShareUrl(inputs: Inputs) {
+  if (typeof window === "undefined") return "";
+
+  const url = new URL(window.location.href);
+  const encoded = encodeScenario(inputs);
+  const hasChanges = Object.keys(buildScenarioPatch(inputs)).length > 0;
+
+  if (hasChanges && encoded) {
+    url.searchParams.set(SCENARIO_QUERY_KEY, encoded);
+  } else {
+    url.searchParams.delete(SCENARIO_QUERY_KEY);
   }
 
-  return "Above current threshold";
+  return url.toString();
 }
 
-function getNetCostLabel(results: ModelResults) {
-  return results.discounted_net_cost_total < 0 ? "Net saving" : "Net cost";
+function readScenarioFromUrl(): Inputs | null {
+  if (typeof window === "undefined") return null;
+
+  const url = new URL(window.location.href);
+  const encoded = url.searchParams.get(SCENARIO_QUERY_KEY);
+
+  if (!encoded) return null;
+
+  const patch = decodeScenario(encoded);
+  if (!patch) return null;
+
+  return applyScenarioPatch(patch);
 }
 
-function getMainDriverText(inputs: Inputs) {
-  const candidates = [
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getNumericCandidateValue(
+  key: keyof Inputs,
+  currentValue: number,
+): number {
+  switch (key) {
+    case "annual_fall_risk":
+    case "relative_risk_reduction":
+    case "uptake_rate":
+    case "adherence_rate":
+    case "admission_rate_after_fall":
+      return clamp(currentValue * 1.1, 0, 1);
+    case "participation_dropoff_rate":
+    case "effect_decay_rate":
+      return clamp(currentValue * 1.15, 0, 0.5);
+    case "discount_rate":
+      return clamp(currentValue + 0.005, 0, 0.2);
+    case "time_horizon_years":
+      return currentValue === 1 ? 3 : 5;
+    default:
+      return Math.max(0, currentValue * 1.1);
+  }
+}
+
+function getSensitivityRows(
+  inputs: Inputs,
+  baselineCostPerQaly: number,
+  baselineDecision: string,
+): SensitivityRow[] {
+  const rankedKeys: Array<{
+    key: keyof Inputs;
+    label: string;
+    note: string;
+  }> = [
     {
-      label: "annual fall risk",
-      score: inputs.annual_fall_risk,
+      key: "relative_risk_reduction",
+      label: "Reduction in falls",
+      note: "Clinical effectiveness assumption.",
     },
     {
-      label: "reduction in falls",
-      score: inputs.relative_risk_reduction,
+      key: "annual_fall_risk",
+      label: "Annual fall risk",
+      note: "Underlying baseline risk in the target population.",
     },
     {
-      label: "cost per participant",
-      score: inputs.intervention_cost_per_person / 1000,
+      key: "intervention_cost_per_person",
+      label: "Cost per participant",
+      note: "Direct delivery cost of the programme.",
     },
     {
-      label: "uptake and adherence",
-      score: inputs.uptake_rate * inputs.adherence_rate,
+      key: "eligible_population",
+      label: "Eligible population",
+      note: "Changes the scale of total impact.",
+    },
+    {
+      key: "uptake_rate",
+      label: "Programme uptake",
+      note: "Share of eligible population entering the pathway.",
+    },
+    {
+      key: "adherence_rate",
+      label: "Programme completion",
+      note: "Affects realised benefit from the intervention.",
+    },
+    {
+      key: "cost_per_admission",
+      label: "Cost per admission",
+      note: "Influences monetised avoided hospital activity.",
+    },
+    {
+      key: "admission_rate_after_fall",
+      label: "Falls leading to admission",
+      note: "Links avoided falls to avoided hospital use.",
     },
   ];
 
-  candidates.sort((a, b) => b.score - a.score);
-  return candidates[0]?.label ?? "the core programme assumptions";
+  return rankedKeys
+    .map(({ key, label, note }) => {
+      const currentValue = inputs[key];
+      if (typeof currentValue !== "number") return null;
+
+      const testValue = getNumericCandidateValue(key, currentValue);
+      if (roundNumber(testValue) === roundNumber(currentValue)) return null;
+
+      const scenario = {
+        ...inputs,
+        [key]: testValue,
+      } as Inputs;
+
+      const scenarioResults = runModel(scenario);
+      const scenarioDecision = getDecisionStatus(
+        scenarioResults,
+        scenario.cost_effectiveness_threshold,
+      );
+      const deltaCostPerQaly =
+        scenarioResults.discounted_cost_per_qaly - baselineCostPerQaly;
+
+      return {
+        key,
+        label,
+        baselineValue: currentValue,
+        testValue,
+        deltaCostPerQaly,
+        absoluteImpact: Math.abs(deltaCostPerQaly),
+        direction:
+          deltaCostPerQaly < 0
+            ? "improves"
+            : deltaCostPerQaly > 0
+              ? "worsens"
+              : "neutral",
+        decisionFlip: scenarioDecision !== baselineDecision,
+        note,
+      } satisfies SensitivityRow;
+    })
+    .filter((row): row is SensitivityRow => Boolean(row))
+    .sort((a, b) => b.absoluteImpact - a.absoluteImpact);
 }
 
-function generateInterpretation(
-  results: ModelResults,
-  inputs: Inputs,
-  uncertainty: LocalUncertaintyRow[],
-) {
-  const decisionStatus = getDecisionStatus(
-    results,
-    inputs.cost_effectiveness_threshold,
-  );
-  const baseCase = uncertainty.find((row) => row.case === "Base case");
-  const worstCase = uncertainty.find((row) => row.case === "Low case");
-  const bestCase = uncertainty.find((row) => row.case === "High case");
+function formatSensitivityValue(value: number | string, key: keyof Inputs) {
+  if (typeof value === "string") return value;
 
-  const whatModelSuggests =
-    decisionStatus === "Appears cost-saving"
-      ? "The base case suggests the programme could save more than it costs while reducing falls and admissions."
-      : decisionStatus === "Appears cost-effective"
-        ? "The base case suggests the programme may be economically reasonable at the current threshold."
-        : "The base case currently sits above the threshold, so value depends on stronger impact or lower delivery cost.";
-
-  const whatDrivesResult =
-    "The result is mainly shaped by fall risk, treatment effect, uptake, and the delivery cost per participant.";
-
-  const uncertaintySignal =
-    worstCase && bestCase
-      ? worstCase.decision_status === bestCase.decision_status
-        ? "The uncertainty range is directionally stable across the bounded scenarios."
-        : "The uncertainty range crosses decision boundaries, so the case is sensitive to modest assumption changes."
-      : "The uncertainty range should be treated cautiously.";
-
-  const whatLooksFragile =
-    baseCase && baseCase.discounted_cost_per_qaly > inputs.cost_effectiveness_threshold * 0.85
-      ? "The economic case looks finely balanced around the threshold, so small shifts in effect size or cost could change the conclusion."
-      : uncertaintySignal;
-
-  const whatToValidateNext =
-    inputs.intervention_cost_per_person > inputs.cost_per_admission
-      ? "Validate delivery cost realism and likely uptake before leaning on the result."
-      : "Validate achievable effect size, uptake, and the share of falls that truly translate into avoided admissions.";
-
-  return {
-    what_model_suggests: whatModelSuggests,
-    what_drives_result: whatDrivesResult,
-    what_looks_fragile: whatLooksFragile,
-    what_to_validate_next: whatToValidateNext,
-  };
-}
-
-function CurrencyTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ name?: string; value?: number }>;
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-sm font-medium text-slate-900">{label}</p>
-      <div className="mt-2 space-y-1">
-        {payload.map((item, index) => (
-          <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
-            <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-            {formatCurrency(item.value ?? 0)}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function NumberTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ name?: string; value?: number }>;
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-sm font-medium text-slate-900">{label}</p>
-      <div className="mt-2 space-y-1">
-        {payload.map((item, index) => (
-          <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
-            <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-            {formatNumber(item.value ?? 0)}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FallsAvoidedChart({
-  yearlyResults,
-}: {
-  yearlyResults: LocalYearlyResultRow[];
-}) {
-  const data = yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
-    fallsAvoided: row.falls_avoided,
-  }));
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Falls avoided by year
-        </h3>
-        <p className="mt-1 text-sm text-slate-600">
-          A simple view of how annual impact changes across the selected horizon.
-        </p>
-      </div>
-
-      <div className="h-64 w-full md:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => formatNumber(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={48}
-            />
-            <Tooltip content={<NumberTooltip />} />
-            <Bar
-              dataKey="fallsAvoided"
-              name="Falls avoided"
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function CostVsSavingsChart({
-  yearlyResults,
-}: {
-  yearlyResults: LocalYearlyResultRow[];
-}) {
-  const data = yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
-    cumulativeProgrammeCost: row.cumulative_programme_cost,
-    cumulativeGrossSavings: row.cumulative_gross_savings,
-  }));
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Cumulative programme cost vs savings
-        </h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Shows how delivery cost and gross savings build over time.
-        </p>
-      </div>
-
-      <div className="h-64 w-full md:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => {
-                const numeric = Number(value);
-                if (Math.abs(numeric) >= 1000000) {
-                  return `£${(numeric / 1000000).toFixed(1)}m`;
-                }
-                if (Math.abs(numeric) >= 1000) {
-                  return `£${(numeric / 1000).toFixed(0)}k`;
-                }
-                return formatCurrency(numeric);
-              }}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={56}
-            />
-            <Tooltip content={<CurrencyTooltip />} />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="cumulativeProgrammeCost"
-              name="Programme cost"
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="cumulativeGrossSavings"
-              name="Gross savings"
-              strokeWidth={2}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function BoundedUncertaintyChart({
-  uncertaintyRows,
-  threshold,
-}: {
-  uncertaintyRows: LocalUncertaintyRow[];
-  threshold: number;
-}) {
-  const data = uncertaintyRows.map((row) => ({
-    case: row.case,
-    discountedCostPerQaly: row.discounted_cost_per_qaly,
-    decisionStatus: row.decision_status,
-  }));
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Bounded uncertainty on discounted cost per QALY
-        </h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Compares low, base, and high cases against the current threshold.
-        </p>
-      </div>
-
-      <div className="h-64 w-full md:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => {
-                const numeric = Number(value);
-                if (Math.abs(numeric) >= 1000) {
-                  return `£${(numeric / 1000).toFixed(0)}k`;
-                }
-                return formatCurrency(numeric);
-              }}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={56}
-            />
-            <Tooltip content={<CurrencyTooltip />} />
-            <Bar
-              dataKey="discountedCostPerQaly"
-              name="Discounted cost per QALY"
-              radius={[8, 8, 0, 0]}
-            >
-              {data.map((entry) => {
-                const belowThreshold = entry.discountedCostPerQaly <= threshold;
-                return (
-                  <Cell
-                    key={`cell-${entry.case}`}
-                    fill={belowThreshold ? "#0f172a" : "#94a3b8"}
-                  />
-                );
-              })}
-            </Bar>
-            <Line
-              type="monotone"
-              dataKey={() => threshold}
-              name="Threshold"
-              strokeWidth={2}
-              dot={false}
-              stroke="#c2410c"
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dark bars = at or below threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Light bars = above threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Orange line = current threshold
-        </span>
-      </div>
-    </div>
-  );
+  switch (key) {
+    case "annual_fall_risk":
+    case "relative_risk_reduction":
+    case "uptake_rate":
+    case "adherence_rate":
+    case "participation_dropoff_rate":
+    case "effect_decay_rate":
+    case "admission_rate_after_fall":
+    case "discount_rate":
+      return formatPercent(value);
+    case "intervention_cost_per_person":
+    case "cost_per_admission":
+    case "cost_per_bed_day":
+    case "cost_effectiveness_threshold":
+      return formatCurrency(value);
+    case "eligible_population":
+      return formatNumber(value);
+    case "average_length_of_stay":
+      return `${value} days`;
+    case "time_horizon_years":
+      return `${value} year${value === 1 ? "" : "s"}`;
+    default:
+      return formatNumber(value);
+  }
 }
 
 function MobileAccordion({
@@ -879,17 +589,155 @@ function AssumptionReviewCard({
   );
 }
 
+function SensitivityPanel({
+  rows,
+}: {
+  rows: SensitivityRow[];
+}) {
+  const maxImpact = rows[0]?.absoluteImpact ?? 1;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold tracking-tight text-slate-900">
+          Sensitivity ranking
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Ranked by change in discounted cost per QALY from a bounded one-at-a-time
+          stress test.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {rows.map((row, index) => {
+          const width = `${Math.max((row.absoluteImpact / maxImpact) * 100, 6)}%`;
+
+          return (
+            <div
+              key={String(row.key)}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+                      {index + 1}
+                    </span>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {row.label}
+                    </p>
+                    {row.decisionFlip ? (
+                      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800">
+                        decision-critical
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {row.note}
+                  </p>
+                </div>
+
+                <div className="shrink-0 text-left md:text-right">
+                  <p className="text-xs uppercase tracking-[0.12em] text-slate-500">
+                    Impact on cost/QALY
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                    {row.deltaCostPerQaly > 0 ? "+" : ""}
+                    {formatCurrency(row.deltaCostPerQaly)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="h-2 rounded-full bg-slate-200">
+                  <div
+                    className={cx(
+                      "h-2 rounded-full",
+                      row.direction === "improves" && "bg-emerald-600",
+                      row.direction === "worsens" && "bg-slate-900",
+                      row.direction === "neutral" && "bg-slate-400",
+                    )}
+                    style={{ width }}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                    Base value
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">
+                    {formatSensitivityValue(row.baselineValue, row.key)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                    Stress test value
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">
+                    {formatSensitivityValue(row.testValue, row.key)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                    Reading
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">
+                    {row.decisionFlip
+                      ? "This assumption can change the signal."
+                      : row.direction === "improves"
+                        ? "Higher value improves economic performance."
+                        : row.direction === "worsens"
+                          ? "Higher value weakens economic performance."
+                          : "Minimal movement in this range."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SafeStepApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-  const [openSections, setOpenSections] = useState<
-    Record<AssumptionSectionKey, boolean>
-  >({
+  const [copied, setCopied] = useState(false);
+  const [isExportingImage, setIsExportingImage] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [hasHydratedFromUrl, setHasHydratedFromUrl] = useState(false);
+
+  const summaryExportRef = useRef<HTMLDivElement | null>(null);
+
+  const [openSections, setOpenSections] = useState<Record<AssumptionSectionKey, boolean>>({
+    quick: true,
     "advanced-delivery": false,
     "advanced-risk": false,
     "advanced-economics": false,
   });
+
+  useEffect(() => {
+    const restored = readScenarioFromUrl();
+    if (restored) {
+      setInputs(restored);
+    }
+    setHasHydratedFromUrl(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedFromUrl) return;
+    updateUrlForInputs(inputs);
+  }, [inputs, hasHydratedFromUrl]);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1800);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
@@ -901,9 +749,20 @@ export default function SafeStepApp() {
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
   const mainDriver = useMemo(() => getMainDriverText(inputs), [inputs]);
+
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty),
     [results, inputs, uncertainty],
+  );
+
+  const sensitivityRows = useMemo(
+    () =>
+      getSensitivityRows(
+        inputs,
+        results.discounted_cost_per_qaly,
+        decisionStatus,
+      ),
+    [inputs, results.discounted_cost_per_qaly, decisionStatus],
   );
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
@@ -911,17 +770,90 @@ export default function SafeStepApp() {
   };
 
   const resetToBaseCase = () => {
-    setInputs({ ...DEFAULT_INPUTS });
+    setInputs(DEFAULT_INPUTS);
     setShowAdvancedMobile(false);
     setOpenSections({
+      quick: true,
       "advanced-delivery": false,
       "advanced-risk": false,
       "advanced-economics": false,
     });
+    setMobileTab("summary");
+    updateUrlForInputs(DEFAULT_INPUTS);
   };
 
   const toggleSection = (key: AssumptionSectionKey) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleCopyShareLink = async () => {
+    try {
+      const shareUrl = getShareUrl(inputs);
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+    } catch {
+      const shareUrl = getShareUrl(inputs);
+      window.prompt("Copy this SafeStep link", shareUrl);
+    }
+  };
+
+  const handleExportImage = async () => {
+    if (!summaryExportRef.current) return;
+
+    try {
+      setIsExportingImage(true);
+      const { toPng } = await import("html-to-image");
+
+      const dataUrl = await toPng(summaryExportRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
+
+      const link = document.createElement("a");
+      link.download = "safestep-summary.png";
+      link.href = dataUrl;
+      link.click();
+    } finally {
+      setIsExportingImage(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!summaryExportRef.current) return;
+
+    try {
+      setIsExportingPdf(true);
+      const [{ toPng }, { jsPDF }] = await Promise.all([
+        import("html-to-image"),
+        import("jspdf"),
+      ]);
+
+      const dataUrl = await toPng(summaryExportRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
+
+      const image = new window.Image();
+      image.src = dataUrl;
+
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("Image load failed"));
+      });
+
+      const pdf = new jsPDF({
+        orientation: image.width > image.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [image.width, image.height],
+      });
+
+      pdf.addImage(dataUrl, "PNG", 0, 0, image.width, image.height);
+      pdf.save("safestep-summary.pdf");
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const summaryMetrics = (
@@ -1123,7 +1055,9 @@ export default function SafeStepApp() {
               <SliderInput
                 label="Falls leading to admission"
                 value={inputs.admission_rate_after_fall}
-                onChange={(value) => updateInput("admission_rate_after_fall", value)}
+                onChange={(value) =>
+                  updateInput("admission_rate_after_fall", value)
+                }
                 min={0}
                 max={1}
                 step={0.01}
@@ -1340,37 +1274,96 @@ export default function SafeStepApp() {
           <SectionCard
             title="Headline view"
             description="Start with the decision signal, then review the main economic and activity outputs."
-          >
-            {summaryMetrics}
+            action={
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyShareLink}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Link2 className="h-4 w-4" />
+                  )}
+                  {copied ? "Copied" : "Copy share link"}
+                </button>
 
-            <div className="mt-5">
-              <div
-                className={cx(
-                  "inline-flex rounded-full px-3 py-1 text-xs font-medium",
-                  decisionStatus === "Appears cost-saving" &&
-                    "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-                  decisionStatus === "Appears cost-effective" &&
-                    "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-                  decisionStatus === "Above current threshold" &&
-                    "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-                )}
-              >
-                {decisionStatus}
+                <button
+                  type="button"
+                  onClick={handleExportImage}
+                  disabled={isExportingImage}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  {isExportingImage ? "Exporting…" : "Export image"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportPdf}
+                  disabled={isExportingPdf}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FileDown className="h-4 w-4" />
+                  {isExportingPdf ? "Exporting…" : "Export PDF"}
+                </button>
+              </div>
+            }
+          >
+            <div
+              ref={summaryExportRef}
+              className="rounded-3xl border border-slate-200 bg-white p-4 md:p-5"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                    Decision signal
+                  </p>
+                  <div className="mt-2">
+                    <div
+                      className={cx(
+                        "inline-flex rounded-full px-3 py-1 text-xs font-medium",
+                        decisionStatus === "Appears cost-saving" &&
+                          "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+                        decisionStatus === "Appears cost-effective" &&
+                          "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+                        decisionStatus === "Above current threshold" &&
+                          "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+                      )}
+                    >
+                      {decisionStatus}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  <p className="font-medium text-slate-900">Scenario sharing enabled</p>
+                  <p className="mt-1">
+                    This exact assumption set can be restored from the copied link.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5">{summaryMetrics}</div>
+              <div className="mt-5">{interpretationPanel}</div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <FallsAvoidedChart yearlyResults={results.yearly_results} />
+                <CostVsSavingsChart yearlyResults={results.yearly_results} />
               </div>
             </div>
 
-            <div className="mt-5">{interpretationPanel}</div>
+            <div className="mt-6">
+              <SectionCard
+                title="Charts"
+                description="The first chart stays visible; additional views are progressively disclosed on mobile."
+              >
+                {mobileCharts}
+                {desktopCharts}
+              </SectionCard>
+            </div>
           </SectionCard>
-
-          <div className="mt-6">
-            <SectionCard
-              title="Charts"
-              description="The first chart stays visible; additional views are progressively disclosed on mobile."
-            >
-              {mobileCharts}
-              {desktopCharts}
-            </SectionCard>
-          </div>
         </div>
 
         <div className={cx(mobileTab !== "assumptions" && "hidden lg:block")}>
@@ -1435,7 +1428,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden lg:block")}>
           <SectionCard
             title="Analysis"
-            description="Review the current assumption set and the bounded uncertainty around the case."
+            description="Review the current assumption set, bounded uncertainty, and which assumptions matter most."
           >
             <div className="space-y-6">
               <div>
@@ -1444,6 +1437,8 @@ export default function SafeStepApp() {
                 </h3>
                 <div className="mt-4">{assumptionsReview}</div>
               </div>
+
+              <SensitivityPanel rows={sensitivityRows} />
 
               <div>
                 <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -1469,6 +1464,16 @@ export default function SafeStepApp() {
                   <p>{interpretation.what_model_suggests}</p>
                   <p>{interpretation.what_drives_result}</p>
                   <p>{interpretation.what_to_validate_next}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start gap-3">
+                  <Download className="mt-0.5 h-4 w-4 text-slate-500" />
+                  <div className="text-sm leading-7 text-slate-600">
+                    Export captures the decision signal, summary metrics,
+                    interpretation, and core charts in a compact shareable output.
+                  </div>
                 </div>
               </div>
             </div>
