@@ -16,18 +16,40 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-white text-slate-900 antialiased">
         <div className="flex min-h-screen flex-col">
-          <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
+          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-              <Link href="/" className="font-semibold tracking-tight">
+              <Link
+                href="/"
+                className="text-sm font-semibold tracking-tight text-slate-900 transition hover:text-slate-700"
+              >
                 Health Economics Scenario Lab
               </Link>
 
               <nav className="flex items-center gap-6 text-sm text-slate-600">
-                <Link href="/">Home</Link>
-                <Link href="/framework">Framework</Link>
-                <Link href="/sandboxes">Sandboxes</Link>
-                <Link href="/how-to-use">How to use</Link>
-                <Link href="/about">About</Link>
+                <Link href="/" className="transition hover:text-slate-900">
+                  Home
+                </Link>
+                <Link
+                  href="/framework"
+                  className="transition hover:text-slate-900"
+                >
+                  Framework
+                </Link>
+                <Link
+                  href="/sandboxes"
+                  className="transition hover:text-slate-900"
+                >
+                  Sandboxes
+                </Link>
+                <Link
+                  href="/how-to-use"
+                  className="transition hover:text-slate-900"
+                >
+                  How to use
+                </Link>
+                <Link href="/about" className="transition hover:text-slate-900">
+                  About
+                </Link>
               </nav>
             </div>
           </header>
@@ -40,7 +62,7 @@ export default function RootLayout({
                 <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
                   Health Economics Scenario Lab
                 </p>
-                <h2 className="mt-3 text-lg font-semibold tracking-tight">
+                <h2 className="mt-3 text-lg font-semibold tracking-tight text-slate-900">
                   Built by Oliver Carey
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
