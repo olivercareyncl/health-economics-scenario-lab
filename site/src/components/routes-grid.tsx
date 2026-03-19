@@ -67,7 +67,7 @@ export default function RoutesGrid() {
         <h2 className="mt-2 text-2xl font-semibold tracking-tight">
           A shared framework across the lab
         </h2>
-        <p className="mt-3 max-w-3xl text-slate-600">
+        <p className="mt-3 hidden max-w-3xl text-slate-600 md:block">
           The sandboxes are organised around recurring ways healthcare systems
           create value.
         </p>
