@@ -95,9 +95,88 @@ export default function FrameworkPage() {
           <h2 className="text-xl font-semibold">Seven routes to system value</h2>
           <p className="mt-3 max-w-3xl leading-8 text-slate-600">
             The sandboxes are organised around recurring ways healthcare systems
-            create value.
+            create value, from prevention and earlier detection through to flow
+            redesign, care setting shift, and decision quality.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-700">
+
+          <div className="mt-8 overflow-x-auto">
+            <div className="min-w-[920px] rounded-2xl border border-slate-200 bg-white p-8">
+              <div className="grid grid-cols-3 gap-10">
+                <div>
+                  <p className="text-center text-sm font-medium text-slate-700">
+                    Upstream
+                  </p>
+                </div>
+                <div>
+                  <p className="text-center text-sm font-medium text-slate-700">
+                    Midstream
+                  </p>
+                </div>
+                <div>
+                  <p className="text-center text-sm font-medium text-slate-700">
+                    Downstream
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative mt-8">
+                <div className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-slate-300" />
+
+                <div className="grid grid-cols-6 gap-6">
+                  {[
+                    { n: "1", label: "Prevent Need", position: "above" },
+                    { n: "2", label: "Detect Earlier", position: "below" },
+                    { n: "3", label: "Stabilise Risk", position: "below" },
+                    { n: "4", label: "Improve Access", position: "below" },
+                    { n: "5", label: "Redesign Flow", position: "above" },
+                    { n: "6", label: "Shift Care Setting", position: "below" },
+                  ].map((route) => (
+                    <div
+                      key={route.label}
+                      className="relative flex h-40 items-center justify-center"
+                    >
+                      {route.position === "above" ? (
+                        <div className="absolute top-4 flex flex-col items-center">
+                          <p className="text-center text-sm font-medium text-slate-600">
+                            {route.n}. {route.label}
+                          </p>
+                          <div className="mt-2 h-9 w-px bg-slate-300" />
+                          <div className="h-3 w-3 rounded-full border border-slate-400 bg-white" />
+                        </div>
+                      ) : (
+                        <div className="absolute bottom-4 flex flex-col items-center">
+                          <div className="h-3 w-3 rounded-full border border-slate-400 bg-white" />
+                          <div className="mt-2 h-9 w-px bg-slate-300" />
+                          <p className="mt-2 text-center text-sm font-medium text-slate-600">
+                            {route.n}. {route.label}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="z-10 h-3 w-3 rounded-full border border-slate-400 bg-white" />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-2">
+                  <div className="mx-6 h-6 rounded-b-[28px] border-b border-x border-slate-300" />
+                </div>
+
+                <div className="mt-8 flex flex-col items-center">
+                  <p className="text-sm font-medium text-slate-700">
+                    Across all routes
+                  </p>
+                  <div className="mt-3 h-8 w-px bg-slate-300" />
+                  <div className="h-3 w-3 rounded-full border border-slate-400 bg-white" />
+                  <p className="mt-3 text-sm font-medium text-slate-600">
+                    7. Improve Decisions
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-700">
             {routes.map((route) => (
               <span
                 key={route}
