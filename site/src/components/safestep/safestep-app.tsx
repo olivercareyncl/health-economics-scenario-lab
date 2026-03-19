@@ -313,7 +313,7 @@ function getMainDriverText(inputs: Inputs) {
       score: inputs.intervention_cost_per_person / 1000,
     },
     {
-      label: "uptake and completion",
+      label: "uptake and adherence",
       score: inputs.uptake_rate * inputs.adherence_rate,
     },
   ];
@@ -339,11 +339,11 @@ function generateInterpretation(
     decisionStatus === "Appears cost-saving"
       ? "The base case suggests the programme could save more than it costs while reducing falls and admissions."
       : decisionStatus === "Appears cost-effective"
-        ? "The base case suggests the programme may be reasonable at the current threshold."
+        ? "The base case suggests the programme may be economically reasonable at the current threshold."
         : "The base case currently sits above the threshold, so value depends on stronger impact or lower delivery cost.";
 
   const whatDrivesResult =
-    "The result is mainly shaped by fall risk, treatment effect, uptake, and delivery cost.";
+    "The result is mainly shaped by fall risk, treatment effect, uptake, and the delivery cost per participant.";
 
   const uncertaintySignal =
     worstCase && bestCase
@@ -354,7 +354,7 @@ function generateInterpretation(
 
   const whatLooksFragile =
     baseCase && baseCase.discounted_cost_per_qaly > inputs.cost_effectiveness_threshold * 0.85
-      ? "The case looks finely balanced around the threshold, so small shifts in effect size or cost could change the conclusion."
+      ? "The economic case looks finely balanced around the threshold, so small shifts in effect size or cost could change the conclusion."
       : uncertaintySignal;
 
   const whatToValidateNext =
@@ -382,7 +382,7 @@ function CurrencyTooltip({
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <p className="text-sm font-medium text-slate-900">{label}</p>
       <div className="mt-2 space-y-1">
         {payload.map((item, index) => (
@@ -408,7 +408,7 @@ function NumberTooltip({
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <p className="text-sm font-medium text-slate-900">{label}</p>
       <div className="mt-2 space-y-1">
         {payload.map((item, index) => (
@@ -422,46 +422,30 @@ function NumberTooltip({
   );
 }
 
-function ChartShell({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold tracking-tight text-slate-950">
-          {title}
-        </h3>
-        <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 function FallsAvoidedChart({
   yearlyResults,
 }: {
   yearlyResults: LocalYearlyResultRow[];
 }) {
   const data = yearlyResults.map((row) => ({
-    year: `Y${row.year}`,
+    year: `Year ${row.year}`,
     fallsAvoided: row.falls_avoided,
   }));
 
   return (
-    <ChartShell
-      title="Falls avoided"
-      description="Annual impact across the selected horizon."
-    >
-      <div className="h-56 w-full md:h-72">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+      <div className="mb-3">
+        <h3 className="text-base font-semibold tracking-tight text-slate-900">
+          Falls avoided by year
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Annual impact across the selected horizon.
+        </p>
+      </div>
+
+      <div className="h-64 w-full md:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
@@ -469,7 +453,7 @@ function FallsAvoidedChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={40}
+              width={48}
             />
             <Tooltip content={<NumberTooltip />} />
             <Bar
@@ -480,7 +464,7 @@ function FallsAvoidedChart({
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </ChartShell>
+    </div>
   );
 }
 
@@ -490,19 +474,25 @@ function CostVsSavingsChart({
   yearlyResults: LocalYearlyResultRow[];
 }) {
   const data = yearlyResults.map((row) => ({
-    year: `Y${row.year}`,
+    year: `Year ${row.year}`,
     cumulativeProgrammeCost: row.cumulative_programme_cost,
     cumulativeGrossSavings: row.cumulative_gross_savings,
   }));
 
   return (
-    <ChartShell
-      title="Cost vs savings"
-      description="How delivery cost and gross savings build over time."
-    >
-      <div className="h-56 w-full md:h-72">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+      <div className="mb-3">
+        <h3 className="text-base font-semibold tracking-tight text-slate-900">
+          Cost vs savings over time
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Tracks cumulative programme cost against gross savings.
+        </p>
+      </div>
+
+      <div className="h-64 w-full md:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
@@ -519,10 +509,10 @@ function CostVsSavingsChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={52}
+              width={56}
             />
             <Tooltip content={<CurrencyTooltip />} />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Legend />
             <Line
               type="monotone"
               dataKey="cumulativeProgrammeCost"
@@ -540,7 +530,7 @@ function CostVsSavingsChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
-    </ChartShell>
+    </div>
   );
 }
 
@@ -552,19 +542,25 @@ function BoundedUncertaintyChart({
   threshold: number;
 }) {
   const data = uncertaintyRows.map((row) => ({
-    case: row.case.replace(" case", ""),
+    case: row.case,
     discountedCostPerQaly: row.discounted_cost_per_qaly,
     decisionStatus: row.decision_status,
   }));
 
   return (
-    <ChartShell
-      title="Bounded uncertainty"
-      description="Low, base, and high cases against the current threshold."
-    >
-      <div className="h-56 w-full md:h-72">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+      <div className="mb-3">
+        <h3 className="text-base font-semibold tracking-tight text-slate-900">
+          Bounded uncertainty
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Low, base, and high cases against the current threshold.
+        </p>
+      </div>
+
+      <div className="h-64 w-full md:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
@@ -578,25 +574,19 @@ function BoundedUncertaintyChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={52}
+              width={56}
             />
             <Tooltip content={<CurrencyTooltip />} />
             <ReferenceLine
               y={threshold}
               stroke="#c2410c"
               strokeWidth={2}
-              strokeDasharray="5 5"
+              strokeDasharray="6 6"
               ifOverflow="extendDomain"
-              label={{
-                value: "Threshold",
-                position: "insideTopRight",
-                fill: "#c2410c",
-                fontSize: 11,
-              }}
             />
             <Bar
               dataKey="discountedCostPerQaly"
-              name="Cost per QALY"
+              name="Discounted cost per QALY"
               radius={[8, 8, 0, 0]}
             >
               {data.map((entry) => {
@@ -615,13 +605,16 @@ function BoundedUncertaintyChart({
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dark = at or below threshold
+          Dark bars = at or below threshold
         </span>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Light = above threshold
+          Light bars = above threshold
+        </span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+          Dashed line = threshold
         </span>
       </div>
-    </ChartShell>
+    </div>
   );
 }
 
@@ -663,21 +656,28 @@ function SectionCard({
   description,
   action,
   children,
+  compact = false,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
   children: ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:p-5 md:p-6">
-      <div className="mb-4 flex flex-col gap-3 md:mb-5 md:flex-row md:items-start md:justify-between">
+    <section
+      className={cx(
+        "rounded-3xl border border-slate-200 bg-slate-50",
+        compact ? "p-4 md:p-5" : "p-5 md:p-6",
+      )}
+    >
+      <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-lg font-semibold tracking-tight text-slate-950 md:text-xl">
             {title}
           </h2>
           {description ? (
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
               {description}
             </p>
           ) : null}
@@ -689,32 +689,32 @@ function SectionCard({
   );
 }
 
-function SubsectionHeading({ children }: { children: ReactNode }) {
-  return (
-    <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-      {children}
-    </h3>
-  );
-}
-
 function MetricCard({
   label,
   value,
   tone = "default",
+  compact = false,
 }: {
   label: string;
   value: string;
   tone?: "default" | "strong";
+  compact?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">
+    <div className={cx("rounded-2xl border border-slate-200 bg-white", compact ? "p-3.5" : "p-4")}>
+      <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
         {label}
       </p>
       <p
         className={cx(
           "mt-2 tracking-tight text-slate-950",
-          tone === "strong" ? "text-2xl font-semibold" : "text-xl font-medium",
+          tone === "strong"
+            ? compact
+              ? "text-xl font-semibold"
+              : "text-2xl font-semibold"
+            : compact
+              ? "text-lg font-medium"
+              : "text-xl font-medium",
         )}
       >
         {value}
@@ -726,16 +726,20 @@ function MetricCard({
 function MiniInsight({
   label,
   value,
+  compact = false,
 }: {
   label: string;
   value: string;
+  compact?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">
+    <div className={cx("rounded-2xl border border-slate-200 bg-white", compact ? "p-3.5" : "p-4")}>
+      <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
         {label}
       </p>
-      <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
+      <p className={cx("mt-2 text-slate-700", compact ? "text-sm leading-6" : "text-sm leading-7")}>
+        {value}
+      </p>
     </div>
   );
 }
@@ -885,11 +889,29 @@ function AssumptionReviewCard({
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">
+      <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
         {label}
       </p>
       <p className="mt-2 text-sm font-medium text-slate-900">{value}</p>
       {note ? <p className="mt-2 text-sm leading-6 text-slate-600">{note}</p> : null}
+    </div>
+  );
+}
+
+function DesktopSignalPill({ decisionStatus }: { decisionStatus: string }) {
+  return (
+    <div
+      className={cx(
+        "inline-flex rounded-full px-3 py-1 text-xs font-medium",
+        decisionStatus === "Appears cost-saving" &&
+          "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+        decisionStatus === "Appears cost-effective" &&
+          "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+        decisionStatus === "Above current threshold" &&
+          "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+      )}
+    >
+      {decisionStatus}
     </div>
   );
 }
@@ -954,7 +976,7 @@ export default function SafeStepApp() {
         value={formatCurrency(Math.abs(results.discounted_net_cost_total))}
       />
       <MetricCard
-        label="Cost per QALY"
+        label="Discounted cost per QALY"
         value={formatCurrency(results.discounted_cost_per_qaly)}
         tone="strong"
       />
@@ -964,15 +986,15 @@ export default function SafeStepApp() {
   const interpretationPanel = (
     <div className="grid gap-3 md:grid-cols-3">
       <MiniInsight
-        label="Model signal"
+        label="What the model suggests"
         value={interpretation.what_model_suggests}
       />
       <MiniInsight
-        label="Main driver"
+        label="What is driving it"
         value={`The result is currently most shaped by ${mainDriver}.`}
       />
       <MiniInsight
-        label="Fragility"
+        label="What looks fragile"
         value={interpretation.what_looks_fragile}
       />
     </div>
@@ -985,7 +1007,7 @@ export default function SafeStepApp() {
         value={inputs.targeting_mode}
         options={TARGETING_MODE_OPTIONS}
         onChange={(value) => updateInput("targeting_mode", value)}
-        help="Most important structural lever."
+        help="High-impact lever."
       />
 
       <NumberInput
@@ -993,7 +1015,7 @@ export default function SafeStepApp() {
         value={inputs.eligible_population}
         onChange={(value) => updateInput("eligible_population", value)}
         step={100}
-        help="Sets the scale of impact."
+        help="Changes the scale of impact."
       />
 
       <SliderInput
@@ -1004,7 +1026,15 @@ export default function SafeStepApp() {
         max={1}
         step={0.01}
         display={formatPercent(inputs.annual_fall_risk)}
-        help="High effect on value."
+        help="Core driver of health gain."
+      />
+
+      <NumberInput
+        label="Cost per participant"
+        value={inputs.intervention_cost_per_person}
+        onChange={(value) => updateInput("intervention_cost_per_person", value)}
+        step={10}
+        help="Main delivery cost lever."
       />
 
       <SliderInput
@@ -1015,15 +1045,7 @@ export default function SafeStepApp() {
         max={1}
         step={0.01}
         display={formatPercent(inputs.relative_risk_reduction)}
-        help="High effect on value."
-      />
-
-      <NumberInput
-        label="Cost per participant"
-        value={inputs.intervention_cost_per_person}
-        onChange={(value) => updateInput("intervention_cost_per_person", value)}
-        step={10}
-        help="High effect on net value."
+        help="Core effectiveness lever."
       />
 
       <SelectInput
@@ -1031,7 +1053,7 @@ export default function SafeStepApp() {
         value={inputs.costing_method}
         options={COSTING_METHOD_OPTIONS}
         onChange={(value) => updateInput("costing_method", value)}
-        help="Controls how avoided activity is valued."
+        help="Changes how avoided activity is valued."
       />
 
       <div className="md:col-span-2">
@@ -1042,7 +1064,7 @@ export default function SafeStepApp() {
           onChange={(value) =>
             updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
           }
-          help="Longer horizons can materially change the picture."
+          help="Longer horizons can materially change value."
         />
       </div>
     </div>
@@ -1079,6 +1101,7 @@ export default function SafeStepApp() {
                 max={1}
                 step={0.01}
                 display={formatPercent(inputs.uptake_rate)}
+                help="Controls reach."
               />
               <SliderInput
                 label="Programme completion"
@@ -1088,9 +1111,10 @@ export default function SafeStepApp() {
                 max={1}
                 step={0.01}
                 display={formatPercent(inputs.adherence_rate)}
+                help="Controls realised effect."
               />
               <SliderInput
-                label="Annual drop-off"
+                label="Annual participation drop-off"
                 value={inputs.participation_dropoff_rate}
                 onChange={(value) =>
                   updateInput("participation_dropoff_rate", value)
@@ -1197,7 +1221,7 @@ export default function SafeStepApp() {
                 step={0.01}
               />
               <NumberInput
-                label="Threshold"
+                label="Cost-effectiveness threshold"
                 value={inputs.cost_effectiveness_threshold}
                 onChange={(value) =>
                   updateInput("cost_effectiveness_threshold", value)
@@ -1255,29 +1279,15 @@ export default function SafeStepApp() {
     </div>
   );
 
-  const desktopCharts = (
-    <div className="hidden gap-4 lg:grid">
-      <div className="grid gap-4 xl:grid-cols-2">
-        <FallsAvoidedChart yearlyResults={results.yearly_results} />
-        <CostVsSavingsChart yearlyResults={results.yearly_results} />
-      </div>
-
-      <BoundedUncertaintyChart
-        uncertaintyRows={uncertainty}
-        threshold={inputs.cost_effectiveness_threshold}
-      />
-    </div>
-  );
-
   const mobileCharts = (
     <div className="space-y-4 lg:hidden">
       <FallsAvoidedChart yearlyResults={results.yearly_results} />
 
-      <MobileAccordion title="Cost vs savings">
+      <MobileAccordion title="Programme cost vs savings">
         <CostVsSavingsChart yearlyResults={results.yearly_results} />
       </MobileAccordion>
 
-      <MobileAccordion title="Uncertainty range">
+      <MobileAccordion title="Bounded uncertainty">
         <BoundedUncertaintyChart
           uncertaintyRows={uncertainty}
           threshold={inputs.cost_effectiveness_threshold}
@@ -1288,49 +1298,45 @@ export default function SafeStepApp() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 md:py-10">
-      <div className="mb-5 md:mb-6">
+      <div className="mb-6 md:mb-8">
         <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
           Health Economics Scenario Lab
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
           SafeStep
         </h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 md:text-base md:leading-7">
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
           Explore how falls prevention might reduce falls, admissions, bed use,
           and economic burden under different assumptions.
         </p>
       </div>
 
-      <div className="sticky top-[72px] z-20 mb-5 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
-        <div className="grid grid-cols-3 gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
-              Signal
+      <div className="sticky top-[72px] z-20 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
+              Live signal
             </p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
+            <p className="mt-1 text-sm font-semibold text-slate-950">
               {decisionStatus}
             </p>
           </div>
-          <div className="min-w-0 text-right">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
-              {netCostLabel}
-            </p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
+          <div className="text-right">
+            <p className="text-xs text-slate-500">{netCostLabel}</p>
+            <p className="text-sm font-semibold text-slate-950">
               {formatCurrency(Math.abs(results.discounted_net_cost_total))}
             </p>
           </div>
-          <div className="min-w-0 text-right">
-            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">
-              Cost/QALY
-            </p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
+          <div className="text-right">
+            <p className="text-xs text-slate-500">Cost/QALY</p>
+            <p className="text-sm font-semibold text-slate-950">
               {formatCurrency(results.discounted_cost_per_qaly)}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
         <MobileTabButton
           active={mobileTab === "summary"}
           onClick={() => setMobileTab("summary")}
@@ -1354,48 +1360,36 @@ export default function SafeStepApp() {
         </MobileTabButton>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr] xl:grid-cols-[1.1fr_0.9fr]">
-        <div className={cx(mobileTab !== "summary" && "hidden lg:block")}>
+      {/* Mobile */}
+      <div className="grid gap-6 lg:hidden">
+        <div className={cx(mobileTab !== "summary" && "hidden")}>
           <SectionCard
             title="Headline view"
             description="Start with the decision signal, then review the main economic and activity outputs."
           >
             {summaryMetrics}
 
-            <div className="mt-4">
-              <div
-                className={cx(
-                  "inline-flex rounded-full px-3 py-1 text-xs font-medium",
-                  decisionStatus === "Appears cost-saving" &&
-                    "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-                  decisionStatus === "Appears cost-effective" &&
-                    "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-                  decisionStatus === "Above current threshold" &&
-                    "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-                )}
-              >
-                {decisionStatus}
-              </div>
+            <div className="mt-5">
+              <DesktopSignalPill decisionStatus={decisionStatus} />
             </div>
 
-            <div className="mt-4">{interpretationPanel}</div>
+            <div className="mt-5">{interpretationPanel}</div>
           </SectionCard>
 
-          <div className="mt-5">
+          <div className="mt-6">
             <SectionCard
               title="Charts"
-              description="The first chart stays visible. Additional views are tucked behind simple chart sections on mobile."
+              description="The first chart stays visible; additional views are progressively disclosed."
             >
               {mobileCharts}
-              {desktopCharts}
             </SectionCard>
           </div>
         </div>
 
-        <div className={cx(mobileTab !== "assumptions" && "hidden lg:block")}>
+        <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick levers first. Advanced inputs stay available below."
+            description="Quick mode surfaces the most decision-relevant inputs first. Advanced assumptions stay available below."
             action={
               <button
                 type="button"
@@ -1407,7 +1401,7 @@ export default function SafeStepApp() {
               </button>
             }
           >
-            <div className="space-y-4 lg:hidden">
+            <div className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <p className="mb-4 text-sm font-medium text-slate-900">
                   Quick assumptions
@@ -1438,33 +1432,27 @@ export default function SafeStepApp() {
                 ) : null}
               </div>
             </div>
-
-            <div className="hidden space-y-4 lg:block">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-                <p className="mb-4 text-sm font-medium text-slate-900">
-                  Quick assumptions
-                </p>
-                {assumptionsQuick}
-              </div>
-              {advancedSections}
-            </div>
           </SectionCard>
         </div>
 
-        <div className={cx(mobileTab !== "analysis" && "hidden lg:block")}>
+        <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
             description="Review the current assumption set and the bounded uncertainty around the case."
           >
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div>
-                <SubsectionHeading>Assumption review</SubsectionHeading>
-                <div className="mt-3">{assumptionsReview}</div>
+                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Assumption review
+                </h3>
+                <div className="mt-4">{assumptionsReview}</div>
               </div>
 
               <div>
-                <SubsectionHeading>Uncertainty readout</SubsectionHeading>
-                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Uncertainty readout
+                </h3>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
                   {uncertainty.map((row) => (
                     <AssumptionReviewCard
                       key={row.case}
@@ -1477,11 +1465,206 @@ export default function SafeStepApp() {
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <SubsectionHeading>Interpretation</SubsectionHeading>
-                <div className="mt-3 space-y-3 text-sm leading-6 text-slate-700">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Interpretation
+                </h3>
+                <div className="mt-3 space-y-3 text-sm leading-7 text-slate-700">
                   <p>{interpretation.what_model_suggests}</p>
                   <p>{interpretation.what_drives_result}</p>
                   <p>{interpretation.what_to_validate_next}</p>
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+        </div>
+      </div>
+
+      {/* Desktop */}
+      <div className="hidden lg:grid lg:grid-cols-[minmax(360px,430px)_minmax(0,1fr)] lg:gap-6 xl:gap-8">
+        <div className="space-y-6">
+          <SectionCard
+            title="Assumptions"
+            description="Use the main levers first, then refine delivery, pathway, and economic assumptions."
+            action={
+              <button
+                type="button"
+                onClick={resetToBaseCase}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset to base case
+              </button>
+            }
+          >
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+                  High-impact levers
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                    Targeting mode
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                    Annual fall risk
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                    Reduction in falls
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
+                    Cost per participant
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <p className="mb-4 text-sm font-medium text-slate-900">
+                  Quick assumptions
+                </p>
+                {assumptionsQuick}
+              </div>
+
+              {advancedSections}
+            </div>
+          </SectionCard>
+        </div>
+
+        <div className="space-y-6">
+          <div className="sticky top-6 z-10">
+            <SectionCard
+              title="Current conclusion"
+              description="Keep this in view while testing scenarios."
+              compact
+            >
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                  <div>
+                    <DesktopSignalPill decisionStatus={decisionStatus} />
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-700">
+                      {interpretation.what_model_suggests}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 xl:min-w-[280px] xl:grid-cols-1">
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
+                      <p className="text-xs uppercase tracking-[0.12em] text-slate-500">
+                        {netCostLabel}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-950">
+                        {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
+                      <p className="text-xs uppercase tracking-[0.12em] text-slate-500">
+                        Cost per QALY
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-950">
+                        {formatCurrency(results.discounted_cost_per_qaly)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                  <MetricCard
+                    label="Falls avoided"
+                    value={formatNumber(results.falls_avoided_total)}
+                    compact
+                  />
+                  <MetricCard
+                    label="Admissions avoided"
+                    value={formatNumber(results.admissions_avoided_total)}
+                    compact
+                  />
+                  <MetricCard
+                    label="Bed days avoided"
+                    value={formatNumber(results.bed_days_avoided_total)}
+                    compact
+                  />
+                  <MetricCard
+                    label="QALYs gained"
+                    value={formatNumber(results.discounted_qalys_gained_total)}
+                    compact
+                  />
+                </div>
+
+                <div className="grid gap-3 xl:grid-cols-3">
+                  <MiniInsight
+                    label="Main driver"
+                    value={`The result is currently most shaped by ${mainDriver}.`}
+                    compact
+                  />
+                  <MiniInsight
+                    label="Fragility"
+                    value={interpretation.what_looks_fragile}
+                    compact
+                  />
+                  <MiniInsight
+                    label="Validate next"
+                    value={interpretation.what_to_validate_next}
+                    compact
+                  />
+                </div>
+              </div>
+            </SectionCard>
+          </div>
+
+          <SectionCard
+            title="Charts"
+            description="Use the charts to compare scale, timing, and economic balance."
+          >
+            <div className="grid gap-5 xl:grid-cols-2">
+              <FallsAvoidedChart yearlyResults={results.yearly_results} />
+              <CostVsSavingsChart yearlyResults={results.yearly_results} />
+            </div>
+
+            <div className="mt-5">
+              <BoundedUncertaintyChart
+                uncertaintyRows={uncertainty}
+                threshold={inputs.cost_effectiveness_threshold}
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Analysis"
+            description="A compact analyst readout for discussion, review, and scenario testing."
+          >
+            <div className="space-y-6">
+              <div className="grid gap-3 xl:grid-cols-3">
+                <MiniInsight
+                  label="Current conclusion"
+                  value={interpretation.what_model_suggests}
+                />
+                <MiniInsight
+                  label="What is driving it"
+                  value={interpretation.what_drives_result}
+                />
+                <MiniInsight
+                  label="What should be validated next"
+                  value={interpretation.what_to_validate_next}
+                />
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Assumption review
+                </h3>
+                <div className="mt-4">{assumptionsReview}</div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Uncertainty readout
+                </h3>
+                <div className="mt-4 grid gap-3 xl:grid-cols-3">
+                  {uncertainty.map((row) => (
+                    <AssumptionReviewCard
+                      key={row.case}
+                      label={row.case}
+                      value={formatCurrency(row.discounted_cost_per_qaly)}
+                      note={`${formatNumber(row.falls_avoided_total)} falls avoided · ${row.decision_status}`}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
