@@ -35,9 +35,9 @@ export default function SandboxesPage() {
         Explore the sandbox library
       </h1>
       <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-        Each sandbox focuses on a different intervention archetype, but all are
-        built to support earlier-stage thinking about thresholds, trade-offs,
-        and value under uncertainty.
+        Each sandbox focuses on a different intervention context, but all are
+        designed to support earlier-stage thinking about thresholds,
+        trade-offs, and value under uncertainty.
       </p>
 
       <div className="sticky top-[73px] z-20 mt-10 border-y border-slate-200 bg-white/95 py-4 backdrop-blur">
@@ -98,19 +98,19 @@ function toAnchorId(route: string) {
 function getRouteDescription(route: string) {
   switch (route) {
     case "Prevent Need":
-      return "Interventions designed to reduce avoidable events before they happen.";
+      return "Reduce avoidable events before they happen.";
     case "Detect Earlier":
-      return "Interventions that shift patients to earlier and potentially less costly states.";
+      return "Shift patients into earlier and potentially less costly states.";
     case "Stabilise Risk":
-      return "Interventions aimed at reducing deterioration, crisis events, and unplanned activity.";
+      return "Reduce deterioration, crisis events, and unplanned activity.";
     case "Improve Access":
-      return "Interventions that reduce delay, backlog, or escalation caused by constrained access.";
+      return "Reduce delay, backlog, and escalation caused by constrained access.";
     case "Redesign Flow":
-      return "Interventions that change how pathways operate in order to improve efficiency and value.";
+      return "Change how pathways operate to improve efficiency and value.";
     case "Shift Care Setting":
-      return "Interventions that move care from higher-cost to lower-intensity settings.";
+      return "Move care from higher-cost to lower-intensity settings.";
     case "Improve Decisions":
-      return "Interventions that improve triage, prioritisation, and decision quality.";
+      return "Improve triage, prioritisation, and decision quality.";
     default:
       return "A set of related decision sandboxes.";
   }
