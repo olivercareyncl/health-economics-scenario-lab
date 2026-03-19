@@ -92,11 +92,11 @@ export default function FrameworkPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <h2 className="text-xl font-semibold">Seven routes to system value</h2>
-          <p className="mt-3 max-w-3xl leading-8 text-slate-600">
-            The sandboxes are organised around recurring ways healthcare systems
-            create value, from prevention and earlier detection through to flow
-            redesign, care setting shift, and decision quality.
+  <h2 className="text-xl font-semibold">Seven routes to system value</h2>
+  <p className="mt-3 max-w-3xl leading-8 text-slate-600">
+    The sandboxes are organised around recurring ways healthcare systems
+    create value, from prevention and earlier detection through to flow
+    redesign, care setting shift, and decision quality.
           </p>
 
           <div className="mt-8 overflow-x-auto">
