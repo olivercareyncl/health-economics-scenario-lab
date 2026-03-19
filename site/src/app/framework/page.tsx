@@ -276,17 +276,6 @@ export default function FrameworkPage() {
                     body="Translate events avoided into savings, cost, and net value."
                   />
                 </div>
-
-                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <MiniMetric label="Population at risk" />
-                  <MiniMetric label="Coverage" />
-                  <MiniMetric label="Baseline event risk" />
-                  <MiniMetric label="Effect size" />
-                  <MiniMetric label="Events avoided" />
-                  <MiniMetric label="Gross savings" />
-                  <MiniMetric label="Intervention cost" />
-                  <MiniMetric label="Net value" />
-                </div>
               </div>
             </div>
 
@@ -312,17 +301,6 @@ export default function FrameworkPage() {
                     title="Impact and value"
                     body="Translate events avoided into savings, cost, and net value."
                   />
-                </div>
-
-                <div className="mt-6 grid grid-cols-4 gap-4">
-                  <MiniMetric label="Population at risk" />
-                  <MiniMetric label="Coverage" />
-                  <MiniMetric label="Baseline event risk" />
-                  <MiniMetric label="Effect size" />
-                  <MiniMetric label="Events avoided" />
-                  <MiniMetric label="Gross savings" />
-                  <MiniMetric label="Intervention cost" />
-                  <MiniMetric label="Net value" />
                 </div>
               </div>
             </div>
@@ -493,14 +471,6 @@ function ModelStep({
         {title}
       </p>
       <p className="mt-2 text-sm leading-7 text-slate-700">{body}</p>
-    </div>
-  );
-}
-
-function MiniMetric({ label }: { label: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-      {label}
     </div>
   );
 }
