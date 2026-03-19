@@ -40,7 +40,7 @@ export default function SandboxesPage() {
         and value under uncertainty.
       </p>
 
-      <div className="mt-10">
+      <div className="sticky top-[73px] z-20 mt-10 border-y border-slate-200 bg-white/95 py-4 backdrop-blur">
         <p className="mb-3 text-sm font-medium text-slate-700">
           Jump to a route
         </p>
@@ -49,7 +49,7 @@ export default function SandboxesPage() {
             <a
               key={group.route}
               href={`#${toAnchorId(group.route)}`}
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50"
             >
               {group.route} ({group.apps.length})
             </a>
@@ -62,7 +62,7 @@ export default function SandboxesPage() {
           <section
             key={group.route}
             id={toAnchorId(group.route)}
-            className="rounded-3xl border border-slate-200 bg-slate-50 p-8"
+            className="scroll-mt-36 rounded-3xl border border-slate-200 bg-slate-50 p-8"
           >
             <div className="mb-6">
               <div className="flex flex-wrap items-center gap-3">
