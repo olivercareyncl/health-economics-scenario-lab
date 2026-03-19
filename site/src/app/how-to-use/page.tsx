@@ -3,21 +3,21 @@ import DemoSlider from "@/components/demo-slider";
 
 export default function HowToUsePage() {
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16">
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
       <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
         How to use the lab
       </p>
-      <h1 className="mt-4 text-4xl font-semibold tracking-tight">
+      <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
         From idea to decision
       </h1>
-      <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+      <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
         The Health Economics Scenario Lab is designed to explore a simple
         question: what would need to be true for an intervention to create
         value?
       </p>
 
-      <div className="mt-12 space-y-10">
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+      <div className="mt-12 space-y-8 md:space-y-10">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">How the sandboxes are used</h2>
           <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             Each sandbox is not a final answer. It is a way of structuring
@@ -28,39 +28,72 @@ export default function HowToUsePage() {
 
         <DemoSlider />
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">What this process does</h2>
           <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             Across different intervention types, the process is consistent.
           </p>
 
-          <div className="mt-8 overflow-x-auto">
-            <div className="min-w-[1100px] rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-4">
-                <ProcessStep
-                  title="Intervention idea"
-                  body="Start with a plausible service change or intervention."
-                />
-                <Arrow />
-                <ProcessStep
-                  title="Translate assumptions"
-                  body="Turn the idea into explicit assumptions about scale, risk, effect, and cost."
-                />
-                <Arrow />
-                <ProcessStep
-                  title="Observe model signal"
-                  body="Review the implied effect on events, cost, and value."
-                />
-                <Arrow />
-                <ProcessStep
-                  title="Test uncertainty"
-                  body="Change assumptions to see where the case is robust or fragile."
-                />
-                <Arrow />
-                <ProcessStep
-                  title="Clarify what to validate"
-                  body="Identify what matters most and what needs testing next."
-                />
+          <div className="mt-8">
+            <div className="block md:hidden">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <div className="space-y-4">
+                  <ProcessStep
+                    title="Intervention idea"
+                    body="Start with a plausible service change or intervention."
+                  />
+                  <ArrowVertical />
+                  <ProcessStep
+                    title="Translate assumptions"
+                    body="Turn the idea into explicit assumptions about scale, risk, effect, and cost."
+                  />
+                  <ArrowVertical />
+                  <ProcessStep
+                    title="Observe model signal"
+                    body="Review the implied effect on events, cost, and value."
+                  />
+                  <ArrowVertical />
+                  <ProcessStep
+                    title="Test uncertainty"
+                    body="Change assumptions to see where the case is robust or fragile."
+                  />
+                  <ArrowVertical />
+                  <ProcessStep
+                    title="Clarify what to validate"
+                    body="Identify what matters most and what needs testing next."
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="hidden overflow-x-auto md:block">
+              <div className="min-w-[1100px] rounded-2xl border border-slate-200 bg-white p-6">
+                <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-4">
+                  <ProcessStep
+                    title="Intervention idea"
+                    body="Start with a plausible service change or intervention."
+                  />
+                  <Arrow />
+                  <ProcessStep
+                    title="Translate assumptions"
+                    body="Turn the idea into explicit assumptions about scale, risk, effect, and cost."
+                  />
+                  <Arrow />
+                  <ProcessStep
+                    title="Observe model signal"
+                    body="Review the implied effect on events, cost, and value."
+                  />
+                  <Arrow />
+                  <ProcessStep
+                    title="Test uncertainty"
+                    body="Change assumptions to see where the case is robust or fragile."
+                  />
+                  <Arrow />
+                  <ProcessStep
+                    title="Clarify what to validate"
+                    body="Identify what matters most and what needs testing next."
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -169,7 +202,7 @@ export default function HowToUsePage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">What this process does not do</h2>
           <ul className="mt-4 space-y-2 text-slate-600">
             <li>It does not produce a final answer.</li>
@@ -178,7 +211,7 @@ export default function HowToUsePage() {
           </ul>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">What it gives instead</h2>
           <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             A clearer decision.
@@ -195,7 +228,7 @@ export default function HowToUsePage() {
           </p>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <h2 className="text-xl font-semibold">One consistent question</h2>
           <p className="mt-4 max-w-3xl leading-8 text-slate-600">
             Across all sandboxes, the same question sits underneath the model:
@@ -254,6 +287,32 @@ function Arrow() {
   );
 }
 
+function ArrowVertical() {
+  return (
+    <div
+      className="flex items-center justify-center text-slate-300"
+      aria-hidden="true"
+    >
+      <svg
+        width="12"
+        height="28"
+        viewBox="0 0 12 28"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="block"
+      >
+        <path
+          d="M6 1V25M6 25L1 20M6 25L11 20"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
 function ExampleCard({
   tag,
   title,
@@ -278,14 +337,16 @@ function ExampleCard({
   const isExternal = appHref.startsWith("http");
 
   return (
-    <div className="flex h-full flex-col rounded-3xl border border-slate-200 bg-slate-50 p-8">
+    <div className="flex h-full flex-col rounded-3xl border border-slate-200 bg-slate-50 p-5 md:p-8">
       <div className="flex flex-wrap items-center gap-3">
         <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
           {tag}
         </span>
       </div>
 
-      <h3 className="mt-4 text-xl font-semibold tracking-tight">{title}</h3>
+      <h3 className="mt-4 text-lg font-semibold tracking-tight md:text-xl">
+        {title}
+      </h3>
 
       <div className="mt-6 flex flex-1 flex-col space-y-6">
         <div>
@@ -356,7 +417,7 @@ function ExampleCard({
           <Link
             href={appHref}
             {...(isExternal ? { target: "_blank", rel: "noreferrer" } : {})}
-            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            className="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 sm:w-auto"
           >
             {appLabel}
           </Link>
