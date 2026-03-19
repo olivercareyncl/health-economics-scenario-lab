@@ -9,9 +9,9 @@ export default function AboutPage() {
           Why I built the lab
         </h1>
         <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-          The Health Economics Scenario Lab is an exploration of how early-stage
-          healthcare strategy and economic reasoning might become more
-          interactive, transparent, and testable.
+          The Health Economics Scenario Lab explores how healthcare strategy and
+          economic reasoning might become more interactive, transparent, and
+          testable before ideas harden into static cases.
         </p>
 
         <div className="mt-12 space-y-10">
@@ -21,14 +21,14 @@ export default function AboutPage() {
               <p>
                 A lot of service change thinking still happens through static
                 decks, rough spreadsheets, and loosely structured conversations.
-                Those tools are often enough to start a conversation, but they
-                are not always good at showing what assumptions are doing the
-                work, where value is really coming from, or how fragile a case
-                might be under different conditions.
+                Those tools are often enough to start a discussion, but they are
+                not always good at showing which assumptions are really doing
+                the work, where value is expected to come from, or how fragile a
+                case might be under different conditions.
               </p>
               <p>
-                I built the lab to explore whether that earlier stage could be
-                made more decision-useful.
+                I built the lab to explore whether that stage could be made more
+                decision-useful.
               </p>
             </div>
           </section>
@@ -43,7 +43,7 @@ export default function AboutPage() {
                 uncertainty.
               </p>
               <p>
-                Each sandbox focuses on a different intervention archetype, but
+                Each sandbox focuses on a different intervention context, but
                 they share the same broad logic: define a population, estimate
                 risk, apply an intervention, model a change in events, and test
                 whether value appears under the chosen assumptions.
@@ -60,7 +60,7 @@ export default function AboutPage() {
                 trying to work out whether an idea is plausible at all.
               </p>
               <p>
-                That is often where the most important questions should be made
+                That is often where the most important questions should become
                 clearer: what would need to be true for this to work, what is
                 driving the value case, what looks fragile, and what should be
                 validated next.
@@ -78,8 +78,8 @@ export default function AboutPage() {
               </p>
               <p>
                 They are designed to support better framing, clearer thinking,
-                and more transparent early-stage decision discussion — not to
-                produce a final answer on their own.
+                and more transparent decision discussion — not to produce a
+                final answer on their own.
               </p>
             </div>
           </section>
