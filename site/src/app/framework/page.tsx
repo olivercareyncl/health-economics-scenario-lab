@@ -49,7 +49,7 @@ const routes = [
 
 export default function FrameworkPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 md:py-16">
+    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-16">
       <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
         Framework
       </p>
