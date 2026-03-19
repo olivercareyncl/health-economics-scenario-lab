@@ -396,19 +396,21 @@ function generateInterpretation(
     what_looks_fragile: whatLooksFragile,
     what_to_validate_next: whatToValidateNext,
   };
-}
-
-function isBaseCase(inputs: Inputs) {
+}function isBaseCase(inputs: Inputs) {
   return JSON.stringify(inputs) === JSON.stringify(DEFAULT_INPUTS);
 }
 
 function diffFromDefaults(inputs: Inputs): Partial<Inputs> {
   const result: Partial<Inputs> = {};
 
-  (Object.keys(DEFAULT_INPUTS) as Array<keyof Inputs>).forEach((key) => {
+  const assignIfChanged = <K extends keyof Inputs>(key: K) => {
     if (inputs[key] !== DEFAULT_INPUTS[key]) {
       result[key] = inputs[key];
     }
+  };
+
+  (Object.keys(DEFAULT_INPUTS) as Array<keyof Inputs>).forEach((key) => {
+    assignIfChanged(key);
   });
 
   return result;
@@ -424,7 +426,6 @@ function base64UrlEncode(value: string) {
 
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
-
 function base64UrlDecode(value: string) {
   if (typeof window === "undefined") return "";
   const padded = value.replace(/-/g, "+").replace(/_/g, "/");
