@@ -62,34 +62,7 @@ export default function HomePage() {
       </section>
 
       <div className="space-y-20">
-        <DemoSlider />
         <RoutesGrid />
-        <EmbeddedSandboxPreview />
-
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
-                In practice
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                From idea to decision
-              </h2>
-              <p className="mt-3 max-w-3xl text-slate-600">
-                The lab is designed to help structure an intervention idea,
-                translate it into assumptions, test uncertainty, and clarify
-                what would need to be true for value to appear.
-              </p>
-            </div>
-
-            <Link
-              href="/how-to-use"
-              className="text-sm font-medium text-slate-700"
-            >
-              View walkthrough →
-            </Link>
-          </div>
-        </section>
 
         <section>
           <div className="mb-8 flex items-end justify-between gap-4">
@@ -119,6 +92,35 @@ export default function HomePage() {
             {liveApps.map((app) => (
               <SandboxCard key={app.slug} app={app} />
             ))}
+          </div>
+        </section>
+
+        <DemoSlider />
+
+        <EmbeddedSandboxPreview />
+
+        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                In practice
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                From idea to decision
+              </h2>
+              <p className="mt-3 max-w-3xl text-slate-600">
+                The lab is designed to help structure an intervention idea,
+                translate it into assumptions, test uncertainty, and clarify
+                what would need to be true for value to appear.
+              </p>
+            </div>
+
+            <Link
+              href="/how-to-use"
+              className="text-sm font-medium text-slate-700"
+            >
+              View walkthrough →
+            </Link>
           </div>
         </section>
 
