@@ -147,7 +147,9 @@ export default function HomePage() {
           </div>
         </section>
 
-        <RoutesGrid />
+        <div className="hidden md:block">
+          <RoutesGrid />
+        </div>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
