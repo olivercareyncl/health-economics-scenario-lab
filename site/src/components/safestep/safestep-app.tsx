@@ -640,7 +640,7 @@ function MobileAccordion({
         <span className="text-sm font-medium text-slate-900">{title}</span>
         <ChevronDown
           className={cx(
-            "h-4 w-4 text-slate-500 transition-transform",
+            "h-4 w-4 text-slate-500 transition-transform duration-200",
             open && "rotate-180",
           )}
         />
@@ -740,16 +740,34 @@ function MobileTabButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors",
         active
-          ? "bg-slate-900 text-white"
+          ? "bg-slate-900 text-white shadow-sm"
           : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
       )}
     >
       {icon}
       {children}
     </button>
+  );
+}
+
+function MobileSectionIntro({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:hidden">
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+        {title}
+      </p>
+      <p className="mt-2 text-sm leading-6 text-slate-700">{description}</p>
+    </div>
   );
 }
 
@@ -882,7 +900,6 @@ function AssumptionReviewCard({
 export default function SafeStepApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
-  const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
   const [openSections, setOpenSections] = useState<
     Record<AssumptionSectionKey, boolean>
   >({
@@ -912,7 +929,6 @@ export default function SafeStepApp() {
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
-    setShowAdvancedMobile(false);
     setOpenSections({
       "advanced-delivery": false,
       "advanced-risk": false,
@@ -922,6 +938,27 @@ export default function SafeStepApp() {
 
   const toggleSection = (key: AssumptionSectionKey) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const activeMobileTabMeta: Record<
+    MobileTab,
+    { title: string; description: string }
+  > = {
+    summary: {
+      title: "Current case result",
+      description:
+        "Review the headline signal first, then open charts for more detail.",
+    },
+    assumptions: {
+      title: "Adjust scenario inputs",
+      description:
+        "Change the key assumptions here, then return to Summary to see the updated result.",
+    },
+    analysis: {
+      title: "Inspect drivers and uncertainty",
+      description:
+        "Use this section to review the assumption set and test how stable the case looks.",
+    },
   };
 
   const summaryMetrics = (
@@ -1042,12 +1079,17 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
           aria-expanded={openSections["advanced-delivery"]}
         >
-          <span className="text-sm font-medium text-slate-900">
-            Delivery assumptions
-          </span>
+          <div>
+            <span className="text-sm font-medium text-slate-900">
+              Delivery assumptions
+            </span>
+            <p className="mt-1 text-xs text-slate-500">
+              Uptake, completion, drop-off, and effect decay.
+            </p>
+          </div>
           <ChevronDown
             className={cx(
-              "h-4 w-4 text-slate-500 transition-transform",
+              "h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200",
               openSections["advanced-delivery"] && "rotate-180",
             )}
           />
@@ -1106,12 +1148,17 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
           aria-expanded={openSections["advanced-risk"]}
         >
-          <span className="text-sm font-medium text-slate-900">
-            Risk and pathway assumptions
-          </span>
+          <div>
+            <span className="text-sm font-medium text-slate-900">
+              Risk and pathway assumptions
+            </span>
+            <p className="mt-1 text-xs text-slate-500">
+              Admission rate and length of stay.
+            </p>
+          </div>
           <ChevronDown
             className={cx(
-              "h-4 w-4 text-slate-500 transition-transform",
+              "h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200",
               openSections["advanced-risk"] && "rotate-180",
             )}
           />
@@ -1147,12 +1194,17 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
           aria-expanded={openSections["advanced-economics"]}
         >
-          <span className="text-sm font-medium text-slate-900">
-            Economic assumptions
-          </span>
+          <div>
+            <span className="text-sm font-medium text-slate-900">
+              Economic assumptions
+            </span>
+            <p className="mt-1 text-xs text-slate-500">
+              Costs, QALY loss, threshold, and discounting.
+            </p>
+          </div>
           <ChevronDown
             className={cx(
-              "h-4 w-4 text-slate-500 transition-transform",
+              "h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200",
               openSections["advanced-economics"] && "rotate-180",
             )}
           />
@@ -1286,32 +1338,35 @@ export default function SafeStepApp() {
         </p>
       </div>
 
-      <div className="sticky top-[72px] z-20 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-              Live signal
+      <div className="sticky top-[72px] z-20 mb-5 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur lg:hidden">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
+              Current signal
             </p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
               {decisionStatus}
             </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-500">{netCostLabel}</p>
-            <p className="text-sm font-semibold text-slate-950">
-              {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+            <p className="mt-1 text-xs text-slate-500">
+              {netCostLabel}:{" "}
+              <span className="font-medium text-slate-700">
+                {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+              </span>
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-slate-500">Cost/QALY</p>
-            <p className="text-sm font-semibold text-slate-950">
+
+          <div className="shrink-0 text-right">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-500">
+              Cost per QALY
+            </p>
+            <p className="mt-1 text-base font-semibold text-slate-950">
               {formatCurrency(results.discounted_cost_per_qaly)}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
         <MobileTabButton
           active={mobileTab === "summary"}
           onClick={() => setMobileTab("summary")}
@@ -1334,6 +1389,11 @@ export default function SafeStepApp() {
           Analysis
         </MobileTabButton>
       </div>
+
+      <MobileSectionIntro
+        title={activeMobileTabMeta[mobileTab].title}
+        description={activeMobileTabMeta[mobileTab].description}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] xl:grid-cols-[1.1fr_0.9fr]">
         <div className={cx(mobileTab !== "summary" && "hidden lg:block")}>
@@ -1378,56 +1438,40 @@ export default function SafeStepApp() {
             title="Assumptions"
             description="Quick mode surfaces the most decision-relevant inputs first. Advanced assumptions stay available below."
             action={
-              <button
-                type="button"
-                onClick={resetToBaseCase}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Reset
-              </button>
-            }
-          >
-            <div className="space-y-4 lg:hidden">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="mb-4 text-sm font-medium text-slate-900">
-                  Quick assumptions
-                </p>
-                {assumptionsQuick}
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-col items-start gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAdvancedMobile((v) => !v)}
-                  className="flex w-full items-center justify-between gap-4 text-left"
-                  aria-expanded={showAdvancedMobile}
+                  onClick={resetToBaseCase}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                 >
-                  <span className="text-sm font-medium text-slate-900">
-                    Show advanced assumptions
-                  </span>
-                  <ChevronDown
-                    className={cx(
-                      "h-4 w-4 text-slate-500 transition-transform",
-                      showAdvancedMobile && "rotate-180",
-                    )}
-                  />
+                  <RotateCcw className="h-4 w-4" />
+                  Reset to base case
                 </button>
-
-                {showAdvancedMobile ? (
-                  <div className="mt-4">{advancedSections}</div>
-                ) : null}
+                <p className="text-xs text-slate-500">
+                  Restores the default scenario assumptions.
+                </p>
               </div>
-            </div>
-
-            <div className="hidden space-y-5 lg:block">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            }
+          >
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:p-5">
                 <p className="mb-4 text-sm font-medium text-slate-900">
                   Quick assumptions
                 </p>
                 {assumptionsQuick}
               </div>
-              {advancedSections}
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-100/70 p-4">
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-slate-900">
+                    Advanced assumptions
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Expand only the sections you need.
+                  </p>
+                </div>
+                {advancedSections}
+              </div>
             </div>
           </SectionCard>
         </div>
