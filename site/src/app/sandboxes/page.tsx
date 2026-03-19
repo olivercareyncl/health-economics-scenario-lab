@@ -44,7 +44,12 @@ export default function SandboxesPage() {
       <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
         Explore the sandbox library
       </h1>
-      <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
+
+      <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:hidden">
+        Browse live and planned sandboxes by route to system value.
+      </p>
+
+      <p className="mt-6 hidden max-w-3xl text-base leading-8 text-slate-600 md:block md:text-lg">
         Each sandbox focuses on a different intervention context, but all are
         designed to support earlier-stage thinking about thresholds,
         trade-offs, and value under uncertainty.
@@ -59,7 +64,7 @@ export default function SandboxesPage() {
             <h2 className="mt-2 text-2xl font-semibold tracking-tight">
               Browse by route
             </h2>
-            <p className="mt-3 max-w-3xl text-slate-600">
+            <p className="mt-3 hidden max-w-3xl text-slate-600 md:block">
               View the full library or focus on a specific route to system
               value.
             </p>
@@ -107,7 +112,8 @@ export default function SandboxesPage() {
                   {group.apps.length === 1 ? "sandbox" : "sandboxes"}
                 </span>
               </div>
-              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+
+              <p className="mt-3 hidden max-w-3xl text-sm leading-7 text-slate-600 md:block">
                 {getRouteDescription(group.route)}
               </p>
             </div>
