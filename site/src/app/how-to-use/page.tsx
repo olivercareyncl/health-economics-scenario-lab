@@ -31,7 +31,7 @@ export default function HowToUsePage() {
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
           <h2 className="text-xl font-semibold">What this process does</h2>
           <p className="mt-4 max-w-3xl leading-8 text-slate-600">
-            Across different interventions, the process is consistent.
+            Across different intervention types, the process is consistent.
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {[
@@ -60,9 +60,9 @@ export default function HowToUsePage() {
               Three example decision questions
             </h2>
             <p className="mt-3 max-w-3xl text-slate-600">
-              Different sandboxes explore different intervention types, but the
-              pattern is the same: define the base case, review the model
-              signal, and see what assumptions matter most.
+              Different sandboxes focus on different intervention contexts, but
+              the pattern is the same: define the base case, review the model
+              signal, and test which assumptions matter most.
             </p>
           </div>
 
@@ -183,7 +183,7 @@ export default function HowToUsePage() {
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
           <h2 className="text-xl font-semibold">One consistent question</h2>
           <p className="mt-4 max-w-3xl leading-8 text-slate-600">
-            Across all sandboxes:
+            Across all sandboxes, the same question sits underneath the model:
           </p>
           <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
             <p className="text-lg font-medium tracking-tight text-slate-900">
