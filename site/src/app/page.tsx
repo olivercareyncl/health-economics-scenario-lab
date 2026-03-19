@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Github, Layers3, LayoutGrid, Route } from "lucide-react";
-import DemoSlider from "@/components/demo-slider";
 import RoutesGrid from "@/components/routes-grid";
 import SandboxCard from "@/components/sandbox-card";
 import EmbeddedSandboxPreview from "@/components/embedded-sandbox-preview";
@@ -144,8 +143,6 @@ export default function HomePage() {
         </section>
 
         <RoutesGrid />
-
-        <DemoSlider />
 
         <EmbeddedSandboxPreview />
 
