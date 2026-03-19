@@ -34,6 +34,11 @@ import {
   getMainDriverText,
   getNetCostLabel,
 } from "@/lib/safestep/summaries";
+import {
+  BoundedUncertaintyChart,
+  CostVsSavingsChart,
+  FallsAvoidedChart,
+} from "@/components/safestep/safestep-charts";
 import type {
   CostingMethod,
   SafeStepInputs,
@@ -65,10 +70,8 @@ export default function SafeStepApp() {
   const [comparatorMode, setComparatorMode] =
     useState<ScenarioName>("Higher-risk targeting");
 
-  const [desktopTab, setDesktopTab] =
-    useState<DesktopTabKey>("overview");
-  const [mobileTab, setMobileTab] =
-    useState<MobileTabKey>("summary");
+  const [desktopTab, setDesktopTab] = useState<DesktopTabKey>("overview");
+  const [mobileTab, setMobileTab] = useState<MobileTabKey>("summary");
 
   const [showAdvancedMobileInputs, setShowAdvancedMobileInputs] =
     useState(false);
@@ -115,10 +118,7 @@ export default function SafeStepApp() {
     [results, inputs, uncertaintyRows],
   );
 
-  const confidenceSummary = useMemo(
-    () => getAssumptionConfidenceSummary(),
-    [],
-  );
+  const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
 
   const assumptionsTable = useMemo(
     () =>
@@ -205,14 +205,14 @@ export default function SafeStepApp() {
         value?
       </div>
 
-      <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 xl:block hidden">
+      <div className="mt-4 hidden rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 xl:block">
         Illustrative decision sandbox only. This model uses synthetic
         assumptions for exploratory decision support and is not a formal
         economic evaluation.
       </div>
 
       <div className="mt-8 grid gap-8 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="hidden xl:block space-y-4">
+        <aside className="hidden space-y-4 xl:block">
           <AccordionPanel
             title="Scenario"
             summary={selectedScenario}
@@ -221,9 +221,7 @@ export default function SafeStepApp() {
             <Field label="Scenario preset">
               <select
                 value={selectedScenario}
-                onChange={(e) =>
-                  applyScenario(e.target.value as ScenarioName)
-                }
+                onChange={(e) => applyScenario(e.target.value as ScenarioName)}
                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400"
               >
                 {scenarioOptions.map((option) => (
@@ -559,7 +557,9 @@ export default function SafeStepApp() {
               />
               <MetricCard
                 label={netCostLabel}
-                value={formatCurrency(Math.abs(results.discounted_net_cost_total))}
+                value={formatCurrency(
+                  Math.abs(results.discounted_net_cost_total),
+                )}
               />
               <MetricCard
                 label="Discounted cost per QALY"
@@ -780,7 +780,10 @@ export default function SafeStepApp() {
                     step={0.5}
                     value={inputs.average_length_of_stay}
                     onChange={(e) =>
-                      updateInput("average_length_of_stay", Number(e.target.value))
+                      updateInput(
+                        "average_length_of_stay",
+                        Number(e.target.value),
+                      )
                     }
                     className="input"
                   />
@@ -941,15 +944,19 @@ export default function SafeStepApp() {
                     />
                     <MetricCard
                       label="Max cost per participant"
-                      value={formatCurrency(results.break_even_cost_per_participant)}
+                      value={formatCurrency(
+                        results.break_even_cost_per_participant,
+                      )}
                       subtle
                     />
                   </div>
 
-                  <InfoBox
-                    title="Strategic summary"
-                    body={overviewSummary}
-                  />
+                  <div className="space-y-4">
+                    <FallsAvoidedChart yearlyResults={results.yearly_results} />
+                    <CostVsSavingsChart yearlyResults={results.yearly_results} />
+                  </div>
+
+                  <InfoBox title="Strategic summary" body={overviewSummary} />
                   <InfoBox
                     title="Main fragility"
                     body={structuredRecommendation.mainFragility}
@@ -1027,6 +1034,11 @@ export default function SafeStepApp() {
                     body="Deeper analytical and interpretive detail for the current configuration."
                   />
 
+                  <BoundedUncertaintyChart
+                    uncertaintyRows={uncertaintyRows}
+                    threshold={inputs.cost_effectiveness_threshold}
+                  />
+
                   <div className="space-y-3">
                     {uncertaintyTable.map((row) => (
                       <div
@@ -1101,7 +1113,7 @@ export default function SafeStepApp() {
                     body={interpretation.whatLooksFragile}
                   />
 
-                  <details className="rounded-xl border border-slate-200 bg-slate-50 p-4 group">
+                  <details className="group rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
                       <span className="inline-flex items-center gap-2">
                         Advanced comparison
@@ -1188,20 +1200,21 @@ export default function SafeStepApp() {
                     />
                     <MetricCard
                       label="Max cost per participant"
-                      value={formatCurrency(results.break_even_cost_per_participant)}
+                      value={formatCurrency(
+                        results.break_even_cost_per_participant,
+                      )}
                       subtle
                     />
                   </div>
 
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <FallsAvoidedChart yearlyResults={results.yearly_results} />
+                    <CostVsSavingsChart yearlyResults={results.yearly_results} />
+                  </div>
+
                   <div className="grid gap-4 lg:grid-cols-2">
-                    <InfoBox
-                      title="Overall signal"
-                      body={overallSignal}
-                    />
-                    <InfoBox
-                      title="Strategic summary"
-                      body={overviewSummary}
-                    />
+                    <InfoBox title="Overall signal" body={overallSignal} />
+                    <InfoBox title="Strategic summary" body={overviewSummary} />
                     <InfoBox
                       title="Primary economic driver"
                       body={getMainDriverText(inputs)}
@@ -1308,6 +1321,11 @@ export default function SafeStepApp() {
                   <SectionHeading
                     title="Bounded uncertainty"
                     body="A deterministic view of how robust or fragile the result looks under bounded changes in key assumptions."
+                  />
+
+                  <BoundedUncertaintyChart
+                    uncertaintyRows={uncertaintyRows}
+                    threshold={inputs.cost_effectiveness_threshold}
                   />
 
                   <div className="overflow-x-auto">
@@ -1447,7 +1465,7 @@ function AccordionPanel({
   return (
     <details
       open={defaultOpen}
-      className="rounded-2xl border border-slate-200 bg-slate-50 p-5 group"
+      className="group rounded-2xl border border-slate-200 bg-slate-50 p-5"
     >
       <summary className="cursor-pointer list-none">
         <div className="flex items-start justify-between gap-4">
