@@ -19,7 +19,13 @@ export default function HomePage() {
         <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-slate-950 md:text-5xl">
           Explore how healthcare interventions generate value under uncertainty.
         </h1>
-        <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:text-lg">
+
+        <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:hidden">
+          A suite of interactive sandboxes for testing how service changes might
+          affect activity, cost, outcomes, and value.
+        </p>
+
+        <p className="mt-6 hidden max-w-3xl text-base leading-8 text-slate-600 md:block md:text-lg">
           Health Economics Scenario Lab is a suite of lightweight interactive
           sandboxes for exploring how interventions and service changes might
           affect activity, cost, outcomes, and value before ideas harden into
@@ -57,7 +63,7 @@ export default function HomePage() {
           </Link>
         </div>
 
-        <div className="mt-8 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="mt-8 hidden max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 md:block">
           These tools are exploratory and illustrative. They are designed to
           support earlier-stage decision thinking, not replace formal economic
           evaluation or local validation.
@@ -120,7 +126,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-700">
+          <div className="mt-6 hidden flex-wrap gap-3 text-sm text-slate-700 md:flex">
             {[
               "Population at risk",
               "Coverage",
