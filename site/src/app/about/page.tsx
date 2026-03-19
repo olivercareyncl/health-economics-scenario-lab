@@ -1,45 +1,46 @@
 export default function AboutPage() {
   return (
     <main className="min-h-screen bg-white text-slate-900">
-      <div className="mx-auto max-w-4xl px-6 py-20">
-        <p className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+      <div className="mx-auto max-w-5xl px-6 py-16">
+        <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
           About
         </p>
-        <h1 className="text-4xl font-semibold tracking-tight">
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight">
           Why I built the lab
         </h1>
+        <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+          The Health Economics Scenario Lab is an exploration of how early-stage
+          healthcare strategy and economic reasoning might become more
+          interactive, transparent, and testable.
+        </p>
 
-        <div className="mt-8 space-y-10 text-slate-600">
-          <section className="space-y-6 leading-8">
-            <p>
-              I built the Health Economics Scenario Lab to explore how economic
-              reasoning in healthcare might become more interactive,
-              transparent, and testable at an earlier stage.
-            </p>
-            <p>
-              A lot of service change thinking still happens through static
-              decks, rough spreadsheets, and loosely structured conversations.
-              Those tools are often enough to start a conversation, but they are
-              not always good at showing what assumptions are doing the work,
-              where value is really coming from, or how fragile a case might be
-              under different conditions.
-            </p>
-            <p>
-              The lab is an attempt to make that earlier stage more
-              decision-useful.
-            </p>
+        <div className="mt-12 space-y-10">
+          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+            <h2 className="text-xl font-semibold">Why it exists</h2>
+            <div className="mt-4 max-w-3xl space-y-5 leading-8 text-slate-600">
+              <p>
+                A lot of service change thinking still happens through static
+                decks, rough spreadsheets, and loosely structured conversations.
+                Those tools are often enough to start a conversation, but they
+                are not always good at showing what assumptions are doing the
+                work, where value is really coming from, or how fragile a case
+                might be under different conditions.
+              </p>
+              <p>
+                I built the lab to explore whether that earlier stage could be
+                made more decision-useful.
+              </p>
+            </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 p-6">
-            <h2 className="text-xl font-semibold text-slate-900">
-              What the lab is
-            </h2>
-            <div className="mt-4 space-y-4 leading-8">
+          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+            <h2 className="text-xl font-semibold">What the lab is</h2>
+            <div className="mt-4 max-w-3xl space-y-5 leading-8 text-slate-600">
               <p>
                 The platform brings together a set of lightweight interactive
-                sandboxes for exploring how different healthcare interventions
-                and service changes might affect activity, cost, outcomes, and
-                value under uncertainty.
+                sandboxes for exploring how healthcare interventions and service
+                changes might affect activity, cost, outcomes, and value under
+                uncertainty.
               </p>
               <p>
                 Each sandbox focuses on a different intervention archetype, but
@@ -50,11 +51,9 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 p-6">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Why this stage matters
-            </h2>
-            <div className="mt-4 space-y-4 leading-8">
+          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+            <h2 className="text-xl font-semibold">Why this stage matters</h2>
+            <div className="mt-4 max-w-3xl space-y-5 leading-8 text-slate-600">
               <p>
                 Before formal modelling, business cases, or evaluation plans are
                 written, there is usually a messier stage where people are
@@ -66,17 +65,12 @@ export default function AboutPage() {
                 driving the value case, what looks fragile, and what should be
                 validated next.
               </p>
-              <p>
-                The sandboxes are designed for that stage.
-              </p>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-slate-200 p-6">
-            <h2 className="text-xl font-semibold text-slate-900">
-              What these tools are not
-            </h2>
-            <div className="mt-4 space-y-4 leading-8">
+          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+            <h2 className="text-xl font-semibold">What these tools are not</h2>
+            <div className="mt-4 max-w-3xl space-y-5 leading-8 text-slate-600">
               <p>
                 These tools are illustrative only. They are not substitutes for
                 formal economic evaluation, detailed service modelling, or local
@@ -90,20 +84,20 @@ export default function AboutPage() {
             </div>
           </section>
 
-          <section className="space-y-6 leading-8">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Why I built it this way
-            </h2>
-            <p>
-              I wanted the work to be visible, inspectable, and usable. That is
-              why the project is open, lightweight, and built around explicit
-              assumptions rather than black-box outputs.
-            </p>
-            <p>
-              My interest here is not just in individual models, but in the
-              broader question of how healthcare strategy, economic reasoning,
-              and decision support might become more interactive in practice.
-            </p>
+          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-8">
+            <h2 className="text-xl font-semibold">Why I built it this way</h2>
+            <div className="mt-4 max-w-3xl space-y-5 leading-8 text-slate-600">
+              <p>
+                I wanted the work to be visible, inspectable, and usable. That
+                is why the project is open, lightweight, and built around
+                explicit assumptions rather than black-box outputs.
+              </p>
+              <p>
+                My interest here is not just in individual models, but in the
+                broader question of how healthcare strategy, economic reasoning,
+                and decision support might become more interactive in practice.
+              </p>
+            </div>
           </section>
         </div>
       </div>
