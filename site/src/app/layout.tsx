@@ -17,7 +17,7 @@ export default function RootLayout({
       <body className="bg-white text-slate-900 antialiased">
         <div className="flex min-h-screen flex-col">
           <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
               <Link
                 href="/"
                 className="text-sm font-semibold tracking-tight text-slate-900 transition hover:text-slate-700"
@@ -25,7 +25,7 @@ export default function RootLayout({
                 Health Economics Scenario Lab
               </Link>
 
-              <nav className="flex items-center gap-6 text-sm text-slate-600">
+              <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600 md:justify-end md:gap-6">
                 <Link href="/" className="transition hover:text-slate-900">
                   Home
                 </Link>
@@ -57,7 +57,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
 
           <footer className="mt-16 border-t border-slate-200 bg-slate-50">
-            <div className="mx-auto grid max-w-7xl gap-8 px-6 py-10 md:grid-cols-[1.4fr_0.8fr]">
+            <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_0.8fr]">
               <div>
                 <p className="text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
                   Health Economics Scenario Lab
