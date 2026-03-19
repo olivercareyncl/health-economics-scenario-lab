@@ -175,25 +175,6 @@ export default function DemoSlider() {
                   className="w-full"
                 />
               </div>
-
-              <div className="mt-6 flex flex-wrap gap-2 text-sm text-slate-600 md:gap-3">
-                {[
-                  "Population",
-                  "Coverage",
-                  "Risk",
-                  "Effect",
-                  "Events avoided",
-                  "Savings",
-                  "Net value",
-                ].map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
