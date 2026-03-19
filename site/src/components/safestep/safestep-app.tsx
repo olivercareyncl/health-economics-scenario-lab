@@ -9,16 +9,23 @@ import {
   FileSearch,
 } from "lucide-react";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   formatCurrency,
   formatNumber,
   formatPercent,
 } from "@/lib/safestep/formatters";
-import type { UncertaintyRow, YearlyResultRow } from "@/lib/safestep/types";
-import {
-  FallsAvoidedChart,
-  CostVsSavingsChart,
-  BoundedUncertaintyChart,
-} from "@/components/safestep/safestep-charts";
 
 type Inputs = {
   targeting_mode: "Universal" | "Risk-targeted" | "High-risk only";
@@ -48,6 +55,20 @@ type AssumptionSectionKey =
   | "advanced-risk"
   | "advanced-economics";
 
+type LocalYearlyResultRow = {
+  year: number;
+  falls_avoided: number;
+  cumulative_programme_cost: number;
+  cumulative_gross_savings: number;
+};
+
+type LocalUncertaintyRow = {
+  case: string;
+  discounted_cost_per_qaly: number;
+  falls_avoided_total: number;
+  decision_status: string;
+};
+
 type ModelResults = {
   falls_avoided_total: number;
   admissions_avoided_total: number;
@@ -57,7 +78,7 @@ type ModelResults = {
   discounted_net_cost_total: number;
   discounted_qalys_gained_total: number;
   discounted_cost_per_qaly: number;
-  yearly_results: YearlyResultRow[];
+  yearly_results: LocalYearlyResultRow[];
 };
 
 const DEFAULT_INPUTS: Inputs = {
@@ -118,7 +139,7 @@ function getTargetingMultiplier(mode: Inputs["targeting_mode"]) {
 }
 
 function runModel(inputs: Inputs): ModelResults {
-  const yearlyResults: YearlyResultRow[] = [];
+  const yearlyResults: LocalYearlyResultRow[] = [];
 
   let cumulativeProgrammeCost = 0;
   let cumulativeGrossSavings = 0;
@@ -208,7 +229,7 @@ function runModel(inputs: Inputs): ModelResults {
   };
 }
 
-function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
+function runBoundedUncertainty(inputs: Inputs): LocalUncertaintyRow[] {
   const scenarios = [
     {
       case: "Low case",
@@ -303,7 +324,7 @@ function getMainDriverText(inputs: Inputs) {
 function generateInterpretation(
   results: ModelResults,
   inputs: Inputs,
-  uncertainty: UncertaintyRow[],
+  uncertainty: LocalUncertaintyRow[],
 ) {
   const decisionStatus = getDecisionStatus(
     results,
@@ -320,7 +341,8 @@ function generateInterpretation(
         ? "The base case suggests the programme may be economically reasonable at the current threshold."
         : "The base case currently sits above the threshold, so value depends on stronger impact or lower delivery cost.";
 
-  const whatDrivesResult = `The result is mainly shaped by fall risk, treatment effect, uptake, and the delivery cost per participant.`;
+  const whatDrivesResult =
+    "The result is mainly shaped by fall risk, treatment effect, uptake, and the delivery cost per participant.";
 
   const uncertaintySignal =
     worstCase && bestCase
@@ -345,6 +367,255 @@ function generateInterpretation(
     what_looks_fragile: whatLooksFragile,
     what_to_validate_next: whatToValidateNext,
   };
+}
+
+function CurrencyTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <p className="text-sm font-medium text-slate-900">{label}</p>
+      <div className="mt-2 space-y-1">
+        {payload.map((item, index) => (
+          <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
+            <span className="font-medium text-slate-800">{item.name}:</span>{" "}
+            {formatCurrency(item.value ?? 0)}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function NumberTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <p className="text-sm font-medium text-slate-900">{label}</p>
+      <div className="mt-2 space-y-1">
+        {payload.map((item, index) => (
+          <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
+            <span className="font-medium text-slate-800">{item.name}:</span>{" "}
+            {formatNumber(item.value ?? 0)}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FallsAvoidedChart({
+  yearlyResults,
+}: {
+  yearlyResults: LocalYearlyResultRow[];
+}) {
+  const data = yearlyResults.map((row) => ({
+    year: `Year ${row.year}`,
+    fallsAvoided: row.falls_avoided,
+  }));
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold tracking-tight text-slate-900">
+          Falls avoided by year
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          A simple view of how annual impact changes across the selected horizon.
+        </p>
+      </div>
+
+      <div className="h-64 w-full md:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => formatNumber(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={48}
+            />
+            <Tooltip content={<NumberTooltip />} />
+            <Bar
+              dataKey="fallsAvoided"
+              name="Falls avoided"
+              radius={[8, 8, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function CostVsSavingsChart({
+  yearlyResults,
+}: {
+  yearlyResults: LocalYearlyResultRow[];
+}) {
+  const data = yearlyResults.map((row) => ({
+    year: `Year ${row.year}`,
+    cumulativeProgrammeCost: row.cumulative_programme_cost,
+    cumulativeGrossSavings: row.cumulative_gross_savings,
+  }));
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold tracking-tight text-slate-900">
+          Cumulative programme cost vs savings
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Shows how delivery cost and gross savings build over time.
+        </p>
+      </div>
+
+      <div className="h-64 w-full md:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => {
+                const numeric = Number(value);
+                if (Math.abs(numeric) >= 1000000) {
+                  return `£${(numeric / 1000000).toFixed(1)}m`;
+                }
+                if (Math.abs(numeric) >= 1000) {
+                  return `£${(numeric / 1000).toFixed(0)}k`;
+                }
+                return formatCurrency(numeric);
+              }}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={56}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="cumulativeProgrammeCost"
+              name="Programme cost"
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="cumulativeGrossSavings"
+              name="Gross savings"
+              strokeWidth={2}
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function BoundedUncertaintyChart({
+  uncertaintyRows,
+  threshold,
+}: {
+  uncertaintyRows: LocalUncertaintyRow[];
+  threshold: number;
+}) {
+  const data = uncertaintyRows.map((row) => ({
+    case: row.case,
+    discountedCostPerQaly: row.discounted_cost_per_qaly,
+    decisionStatus: row.decision_status,
+  }));
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold tracking-tight text-slate-900">
+          Bounded uncertainty on discounted cost per QALY
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Compares low, base, and high cases against the current threshold.
+        </p>
+      </div>
+
+      <div className="h-64 w-full md:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => {
+                const numeric = Number(value);
+                if (Math.abs(numeric) >= 1000) {
+                  return `£${(numeric / 1000).toFixed(0)}k`;
+                }
+                return formatCurrency(numeric);
+              }}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={56}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Bar
+              dataKey="discountedCostPerQaly"
+              name="Discounted cost per QALY"
+              radius={[8, 8, 0, 0]}
+            >
+              {data.map((entry) => {
+                const belowThreshold = entry.discountedCostPerQaly <= threshold;
+                return (
+                  <Cell
+                    key={`cell-${entry.case}`}
+                    fill={belowThreshold ? "#0f172a" : "#94a3b8"}
+                  />
+                );
+              })}
+            </Bar>
+            <Line
+              type="monotone"
+              dataKey={() => threshold}
+              name="Threshold"
+              strokeWidth={2}
+              dot={false}
+              stroke="#c2410c"
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+          Dark bars = at or below threshold
+        </span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+          Light bars = above threshold
+        </span>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+          Orange line = current threshold
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function MobileAccordion({
