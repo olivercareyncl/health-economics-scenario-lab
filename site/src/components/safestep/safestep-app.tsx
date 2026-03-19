@@ -16,6 +16,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -52,7 +53,7 @@ type MobileTab = "summary" | "assumptions" | "analysis";
 
 type AssumptionSectionKey =
   | "advanced-delivery"
-  | "advanced-pathway"
+  | "advanced-risk"
   | "advanced-economics";
 
 type LocalYearlyResultRow = {
@@ -304,7 +305,7 @@ function getMainDriverText(inputs: Inputs) {
       score: inputs.annual_fall_risk,
     },
     {
-      label: "fall reduction",
+      label: "reduction in falls",
       score: inputs.relative_risk_reduction,
     },
     {
@@ -312,7 +313,7 @@ function getMainDriverText(inputs: Inputs) {
       score: inputs.intervention_cost_per_person / 1000,
     },
     {
-      label: "uptake and completion",
+      label: "uptake and adherence",
       score: inputs.uptake_rate * inputs.adherence_rate,
     },
   ];
@@ -338,28 +339,28 @@ function generateInterpretation(
     decisionStatus === "Appears cost-saving"
       ? "The base case suggests the programme could save more than it costs while reducing falls and admissions."
       : decisionStatus === "Appears cost-effective"
-        ? "The base case suggests the programme may be reasonable at the current threshold."
-        : "The base case is currently above the threshold, so value depends on stronger impact or lower delivery cost.";
+        ? "The base case suggests the programme may be economically reasonable at the current threshold."
+        : "The base case currently sits above the threshold, so value depends on stronger impact or lower delivery cost.";
 
   const whatDrivesResult =
-    "The result is mainly shaped by fall risk, effect size, scale, and cost per participant.";
+    "The result is mainly shaped by fall risk, treatment effect, uptake, and the delivery cost per participant.";
 
   const uncertaintySignal =
     worstCase && bestCase
       ? worstCase.decision_status === bestCase.decision_status
-        ? "The bounded scenarios point in the same direction."
-        : "The bounded scenarios cross decision boundaries."
+        ? "The uncertainty range is directionally stable across the bounded scenarios."
+        : "The uncertainty range crosses decision boundaries, so the case is sensitive to modest assumption changes."
       : "The uncertainty range should be treated cautiously.";
 
   const whatLooksFragile =
     baseCase && baseCase.discounted_cost_per_qaly > inputs.cost_effectiveness_threshold * 0.85
-      ? "The case looks finely balanced around the threshold, so modest shifts in effect or cost could change the conclusion."
+      ? "The economic case looks finely balanced around the threshold, so small shifts in effect size or cost could change the conclusion."
       : uncertaintySignal;
 
   const whatToValidateNext =
     inputs.intervention_cost_per_person > inputs.cost_per_admission
-      ? "Validate delivery cost realism and likely uptake."
-      : "Validate achievable effect size, uptake, and the share of falls that truly avoid admission.";
+      ? "Validate delivery cost realism and likely uptake before leaning on the result."
+      : "Validate achievable effect size, uptake, and the share of falls that truly translate into avoided admissions.";
 
   return {
     what_model_suggests: whatModelSuggests,
@@ -427,32 +428,32 @@ function FallsAvoidedChart({
   yearlyResults: LocalYearlyResultRow[];
 }) {
   const data = yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
+    year: `Y${row.year}`,
     fallsAvoided: row.falls_avoided,
   }));
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
+      <div className="mb-3">
         <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Falls avoided by year
+          Falls avoided
         </h3>
         <p className="mt-1 text-sm text-slate-600">
-          Annual impact across the selected horizon.
+          Annual avoided falls across the model horizon.
         </p>
       </div>
 
-      <div className="h-64 w-full md:h-72">
+      <div className="h-56 w-full md:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={11} />
             <YAxis
               tickFormatter={(value) => formatNumber(Number(value))}
               tickLine={false}
               axisLine={false}
-              fontSize={12}
-              width={48}
+              fontSize={11}
+              width={42}
             />
             <Tooltip content={<NumberTooltip />} />
             <Bar
@@ -473,27 +474,27 @@ function CostVsSavingsChart({
   yearlyResults: LocalYearlyResultRow[];
 }) {
   const data = yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
+    year: `Y${row.year}`,
     cumulativeProgrammeCost: row.cumulative_programme_cost,
     cumulativeGrossSavings: row.cumulative_gross_savings,
   }));
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
+      <div className="mb-3">
         <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Cumulative cost vs savings
+          Cost vs savings
         </h3>
         <p className="mt-1 text-sm text-slate-600">
-          Delivery cost and gross savings over time.
+          How programme cost and gross savings build over time.
         </p>
       </div>
 
-      <div className="h-64 w-full md:h-72">
+      <div className="h-56 w-full md:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={11} />
             <YAxis
               tickFormatter={(value) => {
                 const numeric = Number(value);
@@ -507,11 +508,11 @@ function CostVsSavingsChart({
               }}
               tickLine={false}
               axisLine={false}
-              fontSize={12}
-              width={56}
+              fontSize={11}
+              width={50}
             />
             <Tooltip content={<CurrencyTooltip />} />
-            <Legend />
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
             <Line
               type="monotone"
               dataKey="cumulativeProgrammeCost"
@@ -541,27 +542,34 @@ function BoundedUncertaintyChart({
   threshold: number;
 }) {
   const data = uncertaintyRows.map((row) => ({
-    case: row.case,
+    case:
+      row.case === "Low case"
+        ? "Low"
+        : row.case === "Base case"
+          ? "Base"
+          : row.case === "High case"
+            ? "High"
+            : row.case,
     discountedCostPerQaly: row.discounted_cost_per_qaly,
     decisionStatus: row.decision_status,
   }));
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
+      <div className="mb-3">
         <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Bounded uncertainty on cost per QALY
+          Uncertainty vs threshold
         </h3>
         <p className="mt-1 text-sm text-slate-600">
-          Low, base, and high cases against the current threshold.
+          Low, base, and high cases against the decision threshold.
         </p>
       </div>
 
-      <div className="h-64 w-full md:h-72">
+      <div className="h-56 w-full md:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 8, right: 8, left: -4, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={11} />
             <YAxis
               tickFormatter={(value) => {
                 const numeric = Number(value);
@@ -572,13 +580,27 @@ function BoundedUncertaintyChart({
               }}
               tickLine={false}
               axisLine={false}
-              fontSize={12}
-              width={56}
+              fontSize={11}
+              width={50}
             />
             <Tooltip content={<CurrencyTooltip />} />
+
+            <ReferenceLine
+              y={threshold}
+              stroke="#c2410c"
+              strokeWidth={2}
+              ifOverflow="extendDomain"
+              label={{
+                value: "Threshold",
+                position: "insideTopRight",
+                fill: "#c2410c",
+                fontSize: 11,
+              }}
+            />
+
             <Bar
               dataKey="discountedCostPerQaly"
-              name="Discounted cost per QALY"
+              name="Cost per QALY"
               radius={[8, 8, 0, 0]}
             >
               {data.map((entry) => {
@@ -591,21 +613,13 @@ function BoundedUncertaintyChart({
                 );
               })}
             </Bar>
-            <Line
-              type="monotone"
-              dataKey={() => threshold}
-              name="Threshold"
-              strokeWidth={2}
-              dot={false}
-              stroke="#c2410c"
-            />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
+      <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dark = at or below threshold
+          Dark = below threshold
         </span>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
           Light = above threshold
@@ -753,29 +767,6 @@ function MobileTabButton({
   );
 }
 
-function ImpactBadge({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-600">
-      {children}
-    </span>
-  );
-}
-
-function InputLabel({
-  label,
-  badge,
-}: {
-  label: string;
-  badge?: string;
-}) {
-  return (
-    <span className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
-      <span>{label}</span>
-      {badge ? <ImpactBadge>{badge}</ImpactBadge> : null}
-    </span>
-  );
-}
-
 function NumberInput({
   label,
   value,
@@ -783,7 +774,6 @@ function NumberInput({
   min = 0,
   step = 1,
   help,
-  badge,
 }: {
   label: string;
   value: number;
@@ -791,11 +781,12 @@ function NumberInput({
   min?: number;
   step?: number;
   help?: string;
-  badge?: string;
 }) {
   return (
     <label className="block">
-      <InputLabel label={label} badge={badge} />
+      <span className="mb-2 block text-sm font-medium text-slate-700">
+        {label}
+      </span>
       <input
         type="number"
         min={min}
@@ -818,7 +809,6 @@ function SliderInput({
   step,
   display,
   help,
-  badge,
 }: {
   label: string;
   value: number;
@@ -828,15 +818,12 @@ function SliderInput({
   step: number;
   display: string;
   help?: string;
-  badge?: string;
 }) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <InputLabel label={label} badge={badge} />
-        </div>
-        <span className="shrink-0 text-sm font-medium text-slate-900">{display}</span>
+        <label className="text-sm font-medium text-slate-700">{label}</label>
+        <span className="text-sm font-medium text-slate-900">{display}</span>
       </div>
       <input
         type="range"
@@ -858,18 +845,18 @@ function SelectInput<T extends string>({
   options,
   onChange,
   help,
-  badge,
 }: {
   label: string;
   value: T;
   options: readonly T[];
   onChange: (value: T) => void;
   help?: string;
-  badge?: string;
 }) {
   return (
     <label className="block">
-      <InputLabel label={label} badge={badge} />
+      <span className="mb-2 block text-sm font-medium text-slate-700">
+        {label}
+      </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
@@ -914,7 +901,7 @@ export default function SafeStepApp() {
     Record<AssumptionSectionKey, boolean>
   >({
     "advanced-delivery": false,
-    "advanced-pathway": false,
+    "advanced-risk": false,
     "advanced-economics": false,
   });
 
@@ -942,7 +929,7 @@ export default function SafeStepApp() {
     setShowAdvancedMobile(false);
     setOpenSections({
       "advanced-delivery": false,
-      "advanced-pathway": false,
+      "advanced-risk": false,
       "advanced-economics": false,
     });
   };
@@ -990,39 +977,33 @@ export default function SafeStepApp() {
     </div>
   );
 
-  const assumptionsPrimary = (
+  const assumptionsQuick = (
     <div className="grid gap-4 md:grid-cols-2">
       <SelectInput
-        label="Targeting"
+        label="Targeting mode"
         value={inputs.targeting_mode}
         options={TARGETING_MODE_OPTIONS}
         onChange={(value) => updateInput("targeting_mode", value)}
-        help="Who the programme reaches first."
-        badge="High impact"
+        help="High impact on value."
+      />
+
+      <NumberInput
+        label="Eligible population"
+        value={inputs.eligible_population}
+        onChange={(value) => updateInput("eligible_population", value)}
+        step={100}
+        help="Changes scale of impact."
       />
 
       <SliderInput
-        label="Fall risk"
+        label="Annual fall risk"
         value={inputs.annual_fall_risk}
         onChange={(value) => updateInput("annual_fall_risk", value)}
         min={0}
         max={1}
         step={0.01}
         display={formatPercent(inputs.annual_fall_risk)}
-        help="Higher risk increases potential benefit."
-        badge="High impact"
-      />
-
-      <SliderInput
-        label="Fall reduction"
-        value={inputs.relative_risk_reduction}
-        onChange={(value) => updateInput("relative_risk_reduction", value)}
-        min={0}
-        max={1}
-        step={0.01}
-        display={formatPercent(inputs.relative_risk_reduction)}
-        help="Expected programme effect."
-        badge="High impact"
+        help="High impact on health benefit."
       />
 
       <NumberInput
@@ -1030,33 +1011,39 @@ export default function SafeStepApp() {
         value={inputs.intervention_cost_per_person}
         onChange={(value) => updateInput("intervention_cost_per_person", value)}
         step={10}
-        help="Higher cost weakens value."
-        badge="High impact"
+        help="High impact on net value."
       />
-    </div>
-  );
 
-  const assumptionsSecondary = (
-    <div className="grid gap-4 md:grid-cols-2">
-      <NumberInput
-        label="Eligible population"
-        value={inputs.eligible_population}
-        onChange={(value) => updateInput("eligible_population", value)}
-        step={100}
-        help="Changes the scale of impact."
-        badge="Moderate"
+      <SliderInput
+        label="Reduction in falls"
+        value={inputs.relative_risk_reduction}
+        onChange={(value) => updateInput("relative_risk_reduction", value)}
+        min={0}
+        max={1}
+        step={0.01}
+        display={formatPercent(inputs.relative_risk_reduction)}
+        help="High impact on value."
       />
 
       <SelectInput
-        label="Time horizon"
-        value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
-        options={["1", "3", "5"]}
-        onChange={(value) =>
-          updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
-        }
-        help="Longer horizons capture more downstream benefit."
-        badge="Moderate"
+        label="Costing method"
+        value={inputs.costing_method}
+        options={COSTING_METHOD_OPTIONS}
+        onChange={(value) => updateInput("costing_method", value)}
+        help="Changes how avoided impact is valued."
       />
+
+      <div className="md:col-span-2">
+        <SelectInput
+          label="Time horizon"
+          value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
+          options={["1", "3", "5"]}
+          onChange={(value) =>
+            updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
+          }
+          help="Longer horizons can change the economic picture materially."
+        />
+      </div>
     </div>
   );
 
@@ -1091,20 +1078,18 @@ export default function SafeStepApp() {
                 max={1}
                 step={0.01}
                 display={formatPercent(inputs.uptake_rate)}
-                help="Share of the eligible group that enters the programme."
               />
               <SliderInput
-                label="Completion"
+                label="Programme completion"
                 value={inputs.adherence_rate}
                 onChange={(value) => updateInput("adherence_rate", value)}
                 min={0}
                 max={1}
                 step={0.01}
                 display={formatPercent(inputs.adherence_rate)}
-                help="Share who complete or stay engaged."
               />
               <SliderInput
-                label="Annual drop-off"
+                label="Annual participation drop-off"
                 value={inputs.participation_dropoff_rate}
                 onChange={(value) =>
                   updateInput("participation_dropoff_rate", value)
@@ -1113,17 +1098,15 @@ export default function SafeStepApp() {
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.participation_dropoff_rate)}
-                help="Loss of participation over time."
               />
               <SliderInput
-                label="Effect decay"
+                label="Annual effect decay"
                 value={inputs.effect_decay_rate}
                 onChange={(value) => updateInput("effect_decay_rate", value)}
                 min={0}
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.effect_decay_rate)}
-                help="How quickly the effect weakens each year."
               />
             </div>
           </div>
@@ -1133,22 +1116,22 @@ export default function SafeStepApp() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <button
           type="button"
-          onClick={() => toggleSection("advanced-pathway")}
+          onClick={() => toggleSection("advanced-risk")}
           className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
-          aria-expanded={openSections["advanced-pathway"]}
+          aria-expanded={openSections["advanced-risk"]}
         >
           <span className="text-sm font-medium text-slate-900">
-            Clinical pathway
+            Risk and pathway assumptions
           </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
-              openSections["advanced-pathway"] && "rotate-180",
+              openSections["advanced-risk"] && "rotate-180",
             )}
           />
         </button>
 
-        {openSections["advanced-pathway"] ? (
+        {openSections["advanced-risk"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 md:grid-cols-2">
               <SliderInput
@@ -1159,14 +1142,12 @@ export default function SafeStepApp() {
                 max={1}
                 step={0.01}
                 display={formatPercent(inputs.admission_rate_after_fall)}
-                help="How often a fall translates into admission."
               />
               <NumberInput
-                label="Length of stay"
+                label="Average length of stay"
                 value={inputs.average_length_of_stay}
                 onChange={(value) => updateInput("average_length_of_stay", value)}
                 step={0.5}
-                help="Average stay for admissions avoided."
               />
             </div>
           </div>
@@ -1194,26 +1175,17 @@ export default function SafeStepApp() {
         {openSections["advanced-economics"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <SelectInput
-                label="Costing method"
-                value={inputs.costing_method}
-                options={COSTING_METHOD_OPTIONS}
-                onChange={(value) => updateInput("costing_method", value)}
-                help="How avoided activity is valued."
-              />
               <NumberInput
                 label="Cost per admission"
                 value={inputs.cost_per_admission}
                 onChange={(value) => updateInput("cost_per_admission", value)}
                 step={100}
-                help="Unit value for admissions avoided."
               />
               <NumberInput
                 label="Cost per bed day"
                 value={inputs.cost_per_bed_day}
                 onChange={(value) => updateInput("cost_per_bed_day", value)}
                 step={50}
-                help="Used when bed-day savings are included."
               />
               <NumberInput
                 label="QALY loss per serious fall"
@@ -1222,23 +1194,20 @@ export default function SafeStepApp() {
                   updateInput("qaly_loss_per_serious_fall", value)
                 }
                 step={0.01}
-                help="Health loss attached to each serious fall."
               />
               <NumberInput
-                label="Threshold"
+                label="Cost-effectiveness threshold"
                 value={inputs.cost_effectiveness_threshold}
                 onChange={(value) =>
                   updateInput("cost_effectiveness_threshold", value)
                 }
                 step={1000}
-                help="Current decision threshold."
               />
               <NumberInput
                 label="Discount rate"
                 value={inputs.discount_rate}
                 onChange={(value) => updateInput("discount_rate", value)}
                 step={0.005}
-                help="Applied to future costs and benefits."
               />
             </div>
           </div>
@@ -1250,20 +1219,20 @@ export default function SafeStepApp() {
   const assumptionsReview = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       <AssumptionReviewCard
-        label="Targeting"
+        label="Targeting mode"
         value={inputs.targeting_mode}
-        note="Defines who is prioritised and how concentrated baseline risk is."
+        note="Primary determinant of who is reached and how concentrated risk is."
       />
       <AssumptionReviewCard
         label="Eligible population"
         value={formatNumber(inputs.eligible_population)}
       />
       <AssumptionReviewCard
-        label="Fall risk"
+        label="Annual fall risk"
         value={formatPercent(inputs.annual_fall_risk)}
       />
       <AssumptionReviewCard
-        label="Fall reduction"
+        label="Reduction in falls"
         value={formatPercent(inputs.relative_risk_reduction)}
       />
       <AssumptionReviewCard
@@ -1301,13 +1270,13 @@ export default function SafeStepApp() {
 
   const mobileCharts = (
     <div className="space-y-4 lg:hidden">
-      <FallsAvoidedChart yearlyResults={results.yearly_results} />
+      <CostVsSavingsChart yearlyResults={results.yearly_results} />
 
-      <MobileAccordion title="Programme cost vs savings">
-        <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <MobileAccordion title="Falls avoided">
+        <FallsAvoidedChart yearlyResults={results.yearly_results} />
       </MobileAccordion>
 
-      <MobileAccordion title="Bounded uncertainty">
+      <MobileAccordion title="Uncertainty vs threshold">
         <BoundedUncertaintyChart
           uncertaintyRows={uncertainty}
           threshold={inputs.cost_effectiveness_threshold}
@@ -1421,7 +1390,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden lg:block")}>
           <SectionCard
             title="Assumptions"
-            description="Start with the biggest levers: risk, effect, scale, and cost."
+            description="Quick mode surfaces the most decision-relevant inputs first. Advanced assumptions stay available below."
             action={
               <button
                 type="button"
@@ -1433,28 +1402,12 @@ export default function SafeStepApp() {
               </button>
             }
           >
-            <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-                Most sensitive to
-              </p>
-              <p className="mt-1 text-sm text-slate-700">
-                Fall risk, fall reduction, cost per participant, and targeting.
-              </p>
-            </div>
-
             <div className="space-y-4 lg:hidden">
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <p className="mb-4 text-sm font-medium text-slate-900">
-                  Core scenario
+                  Quick assumptions
                 </p>
-                {assumptionsPrimary}
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="mb-4 text-sm font-medium text-slate-900">
-                  Scale and horizon
-                </p>
-                {assumptionsSecondary}
+                {assumptionsQuick}
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -1484,18 +1437,10 @@ export default function SafeStepApp() {
             <div className="hidden space-y-5 lg:block">
               <div className="rounded-2xl border border-slate-200 bg-white p-5">
                 <p className="mb-4 text-sm font-medium text-slate-900">
-                  Core scenario
+                  Quick assumptions
                 </p>
-                {assumptionsPrimary}
+                {assumptionsQuick}
               </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                <p className="mb-4 text-sm font-medium text-slate-900">
-                  Scale and horizon
-                </p>
-                {assumptionsSecondary}
-              </div>
-
               {advancedSections}
             </div>
           </SectionCard>
