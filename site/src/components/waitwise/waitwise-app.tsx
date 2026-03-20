@@ -13,7 +13,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -838,7 +837,7 @@ function WaitingListReductionChart({
   yearlyResults: YearlyResultRow[];
 }) {
   const data = yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
+    year: `Y${row.year}`,
     waitingListReduction: row.waiting_list_reduction,
   }));
 
@@ -846,14 +845,14 @@ function WaitingListReductionChart({
     <div className={SUBCARD}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Waiting list reduction
+          Backlog reduction
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Annual backlog reduction across the selected horizon.
+          Annual backlog change across the horizon.
         </p>
       </div>
 
-      <div className="h-52 w-full lg:h-64 xl:h-72">
+      <div className="h-48 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -863,7 +862,7 @@ function WaitingListReductionChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={56}
+              width={52}
             />
             <Tooltip content={<NumberTooltip />} />
             <Bar
@@ -884,7 +883,7 @@ function CostVsSavingsChart({
   yearlyResults: YearlyResultRow[];
 }) {
   const data = yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
+    year: `Y${row.year}`,
     cumulativeProgrammeCost: row.cumulative_programme_cost,
     cumulativeGrossSavings: row.cumulative_gross_savings,
   }));
@@ -896,11 +895,11 @@ function CostVsSavingsChart({
           Cost vs savings
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Cumulative delivery cost compared with gross savings.
+          Cumulative delivery cost against gross savings.
         </p>
       </div>
 
-      <div className="h-52 w-full lg:h-64 xl:h-72">
+      <div className="h-48 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -919,10 +918,9 @@ function CostVsSavingsChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={58}
+              width={54}
             />
             <Tooltip content={<CurrencyTooltip />} />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
             <Line
               type="monotone"
               dataKey="cumulativeProgrammeCost"
@@ -963,11 +961,11 @@ function PathwayImpactChart({
           Pathway impact
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Headline operational impact over the selected horizon.
+          Headline operational impact over the horizon.
         </p>
       </div>
 
-      <div className="h-52 w-full lg:h-64 xl:h-72">
+      <div className="h-48 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -980,7 +978,7 @@ function PathwayImpactChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={54}
+              width={52}
             />
             <Tooltip content={<NumberTooltip />} />
             <Bar dataKey="value" name="Impact" radius={[8, 8, 0, 0]} />
@@ -1007,10 +1005,10 @@ function BoundedUncertaintyChart({
     <div className={SUBCARD}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Bounded uncertainty
+          Uncertainty
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Low, base, and high cases against the current threshold.
+          Low, base, and high cases against the threshold.
         </p>
       </div>
 
@@ -1030,7 +1028,7 @@ function BoundedUncertaintyChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={58}
+              width={54}
             />
             <Tooltip content={<CurrencyTooltip />} />
             <ReferenceLine
@@ -1059,17 +1057,9 @@ function BoundedUncertaintyChart({
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dark = at or below threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Light = above threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dashed orange = threshold
-        </span>
-      </div>
+      <p className="mt-3 text-[11px] leading-5 text-slate-600">
+        Dark bars are at or below threshold.
+      </p>
     </div>
   );
 }
@@ -1914,7 +1904,7 @@ export default function WaitWiseApp() {
         <PathwayImpactChart results={results} />
       </MobileAccordion>
 
-      <MobileAccordion title="Bounded uncertainty">
+      <MobileAccordion title="Uncertainty">
         <BoundedUncertaintyChart
           uncertaintyRows={uncertainty}
           threshold={inputs.cost_effectiveness_threshold}
@@ -2078,7 +2068,7 @@ export default function WaitWiseApp() {
                 <h3 className={SECTION_KICKER}>Interpretation</h3>
                 <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
                   <p>{interpretation.what_model_suggests}</p>
-                  <p>{interpretation.what_to_validate_next}</p>
+                  <p>{interpretation.what_toValidateNext ?? interpretation.what_to_validate_next}</p>
                 </div>
               </div>
 
