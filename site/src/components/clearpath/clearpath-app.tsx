@@ -139,9 +139,7 @@ const CLEARPATH_PRESETS: Record<PresetOption, PresetDefinition> = {
     description:
       "Represents a service where later diagnosis is common and the opportunity is concentrated.",
     apply: () => ({
-      targeting_mode: TARGETING_MODE_OPTIONS.includes("Higher-risk targeting")
-        ? "Higher-risk targeting"
-        : DEFAULT_INPUTS.targeting_mode,
+      targeting_mode: DEFAULT_INPUTS.targeting_mode,
       current_late_diagnosis_rate: 0.52,
       achievable_reduction_in_late_diagnosis: 0.14,
       late_emergency_presentation_rate: 0.42,
@@ -160,7 +158,6 @@ const CLEARPATH_PRESETS: Record<PresetOption, PresetDefinition> = {
       effect_decay_rate: 0.05,
     }),
   },
-
   "Emergency-pressure reduction focus": {
     description:
       "Pushes value toward avoided emergency presentations and acute pressure.",
