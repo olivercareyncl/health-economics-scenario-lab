@@ -5,9 +5,9 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -31,7 +31,7 @@ type UncertaintyChartRow = {
 
 function buildYearlyChartData(yearlyResults: YearlyResultRow[]): YearlyChartRow[] {
   return yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
+    year: `Y${row.year}`,
     fallsAvoided: row.falls_avoided,
     cumulativeProgrammeCost: row.cumulative_programme_cost,
     cumulativeGrossSavings: row.cumulative_gross_savings,
@@ -108,17 +108,17 @@ export function FallsAvoidedChart({
   const data = buildYearlyChartData(yearlyResults);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Falls avoided by year
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:p-4 xl:p-5">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Falls avoided
         </h3>
-        <p className="mt-1 text-sm text-slate-600">
-          A simple view of how annual impact changes across the selected horizon.
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Annual impact across the horizon.
         </p>
       </div>
 
-      <div className="h-64 w-full md:h-72">
+      <div className="h-48 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -133,7 +133,7 @@ export function FallsAvoidedChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={48}
+              width={46}
             />
             <Tooltip content={<NumberTooltip />} />
             <Bar
@@ -156,17 +156,17 @@ export function CostVsSavingsChart({
   const data = buildYearlyChartData(yearlyResults);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Cumulative programme cost vs savings
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:p-4 xl:p-5">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Cost vs savings
         </h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Shows how delivery cost and gross savings build over time.
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Cumulative delivery cost against gross savings.
         </p>
       </div>
 
-      <div className="h-64 w-full md:h-72">
+      <div className="h-48 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -190,10 +190,9 @@ export function CostVsSavingsChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={56}
+              width={54}
             />
             <Tooltip content={<CurrencyTooltip />} />
-            <Legend />
             <Line
               type="monotone"
               dataKey="cumulativeProgrammeCost"
@@ -225,17 +224,17 @@ export function BoundedUncertaintyChart({
   const data = buildUncertaintyChartData(uncertaintyRows);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold tracking-tight text-slate-900">
-          Bounded uncertainty on discounted cost per QALY
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:p-4 xl:p-5">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Uncertainty
         </h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Compares low, base, and high cases against the current threshold.
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Low, base, and high cases against the threshold.
         </p>
       </div>
 
-      <div className="h-64 w-full md:h-72">
+      <div className="h-56 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -256,9 +255,16 @@ export function BoundedUncertaintyChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={56}
+              width={54}
             />
             <Tooltip content={<CurrencyTooltip />} />
+            <ReferenceLine
+              y={threshold}
+              stroke="#c2410c"
+              strokeWidth={2}
+              strokeDasharray="4 4"
+              ifOverflow="extendDomain"
+            />
             <Bar
               dataKey="discountedCostPerQaly"
               name="Discounted cost per QALY"
@@ -274,29 +280,13 @@ export function BoundedUncertaintyChart({
                 );
               })}
             </Bar>
-            <Line
-              type="monotone"
-              dataKey={() => threshold}
-              name="Threshold"
-              strokeWidth={2}
-              dot={false}
-              stroke="#c2410c"
-            />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dark bars = at or below threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Light bars = above threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Orange line = current threshold
-        </span>
-      </div>
+      <p className="mt-3 text-[11px] leading-5 text-slate-600">
+        Dark bars are at or below threshold.
+      </p>
     </div>
   );
 }
