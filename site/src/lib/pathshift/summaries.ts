@@ -147,7 +147,6 @@ export function generateStructuredRecommendation(
 export function generateDecisionReadiness(
   inputs: Inputs,
   results: ModelResults,
-  _uncertaintyRows: UncertaintyRow[],
 ) {
   const validate_next: string[] = [];
 
@@ -275,7 +274,7 @@ export function generateInterpretation(
     threshold,
   );
   const dependency = getMainDriverText(inputs);
-  const readiness = generateDecisionReadiness(inputs, results, uncertaintyRows);
+  const readiness = generateDecisionReadiness(inputs, results);
 
   let what_model_suggests: string;
   if (results.discounted_net_cost_total < 0) {
