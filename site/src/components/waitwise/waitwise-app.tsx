@@ -186,6 +186,8 @@ const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 const SECTION_TITLE =
   "mt-1 text-lg font-semibold tracking-tight text-slate-950 lg:text-[1.1rem]";
+const SECTION_BODY = "text-sm leading-6 text-slate-700";
+const SECTION_COPY = "text-sm leading-6 text-slate-600";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -2093,7 +2095,7 @@ export default function WaitWiseApp() {
         </div>
       </div>
 
-      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.2fr)_380px] lg:gap-6 xl:grid-cols-[minmax(0,1.3fr)_400px]">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.18fr)_392px] lg:gap-6 xl:grid-cols-[minmax(0,1.24fr)_408px]">
         <main className="min-w-0 space-y-5">
           <SectionCard
             title="Output workspace"
@@ -2122,7 +2124,7 @@ export default function WaitWiseApp() {
 
           <SectionCard
             title="Charts"
-            description="Use the first row for the main trajectory and economic comparison. Use the second row for pathway impact and bounded sensitivity."
+            description="Use the first row for trajectory and economics. Use the second row for operational impact and bounded sensitivity."
             dense
           >
             <div className="grid gap-4 xl:grid-cols-2">
@@ -2167,20 +2169,20 @@ export default function WaitWiseApp() {
               <div className="grid gap-3 xl:grid-cols-2">
                 <div className={SUBCARD}>
                   <p className={SECTION_KICKER}>Decision narrative</p>
-                  <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                    <p>{interpretation.what_model_suggests}</p>
-                    <p>{interpretation.what_drives_result}</p>
+                  <div className="mt-3 space-y-2.5">
+                    <p className={SECTION_BODY}>{interpretation.what_model_suggests}</p>
+                    <p className={SECTION_BODY}>{interpretation.what_drives_result}</p>
                   </div>
                 </div>
 
                 <div className={SUBCARD}>
                   <p className={SECTION_KICKER}>Validation note</p>
-                  <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                    <p>{interpretation.what_looks_fragile}</p>
-                    <p>{interpretation.what_to_validate_next}</p>
-                    <p>
+                  <div className="mt-3 space-y-2.5">
+                    <p className={SECTION_BODY}>{interpretation.what_looks_fragile}</p>
+                    <p className={SECTION_BODY}>{interpretation.what_to_validate_next}</p>
+                    <p className={SECTION_COPY}>
                       Break-even horizon:{" "}
-                      <span className="font-medium text-slate-900">
+                      <span className="font-semibold text-slate-900">
                         {results.break_even_horizon}
                       </span>
                     </p>
@@ -2203,7 +2205,7 @@ export default function WaitWiseApp() {
             interpretation={interpretation}
           />
 
-          <div className="mt-4 sticky top-[420px]">
+          <div className="mt-4 sticky top-[430px]">
             <SectionCard
               title="Control panel"
               description="Adjust the assumptions while keeping the current decision signal in view."
