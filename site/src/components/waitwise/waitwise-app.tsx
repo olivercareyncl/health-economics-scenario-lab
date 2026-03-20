@@ -160,9 +160,9 @@ const TARGETING_MODE_MAP: Record<
   { population_multiplier: number; reach_multiplier: number; risk_multiplier: number }
 > = {
   "Broad waiting list": {
-    population_multiplier: 1.0,
-    reach_multiplier: 1.0,
-    risk_multiplier: 1.0,
+    population_multiplier: 1,
+    reach_multiplier: 1,
+    risk_multiplier: 1,
   },
   "Higher-risk targeting": {
     population_multiplier: 0.6,
@@ -595,9 +595,7 @@ function getDecisionStatus(results: ModelResults, threshold: number) {
 }
 
 function getNetCostLabel(results: ModelResults) {
-  return results.discounted_net_cost_total < 0
-    ? "Net saving"
-    : "Net cost";
+  return results.discounted_net_cost_total < 0 ? "Net saving" : "Net cost";
 }
 
 function getMainDriverText(inputs: Inputs) {
@@ -761,8 +759,7 @@ function generateInterpretation(
         ? "Broad implementation may dilute value if the highest-opportunity patients are only a subset of the list."
         : uncertaintyText;
 
-  const whatToValidateNext =
-    `Validate local cost inputs, escalation risk, and whether the case still looks worthwhile over about ${breakEvenHorizon} under credible local assumptions.`;
+  const whatToValidateNext = `Validate local cost inputs, escalation risk, and whether the case still looks worthwhile over about ${breakEvenHorizon} under credible local assumptions.`;
 
   return {
     what_model_suggests: whatModelSuggests,
@@ -942,22 +939,10 @@ function PathwayImpactChart({
   results: ModelResults;
 }) {
   const data = [
-    {
-      label: "Waiting list",
-      value: results.waiting_list_reduction_total,
-    },
-    {
-      label: "Escalations",
-      value: results.escalations_avoided_total,
-    },
-    {
-      label: "Admissions",
-      value: results.admissions_avoided_total,
-    },
-    {
-      label: "Bed days",
-      value: results.bed_days_avoided_total,
-    },
+    { label: "Waiting list", value: results.waiting_list_reduction_total },
+    { label: "Escalations", value: results.escalations_avoided_total },
+    { label: "Admissions", value: results.admissions_avoided_total },
+    { label: "Bed days", value: results.bed_days_avoided_total },
   ];
 
   return (
@@ -1356,15 +1341,15 @@ function AssumptionReviewCard({
   );
 }
 
-function DesktopResultRail({
+function DesktopDecisionRail({
   decisionStatus,
   netCostLabel,
   netCostValue,
   costPerQaly,
   waitingListReduction,
   escalationsAvoided,
-  interpretation,
   mainDriver,
+  interpretation,
 }: {
   decisionStatus: string;
   netCostLabel: string;
@@ -1372,75 +1357,69 @@ function DesktopResultRail({
   costPerQaly: string;
   waitingListReduction: string;
   escalationsAvoided: string;
+  mainDriver: string;
   interpretation: {
     what_model_suggests: string;
     what_drives_result: string;
     what_looks_fragile: string;
     what_to_validate_next: string;
   };
-  mainDriver: string;
 }) {
   return (
-    <aside className="hidden lg:block">
-      <div className="sticky top-6 space-y-4">
-        <div className={PANEL_SHELL}>
-          <p className={SECTION_KICKER}>Decision signal</p>
-          <div className="mt-3 flex items-start justify-between gap-3">
-            <div
-              className={cx(
-                "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
-                decisionStatus === "Appears cost-saving" &&
-                  "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-                decisionStatus === "Appears cost-effective" &&
-                  "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-                decisionStatus === "Above current threshold" &&
-                  "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-              )}
-            >
-              {decisionStatus}
-            </div>
-          </div>
+    <div className="sticky top-6 space-y-4">
+      <div className={PANEL_SHELL}>
+        <p className={SECTION_KICKER}>Live result</p>
+        <h2 className={SECTION_TITLE}>Current decision signal</h2>
 
-          <div className="mt-4 grid gap-3">
-            <MetricCard label={netCostLabel} value={netCostValue} />
-            <MetricCard
-              label="Discounted cost per QALY"
-              value={costPerQaly}
-              tone="strong"
-            />
-          </div>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <MetricCard label="Waiting list reduction" value={waitingListReduction} />
-            <MetricCard label="Escalations avoided" value={escalationsAvoided} />
+        <div className="mt-3">
+          <div
+            className={cx(
+              "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
+              decisionStatus === "Appears cost-saving" &&
+                "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+              decisionStatus === "Appears cost-effective" &&
+                "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+              decisionStatus === "Above current threshold" &&
+                "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+            )}
+          >
+            {decisionStatus}
           </div>
         </div>
 
-        <div className={PANEL_SHELL}>
-          <p className={SECTION_KICKER}>Analyst readout</p>
-          <h2 className={SECTION_TITLE}>Current interpretation</h2>
+        <div className="mt-4 grid gap-3">
+          <MetricCard label={netCostLabel} value={netCostValue} />
+          <MetricCard
+            label="Discounted cost per QALY"
+            value={costPerQaly}
+            tone="strong"
+          />
+        </div>
 
-          <div className="mt-4 space-y-3">
-            <MiniInsight
-              label="Conclusion"
-              value={interpretation.what_model_suggests}
-            />
-            <MiniInsight
-              label="Main driver"
-              value={`The result is currently most shaped by ${mainDriver}.`}
-            />
-            <MiniInsight
-              label="Fragility"
-              value={interpretation.what_looks_fragile}
-            />
-            <MiniInsight
-              label="Validate next"
-              value={interpretation.what_to_validate_next}
-            />
-          </div>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <MetricCard label="Waiting list reduction" value={waitingListReduction} />
+          <MetricCard label="Escalations avoided" value={escalationsAvoided} />
         </div>
       </div>
-    </aside>
+
+      <div className={PANEL_SHELL}>
+        <p className={SECTION_KICKER}>Analyst note</p>
+        <h2 className={SECTION_TITLE}>How to read the case</h2>
+
+        <div className="mt-4 space-y-3">
+          <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
+          <MiniInsight
+            label="Main driver"
+            value={`The result is currently most shaped by ${mainDriver}.`}
+          />
+          <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
+          <MiniInsight
+            label="Validate next"
+            value={interpretation.what_to_validate_next}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1535,24 +1514,18 @@ export default function WaitWiseApp() {
 
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-3">
-      <MiniInsight
-        label="Conclusion"
-        value={interpretation.what_model_suggests}
-      />
+      <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
       <MiniInsight
         label="Main driver"
         value={`The result is currently most shaped by ${mainDriver}.`}
       />
-      <MiniInsight
-        label="Fragility"
-        value={interpretation.what_looks_fragile}
-      />
+      <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
     </div>
   );
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      These are the main levers most likely to change the result.
+      These are the levers most likely to change the decision signal.
     </div>
   );
 
@@ -2068,10 +2041,7 @@ export default function WaitWiseApp() {
                   label="Bed days avoided"
                   value={formatNumber(results.bed_days_avoided_total)}
                 />
-                <MetricCard
-                  label="Return on spend"
-                  value={formatRatio(results.roi)}
-                />
+                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
               </div>
 
               <div className={SUBCARD}>
@@ -2123,11 +2093,11 @@ export default function WaitWiseApp() {
         </div>
       </div>
 
-      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-5 xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-6">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.2fr)_380px] lg:gap-6 xl:grid-cols-[minmax(0,1.3fr)_400px]">
         <main className="min-w-0 space-y-5">
           <SectionCard
-            title="Headline view"
-            description="A compact summary of the current conclusion, economic position, and the most important interpretation."
+            title="Output workspace"
+            description="Review the current conclusion, compare the main economic and operational outputs, then move down into trajectory and uncertainty."
             dense
           >
             {summaryMetrics}
@@ -2152,7 +2122,7 @@ export default function WaitWiseApp() {
 
           <SectionCard
             title="Charts"
-            description="Use the charts to compare backlog trajectory, economics, impact, and bounded sensitivity at a glance."
+            description="Use the first row for the main trajectory and economic comparison. Use the second row for pathway impact and bounded sensitivity."
             dense
           >
             <div className="grid gap-4 xl:grid-cols-2">
@@ -2171,7 +2141,7 @@ export default function WaitWiseApp() {
 
           <SectionCard
             title="Analysis"
-            description="A structured readout of the current assumption set, bounded cases, and what should be validated next."
+            description="A compact analyst-style readout of the current assumption set, the bounded cases, and what should be validated next."
             dense
           >
             <div className="space-y-5">
@@ -2221,22 +2191,22 @@ export default function WaitWiseApp() {
           </SectionCard>
         </main>
 
-        <DesktopResultRail
-          decisionStatus={decisionStatus}
-          netCostLabel={netCostLabel}
-          netCostValue={formatCurrency(Math.abs(results.discounted_net_cost_total))}
-          costPerQaly={formatCurrency(results.discounted_cost_per_qaly)}
-          waitingListReduction={formatNumber(results.waiting_list_reduction_total)}
-          escalationsAvoided={formatNumber(results.escalations_avoided_total)}
-          interpretation={interpretation}
-          mainDriver={mainDriver}
-        />
+        <aside className="min-w-0">
+          <DesktopDecisionRail
+            decisionStatus={decisionStatus}
+            netCostLabel={netCostLabel}
+            netCostValue={formatCurrency(Math.abs(results.discounted_net_cost_total))}
+            costPerQaly={formatCurrency(results.discounted_cost_per_qaly)}
+            waitingListReduction={formatNumber(results.waiting_list_reduction_total)}
+            escalationsAvoided={formatNumber(results.escalations_avoided_total)}
+            mainDriver={mainDriver}
+            interpretation={interpretation}
+          />
 
-        <aside className="hidden lg:block lg:col-start-2 lg:row-start-1 lg:mt-[430px] xl:mt-[446px]">
-          <div className="sticky top-[360px] space-y-4">
+          <div className="mt-4 sticky top-[420px]">
             <SectionCard
-              title="Assumptions"
-              description="Adjust the main levers here while keeping the current decision signal in view."
+              title="Control panel"
+              description="Adjust the assumptions while keeping the current decision signal in view."
               action={
                 <button
                   type="button"
@@ -2253,7 +2223,7 @@ export default function WaitWiseApp() {
                 <div className={SUBCARD}>
                   <p className={SECTION_KICKER}>Quick assumptions</p>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    These are the levers most likely to change the result.
+                    Start with the main levers most likely to change the result.
                   </p>
                   <div className="mt-3">{quickAssumptionNotice}</div>
                   <div className="mt-4">{assumptionsQuick}</div>
@@ -2262,7 +2232,7 @@ export default function WaitWiseApp() {
                 <div className={SUBCARD}>
                   <p className={SECTION_KICKER}>Advanced assumptions</p>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Use these for deeper scenario testing once the main case is stable.
+                    Use these for deeper stress-testing once the main case is stable.
                   </p>
                   <div className="mt-4">{advancedSections}</div>
                 </div>
