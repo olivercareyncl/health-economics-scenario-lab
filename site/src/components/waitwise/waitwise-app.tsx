@@ -2068,7 +2068,7 @@ export default function WaitWiseApp() {
                 <h3 className={SECTION_KICKER}>Interpretation</h3>
                 <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
                   <p>{interpretation.what_model_suggests}</p>
-                  <p>{interpretation.what_toValidateNext ?? interpretation.what_to_validate_next}</p>
+                  <p>{interpretation.what_to_validate_next}</p>
                 </div>
               </div>
 
