@@ -23,35 +23,46 @@ import {
   YAxis,
 } from "recharts";
 
-import { DEFAULT_INPUTS } from "@/lib/pathshift/defaults";
+import { DEFAULT_INPUTS } from "@/lib/clearpath/defaults";
 import {
   buildComparatorCase,
   runBoundedUncertainty,
   runModel,
-} from "@/lib/pathshift/calculations";
+} from "@/lib/clearpath/calculations";
 import {
+  buildCasesShiftedChartData,
+  buildComparatorDeltaChartData,
   buildCumulativeCostChartData,
   buildImpactBarChartData,
-  buildPatientsShiftedChartData,
+  buildScenarioNetCostChartData,
+  buildScenarioOutcomeChartData,
   buildUncertaintyChartData,
   compactCurrencyAxis,
-} from "@/lib/pathshift/charts";
+} from "@/lib/clearpath/charts";
 import {
   formatCurrency,
   formatNumber,
   formatPercent,
   formatRatio,
-} from "@/lib/pathshift/formatters";
+} from "@/lib/clearpath/formatters";
 import {
   ASSUMPTION_META,
   ASSUMPTION_ORDER,
-} from "@/lib/pathshift/metadata";
+  getAssumptionConfidenceSummary,
+} from "@/lib/clearpath/metadata";
 import {
   COMPARATOR_OPTIONS,
   COSTING_METHOD_OPTIONS,
+  SCENARIO_MAP,
   TARGETING_MODE_OPTIONS,
-} from "@/lib/pathshift/scenarios";
+} from "@/lib/clearpath/scenarios";
 import {
+  buildSensitivityTakeaways,
+  runOneWaySensitivity,
+  SENSITIVITY_VARIABLES,
+} from "@/lib/clearpath/sensitivity";
+import {
+  assessUncertaintyRobustness,
   generateInterpretation,
   generateOverviewSummary,
   generateOverallSignal,
@@ -59,18 +70,108 @@ import {
   getDecisionStatus,
   getMainDriverText,
   getNetCostLabel,
-} from "@/lib/pathshift/summaries";
+  summariseScenarioStrengths,
+} from "@/lib/clearpath/summaries";
 import type {
   AssumptionSectionKey,
   ComparatorOption,
-  CostingMethod,
   Inputs,
   MobileTab,
   ModelResults,
-  TargetingMode,
+  ScenarioComparisonRow,
+  SensitivityRow,
   UncertaintyRow,
   YearlyResultRow,
-} from "@/lib/pathshift/types";
+} from "@/lib/clearpath/types";
+
+type PresetOption =
+  | "Base case"
+  | "Conservative case"
+  | "Optimistic case"
+  | "High late-diagnosis burden"
+  | "High-reach case-finding"
+  | "Emergency-pressure reduction focus";
+
+type PresetDefinition = {
+  description: string;
+  apply: (defaults: Inputs) => Partial<Inputs>;
+};
+
+const PRESET_OPTIONS: readonly PresetOption[] = [
+  "Base case",
+  "Conservative case",
+  "Optimistic case",
+  "High late-diagnosis burden",
+  "High-reach case-finding",
+  "Emergency-pressure reduction focus",
+];
+
+const CLEARPATH_PRESETS: Record<PresetOption, PresetDefinition> = {
+  "Base case": {
+    description: "Restores the standard earlier-diagnosis starting point.",
+    apply: () => ({}),
+  },
+  "Conservative case": {
+    description:
+      "Lower reach and smaller diagnosis shift with slightly higher delivery friction.",
+    apply: () => ({
+      intervention_reach_rate: 0.5,
+      achievable_reduction_in_late_diagnosis: 0.08,
+      intervention_cost_per_case_reached:
+        DEFAULT_INPUTS.intervention_cost_per_case_reached * 1.15,
+      effect_decay_rate: 0.12,
+      participation_dropoff_rate: 0.1,
+    }),
+  },
+  "Optimistic case": {
+    description:
+      "Higher reach and stronger pathway shift with more persistent performance.",
+    apply: () => ({
+      intervention_reach_rate: 0.78,
+      achievable_reduction_in_late_diagnosis: 0.18,
+      intervention_cost_per_case_reached:
+        DEFAULT_INPUTS.intervention_cost_per_case_reached * 0.92,
+      effect_decay_rate: 0.05,
+      participation_dropoff_rate: 0.04,
+    }),
+  },
+  "High late-diagnosis burden": {
+    description:
+      "Represents a service where later diagnosis is common and the opportunity is concentrated.",
+    apply: () => ({
+      targeting_mode: DEFAULT_INPUTS.targeting_mode,
+      current_late_diagnosis_rate: 0.52,
+      achievable_reduction_in_late_diagnosis: 0.14,
+      late_emergency_presentation_rate: 0.42,
+      early_emergency_presentation_rate: 0.16,
+      intervention_reach_rate: 0.65,
+    }),
+  },
+  "High-reach case-finding": {
+    description:
+      "Emphasises wider operational reach and stronger programme penetration.",
+    apply: () => ({
+      targeting_mode: DEFAULT_INPUTS.targeting_mode,
+      intervention_reach_rate: 0.82,
+      achievable_reduction_in_late_diagnosis: 0.13,
+      participation_dropoff_rate: 0.04,
+      effect_decay_rate: 0.05,
+    }),
+  },
+  "Emergency-pressure reduction focus": {
+    description:
+      "Pushes value toward avoided emergency presentations and acute pressure.",
+    apply: () => ({
+      achievable_reduction_in_late_diagnosis: 0.13,
+      late_emergency_presentation_rate: 0.45,
+      early_emergency_presentation_rate: 0.14,
+      admissions_per_emergency_presentation: 1.2,
+      cost_per_emergency_admission:
+        DEFAULT_INPUTS.cost_per_emergency_admission * 1.1,
+      intervention_reach_rate: 0.68,
+    }),
+  },
+};
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -81,142 +182,83 @@ const SUBCARD_DENSE =
 const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 
-type PresetOption =
-  | "Base case"
-  | "Conservative case"
-  | "Optimistic case"
-  | "High-admission pressure"
-  | "Lower-cost setting shift"
-  | "Targeted high-utiliser redesign";
-
-type PresetDefinition = {
-  description: string;
-  apply: () => Partial<Inputs>;
-};
-
-const PRESET_OPTIONS: readonly PresetOption[] = [
-  "Base case",
-  "Conservative case",
-  "Optimistic case",
-  "High-admission pressure",
-  "Lower-cost setting shift",
-  "Targeted high-utiliser redesign",
-] as const;
-
-const baseTargetingMode = TARGETING_MODE_OPTIONS[0] as TargetingMode;
-const secondaryTargetingMode =
-  (TARGETING_MODE_OPTIONS[1] ?? TARGETING_MODE_OPTIONS[0]) as TargetingMode;
-const tertiaryTargetingMode =
-  (TARGETING_MODE_OPTIONS[2] ??
-    TARGETING_MODE_OPTIONS[1] ??
-    TARGETING_MODE_OPTIONS[0]) as TargetingMode;
-
-const baseCostingMethod = COSTING_METHOD_OPTIONS[0] as CostingMethod;
-const secondaryCostingMethod =
-  (COSTING_METHOD_OPTIONS[1] ?? COSTING_METHOD_OPTIONS[0]) as CostingMethod;
-
-const PATHSHIFT_PRESETS: Record<PresetOption, PresetDefinition> = {
-  "Base case": {
-    description: "Restores the default pathway redesign starting point.",
-    apply: () => ({
-      ...DEFAULT_INPUTS,
-    }),
-  },
-  "Conservative case": {
-    description:
-      "Lower reach, smaller redesign effect, and weaker persistence.",
-    apply: () => ({
-      targeting_mode: baseTargetingMode,
-      implementation_reach_rate: 0.42,
-      redesign_cost_per_patient: 260,
-      proportion_shifted_to_lower_cost_setting: 0.18,
-      reduction_in_admission_rate: 0.08,
-      reduction_in_follow_up_contacts: 0.08,
-      annual_effect_decay_rate: 0.14,
-      participation_dropoff_rate: 0.12,
-      costing_method: baseCostingMethod,
-    }),
-  },
-  "Optimistic case": {
-    description:
-      "Higher reach, stronger pathway shift, and better persistence.",
-    apply: () => ({
-      targeting_mode: baseTargetingMode,
-      implementation_reach_rate: 0.7,
-      redesign_cost_per_patient: 170,
-      proportion_shifted_to_lower_cost_setting: 0.4,
-      reduction_in_admission_rate: 0.18,
-      reduction_in_follow_up_contacts: 0.16,
-      annual_effect_decay_rate: 0.05,
-      participation_dropoff_rate: 0.05,
-      costing_method: secondaryCostingMethod,
-    }),
-  },
-  "High-admission pressure": {
-    description:
-      "Represents a pathway where admission risk is high and redesign value is concentrated.",
-    apply: () => ({
-      targeting_mode: secondaryTargetingMode,
-      current_admission_rate: 0.28,
-      implementation_reach_rate: 0.58,
-      proportion_shifted_to_lower_cost_setting: 0.32,
-      reduction_in_admission_rate: 0.18,
-      reduction_in_follow_up_contacts: 0.1,
-    }),
-  },
-  "Lower-cost setting shift": {
-    description:
-      "Tests whether value improves under a stronger shift into lower-cost settings.",
-    apply: () => ({
-      targeting_mode: baseTargetingMode,
-      implementation_reach_rate: 0.62,
-      redesign_cost_per_patient: 190,
-      proportion_shifted_to_lower_cost_setting: 0.42,
-      reduction_in_admission_rate: 0.12,
-      reduction_in_follow_up_contacts: 0.12,
-    }),
-  },
-  "Targeted high-utiliser redesign": {
-    description:
-      "Focuses redesign on the highest-opportunity, higher-utilisation subgroup.",
-    apply: () => ({
-      targeting_mode: tertiaryTargetingMode,
-      implementation_reach_rate: 0.54,
-      redesign_cost_per_patient: 210,
-      proportion_shifted_to_lower_cost_setting: 0.36,
-      reduction_in_admission_rate: 0.2,
-      reduction_in_follow_up_contacts: 0.14,
-    }),
-  },
-};
-
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function getCaseTypeLabel(preset: PresetOption, inputs: Inputs): string {
-  if (preset === "Conservative case") return "Conservative redesign case";
-  if (preset === "Optimistic case") return "Optimistic redesign case";
-  if (preset === "High-admission pressure") return "High-admission pressure case";
-  if (preset === "Lower-cost setting shift") return "Lower-cost setting shift case";
-  if (preset === "Targeted high-utiliser redesign") {
-    return "Targeted high-utiliser redesign case";
+function buildScenarioComparison(
+  defaults: Inputs,
+  baseInputs: Inputs,
+): ScenarioComparisonRow[] {
+  return Object.entries(SCENARIO_MAP).map(([scenarioName, scenarioFn]) => {
+    const scenarioInputs: Inputs = {
+      ...defaults,
+      ...scenarioFn(defaults),
+      time_horizon_years: baseInputs.time_horizon_years,
+      discount_rate: baseInputs.discount_rate,
+      effect_decay_rate: baseInputs.effect_decay_rate,
+      participation_dropoff_rate: baseInputs.participation_dropoff_rate,
+      costing_method: baseInputs.costing_method,
+      cost_effectiveness_threshold: baseInputs.cost_effectiveness_threshold,
+      cost_per_emergency_admission: baseInputs.cost_per_emergency_admission,
+      cost_per_bed_day: baseInputs.cost_per_bed_day,
+      treatment_cost_early: baseInputs.treatment_cost_early,
+      treatment_cost_late: baseInputs.treatment_cost_late,
+      qaly_gain_per_case_shifted: baseInputs.qaly_gain_per_case_shifted,
+    };
+
+    const scenarioResults = runModel(scenarioInputs);
+
+    return {
+      scenario: scenarioName,
+      targeting: scenarioInputs.targeting_mode,
+      cases_shifted_earlier: scenarioResults.cases_shifted_total,
+      emergency_presentations_avoided:
+        scenarioResults.emergency_presentations_avoided_total,
+      programme_cost: scenarioResults.programme_cost_total,
+      discounted_net_cost: scenarioResults.discounted_net_cost_total,
+      discounted_cost_per_qaly: scenarioResults.discounted_cost_per_qaly,
+      decision_status: getDecisionStatus(
+        scenarioResults,
+        scenarioInputs.cost_effectiveness_threshold,
+      ),
+    };
+  });
+}
+
+function getCaseTypeLabel(
+  preset: PresetOption,
+  inputs: Inputs,
+  mainDriver: string,
+): string {
+  if (preset === "Conservative case") return "Conservative delivery case";
+  if (preset === "Optimistic case") return "Optimistic earlier-diagnosis case";
+  if (preset === "High late-diagnosis burden") {
+    return "High late-diagnosis burden case";
+  }
+  if (preset === "High-reach case-finding") {
+    return "High-reach case-finding case";
+  }
+  if (preset === "Emergency-pressure reduction focus") {
+    return "Emergency-pressure reduction case";
   }
 
-  if (inputs.redesign_cost_per_patient <= 200) {
-    return "Lower-cost setting shift case";
+  if (inputs.current_late_diagnosis_rate >= 0.45) {
+    return "High late-diagnosis burden case";
   }
-  if (inputs.current_admission_rate >= 0.24) {
-    return "High-admission pressure case";
+  if (inputs.intervention_reach_rate >= 0.75) {
+    return "High-reach case-finding case";
+  }
+  if (mainDriver.toLowerCase().includes("emergency")) {
+    return "Emergency-pressure reduction case";
   }
   if (
-    inputs.targeting_mode.toLowerCase().includes("high") ||
+    inputs.targeting_mode.toLowerCase().includes("risk") ||
     inputs.targeting_mode.toLowerCase().includes("target")
   ) {
-    return "Targeted high-utiliser redesign case";
+    return "Targeted earlier-diagnosis case";
   }
-
-  return "Broad redesign case";
+  return "Broad earlier-diagnosis improvement case";
 }
 
 function CurrencyTooltip({
@@ -548,21 +590,21 @@ function SelectInput<T extends string>({
   );
 }
 
-function PatientsShiftedChart({
+function CasesShiftedChart({
   yearlyResults,
 }: {
   yearlyResults: YearlyResultRow[];
 }) {
-  const data = buildPatientsShiftedChartData(yearlyResults);
+  const data = buildCasesShiftedChartData(yearlyResults);
 
   return (
     <div className={SUBCARD}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Patients shifted in pathway
+          Cases shifted earlier
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Annual pathway shift across the selected horizon.
+          Annual shift from later to earlier diagnosis across the selected horizon.
         </p>
       </div>
 
@@ -580,8 +622,8 @@ function PatientsShiftedChart({
             />
             <Tooltip content={<NumberTooltip />} />
             <Bar
-              dataKey="patientsShifted"
-              name="Patients shifted"
+              dataKey="casesShiftedEarlier"
+              name="Cases shifted earlier"
               radius={[8, 8, 0, 0]}
             />
           </BarChart>
@@ -652,7 +694,10 @@ function PathwayImpactChart({
   const rawData = buildImpactBarChartData(results);
   const data = rawData.map((row) => ({
     label: row.label,
-    mobileLabel: row.label,
+    mobileLabel:
+      row.label === "Emergency presentations avoided"
+        ? "Emergency presentations"
+        : row.label,
     value: row.value,
   }));
 
@@ -689,7 +734,7 @@ function PathwayImpactChart({
               tickLine={false}
               axisLine={false}
               fontSize={11}
-              width={138}
+              width={118}
             />
             <Tooltip content={<NumberTooltip />} />
             <Bar dataKey="value" name="Impact" radius={[0, 8, 8, 0]} />
@@ -792,14 +837,225 @@ function BoundedUncertaintyChart({
   );
 }
 
-export default function PathShiftApp() {
+function SensitivityChart({
+  sensitivityRows,
+}: {
+  sensitivityRows: SensitivityRow[];
+}) {
+  const data = [...sensitivityRows]
+    .sort((a, b) => a.swing - b.swing)
+    .map((row) => ({
+      label: row.label,
+      lowDelta: row.low_delta,
+      highDelta: row.high_delta,
+    }));
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          One-way sensitivity
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Which assumptions move discounted cost per QALY the most.
+        </p>
+      </div>
+
+      <div className="h-[440px] w-full xl:h-[520px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 8, right: 18, left: 30, bottom: 0 }}
+            barCategoryGap={8}
+          >
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={180}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Bar dataKey="lowDelta" name="Low case" radius={[0, 8, 8, 0]} />
+            <Bar dataKey="highDelta" name="High case" radius={[0, 8, 8, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function ScenarioNetCostChart({
+  scenarioRows,
+}: {
+  scenarioRows: ScenarioComparisonRow[];
+}) {
+  const data = buildScenarioNetCostChartData(scenarioRows);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Scenario net cost
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Discounted net cost across the preset scenario configurations.
+        </p>
+      </div>
+
+      <div className="h-56 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="scenario" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={58}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Bar
+              dataKey="discountedNetCost"
+              name="Discounted net cost"
+              radius={[8, 8, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function ScenarioOutcomeChart({
+  scenarioRows,
+}: {
+  scenarioRows: ScenarioComparisonRow[];
+}) {
+  const data = buildScenarioOutcomeChartData(scenarioRows);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Scenario pathway impact
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Cases shifted earlier and emergency presentations avoided by scenario.
+        </p>
+      </div>
+
+      <div className="h-64 w-full xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="scenario" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => formatNumber(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={54}
+            />
+            <Tooltip content={<NumberTooltip />} />
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Bar
+              dataKey="casesShiftedEarlier"
+              name="Cases shifted earlier"
+              radius={[8, 8, 0, 0]}
+            />
+            <Bar
+              dataKey="emergencyPresentationsAvoided"
+              name="Emergency presentations avoided"
+              radius={[8, 8, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function ComparatorDeltaChart({
+  baseResults,
+  comparatorResults,
+  comparatorLabel,
+}: {
+  baseResults: ModelResults;
+  comparatorResults: ModelResults;
+  comparatorLabel: string;
+}) {
+  const data = buildComparatorDeltaChartData(baseResults, comparatorResults);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Comparator deltas
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Change versus the current configuration using {comparatorLabel.toLowerCase()}.
+        </p>
+      </div>
+
+      <div className="h-56 w-full lg:h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={58}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                const row = data.find((d) => d.label === label);
+                const value = Number(payload[0]?.value ?? 0);
+
+                return (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <p className="text-sm font-medium text-slate-900">{label}</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      <span className="font-medium text-slate-800">Delta:</span>{" "}
+                      {row?.isCurrency ? formatCurrency(value) : formatNumber(value)}
+                    </p>
+                  </div>
+                );
+              }}
+            />
+            <Bar dataKey="delta" name="Delta" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+export default function ClearPathApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
+  const [showComparatorDesktop, setShowComparatorDesktop] = useState(false);
   const [openSections, setOpenSections] = useState<
     Record<AssumptionSectionKey, boolean>
   >({
-    "advanced-baseline": false,
+    "advanced-pathway": false,
     "advanced-costs": false,
     "advanced-outcomes": false,
   });
@@ -810,15 +1066,6 @@ export default function PathShiftApp() {
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
-
-  const comparatorResults = useMemo(() => {
-    const comparatorInputs = buildComparatorCase(
-      DEFAULT_INPUTS,
-      inputs,
-      comparatorMode,
-    );
-    return runModel(comparatorInputs);
-  }, [inputs, comparatorMode]);
 
   const decisionStatus = useMemo(
     () => getDecisionStatus(results, inputs.cost_effectiveness_threshold),
@@ -848,12 +1095,63 @@ export default function PathShiftApp() {
     [inputs, results, uncertainty],
   );
 
-  const caseTypeLabel = useMemo(
-    () => getCaseTypeLabel(presetMode, inputs),
-    [presetMode, inputs],
+  const uncertaintyRobustness = useMemo(
+    () =>
+      assessUncertaintyRobustness(
+        uncertainty,
+        inputs.cost_effectiveness_threshold,
+      ),
+    [uncertainty, inputs.cost_effectiveness_threshold],
   );
 
-  const presetDescription = PATHSHIFT_PRESETS[presetMode].description;
+  const sensitivityRows = useMemo(
+    () =>
+      runOneWaySensitivity(
+        inputs,
+        SENSITIVITY_VARIABLES,
+        0.2,
+        "discounted_cost_per_qaly",
+      ),
+    [inputs],
+  );
+
+  const sensitivityTakeaways = useMemo(
+    () => buildSensitivityTakeaways(sensitivityRows),
+    [sensitivityRows],
+  );
+
+  const scenarioRows = useMemo(
+    () => buildScenarioComparison(DEFAULT_INPUTS, inputs),
+    [inputs],
+  );
+
+  const scenarioStrengths = useMemo(
+    () => summariseScenarioStrengths(scenarioRows),
+    [scenarioRows],
+  );
+
+  const comparatorResults = useMemo(() => {
+    const comparatorInputs = buildComparatorCase(
+      DEFAULT_INPUTS,
+      inputs,
+      comparatorMode,
+    );
+    return runModel(comparatorInputs);
+  }, [inputs, comparatorMode]);
+
+  const comparatorDeltas = useMemo(
+    () => buildComparatorDeltaChartData(results, comparatorResults),
+    [results, comparatorResults],
+  );
+
+  const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
+
+  const caseTypeLabel = useMemo(
+    () => getCaseTypeLabel(presetMode, inputs, mainDriver),
+    [presetMode, inputs, mainDriver],
+  );
+
+  const presetDescription = CLEARPATH_PRESETS[presetMode].description;
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
@@ -861,7 +1159,7 @@ export default function PathShiftApp() {
 
   const applyPreset = (preset: PresetOption) => {
     setPresetMode(preset);
-    const updates = PATHSHIFT_PRESETS[preset].apply();
+    const updates = CLEARPATH_PRESETS[preset].apply(DEFAULT_INPUTS);
     setInputs((prev) => ({ ...prev, ...updates }));
   };
 
@@ -870,8 +1168,9 @@ export default function PathShiftApp() {
     setPresetMode("Base case");
     setComparatorMode(COMPARATOR_OPTIONS[0]);
     setShowAdvancedMobile(false);
+    setShowComparatorDesktop(false);
     setOpenSections({
-      "advanced-baseline": false,
+      "advanced-pathway": false,
       "advanced-costs": false,
       "advanced-outcomes": false,
     });
@@ -884,12 +1183,12 @@ export default function PathShiftApp() {
   const summaryMetrics = (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <MetricCard
-        label="Patients shifted"
-        value={formatNumber(results.patients_shifted_total)}
+        label="Cases shifted earlier"
+        value={formatNumber(results.cases_shifted_total)}
       />
       <MetricCard
-        label="Admissions avoided"
-        value={formatNumber(results.admissions_avoided_total)}
+        label="Emergency presentations avoided"
+        value={formatNumber(results.emergency_presentations_avoided_total)}
       />
       <MetricCard
         label={netCostLabel}
@@ -907,12 +1206,12 @@ export default function PathShiftApp() {
     <div className="grid gap-3 xl:grid-cols-3">
       <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
       <MetricCard
-        label="Break-even cost per patient"
-        value={formatCurrency(results.break_even_cost_per_patient)}
+        label="Max intervention cost per case"
+        value={formatCurrency(results.break_even_cost_per_case)}
       />
       <MetricCard
-        label="Break-even horizon"
-        value={results.break_even_horizon}
+        label="Required late diagnosis reduction"
+        value={formatPercent(results.break_even_reduction_in_late_diagnosis)}
       />
     </div>
   );
@@ -989,58 +1288,60 @@ export default function PathShiftApp() {
         value={inputs.targeting_mode}
         options={TARGETING_MODE_OPTIONS}
         onChange={(value) => updateInput("targeting_mode", value)}
-        help="Changes concentration of pathway opportunity and admission risk."
+        help="Changes concentration of later diagnosis and achievable shift."
       />
 
       <NumberInput
-        label="Eligible patients"
-        value={inputs.eligible_patients}
-        onChange={(value) => updateInput("eligible_patients", value)}
+        label="Annual incident cases"
+        value={inputs.annual_incident_cases}
+        onChange={(value) => updateInput("annual_incident_cases", value)}
         step={50}
-        help="Baseline flow of patients who could enter the redesigned pathway."
+        help="Baseline flow of cases entering the pathway."
       />
 
       <SliderInput
-        label="Implementation reach"
-        value={inputs.implementation_reach_rate}
-        onChange={(value) => updateInput("implementation_reach_rate", value)}
+        label="Current late diagnosis rate"
+        value={inputs.current_late_diagnosis_rate}
+        onChange={(value) => updateInput("current_late_diagnosis_rate", value)}
         min={0}
         max={1}
         step={0.01}
-        display={formatPercent(inputs.implementation_reach_rate)}
-        help="Share of eligible patients effectively reached."
+        display={formatPercent(inputs.current_late_diagnosis_rate)}
+        help="Share of cases currently diagnosed later."
       />
 
       <SliderInput
-        label="Shift to lower-cost setting"
-        value={inputs.proportion_shifted_to_lower_cost_setting}
+        label="Achievable reduction in late diagnosis"
+        value={inputs.achievable_reduction_in_late_diagnosis}
         onChange={(value) =>
-          updateInput("proportion_shifted_to_lower_cost_setting", value)
+          updateInput("achievable_reduction_in_late_diagnosis", value)
         }
         min={0}
-        max={1}
+        max={0.5}
         step={0.01}
-        display={formatPercent(inputs.proportion_shifted_to_lower_cost_setting)}
-        help="Share of pathway activity shifted to a lower-cost setting."
+        display={formatPercent(inputs.achievable_reduction_in_late_diagnosis)}
+        help="Absolute reduction achieved by the intervention."
       />
 
       <SliderInput
-        label="Admission reduction"
-        value={inputs.reduction_in_admission_rate}
-        onChange={(value) => updateInput("reduction_in_admission_rate", value)}
+        label="Intervention reach"
+        value={inputs.intervention_reach_rate}
+        onChange={(value) => updateInput("intervention_reach_rate", value)}
         min={0}
-        max={0.6}
+        max={1}
         step={0.01}
-        display={formatPercent(inputs.reduction_in_admission_rate)}
-        help="Reduction in admission risk under the redesign."
+        display={formatPercent(inputs.intervention_reach_rate)}
+        help="Share of cases effectively reached."
       />
 
       <NumberInput
-        label="Redesign cost per patient"
-        value={inputs.redesign_cost_per_patient}
-        onChange={(value) => updateInput("redesign_cost_per_patient", value)}
-        step={10}
-        help="Main implementation cost lever."
+        label="Intervention cost per case"
+        value={inputs.intervention_cost_per_case_reached}
+        onChange={(value) =>
+          updateInput("intervention_cost_per_case_reached", value)
+        }
+        step={25}
+        help="Main delivery cost lever."
       />
 
       <div className="xl:col-span-2">
@@ -1062,38 +1363,51 @@ export default function PathShiftApp() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <button
           type="button"
-          onClick={() => toggleSection("advanced-baseline")}
+          onClick={() => toggleSection("advanced-pathway")}
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
-          aria-expanded={openSections["advanced-baseline"]}
+          aria-expanded={openSections["advanced-pathway"]}
         >
           <span className="text-sm font-medium text-slate-900">
-            Baseline pathway assumptions
+            Pathway assumptions
           </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
-              openSections["advanced-baseline"] && "rotate-180",
+              openSections["advanced-pathway"] && "rotate-180",
             )}
           />
         </button>
 
-        {openSections["advanced-baseline"] ? (
+        {openSections["advanced-pathway"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
               <SliderInput
-                label="Current admission rate"
-                value={inputs.current_admission_rate}
-                onChange={(value) => updateInput("current_admission_rate", value)}
+                label="Emergency presentation rate, later diagnosis"
+                value={inputs.late_emergency_presentation_rate}
+                onChange={(value) =>
+                  updateInput("late_emergency_presentation_rate", value)
+                }
                 min={0}
                 max={1}
                 step={0.01}
-                display={formatPercent(inputs.current_admission_rate)}
+                display={formatPercent(inputs.late_emergency_presentation_rate)}
+              />
+              <SliderInput
+                label="Emergency presentation rate, earlier diagnosis"
+                value={inputs.early_emergency_presentation_rate}
+                onChange={(value) =>
+                  updateInput("early_emergency_presentation_rate", value)
+                }
+                min={0}
+                max={1}
+                step={0.01}
+                display={formatPercent(inputs.early_emergency_presentation_rate)}
               />
               <NumberInput
-                label="Current follow-ups per patient"
-                value={inputs.current_follow_ups_per_patient}
+                label="Admissions per emergency presentation"
+                value={inputs.admissions_per_emergency_presentation}
                 onChange={(value) =>
-                  updateInput("current_follow_ups_per_patient", value)
+                  updateInput("admissions_per_emergency_presentation", value)
                 }
                 step={0.1}
               />
@@ -1144,18 +1458,24 @@ export default function PathShiftApp() {
                 step={1000}
               />
               <NumberInput
-                label="Cost per admission"
-                value={inputs.cost_per_admission}
-                onChange={(value) => updateInput("cost_per_admission", value)}
-                step={100}
+                label="Treatment cost, earlier diagnosis"
+                value={inputs.treatment_cost_early}
+                onChange={(value) => updateInput("treatment_cost_early", value)}
+                step={500}
               />
               <NumberInput
-                label="Cost per follow-up contact"
-                value={inputs.cost_per_follow_up_contact}
+                label="Treatment cost, later diagnosis"
+                value={inputs.treatment_cost_late}
+                onChange={(value) => updateInput("treatment_cost_late", value)}
+                step={500}
+              />
+              <NumberInput
+                label="Cost per emergency admission"
+                value={inputs.cost_per_emergency_admission}
                 onChange={(value) =>
-                  updateInput("cost_per_follow_up_contact", value)
+                  updateInput("cost_per_emergency_admission", value)
                 }
-                step={25}
+                step={100}
               />
               <NumberInput
                 label="Cost per bed day"
@@ -1189,27 +1509,22 @@ export default function PathShiftApp() {
         {openSections["advanced-outcomes"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
-              <SliderInput
-                label="Follow-up reduction"
-                value={inputs.reduction_in_follow_up_contacts}
+              <NumberInput
+                label="QALY gain per case shifted earlier"
+                value={inputs.qaly_gain_per_case_shifted}
                 onChange={(value) =>
-                  updateInput("reduction_in_follow_up_contacts", value)
+                  updateInput("qaly_gain_per_case_shifted", value)
                 }
-                min={0}
-                max={0.8}
                 step={0.01}
-                display={formatPercent(inputs.reduction_in_follow_up_contacts)}
               />
               <SliderInput
                 label="Annual effect decay"
-                value={inputs.annual_effect_decay_rate}
-                onChange={(value) =>
-                  updateInput("annual_effect_decay_rate", value)
-                }
+                value={inputs.effect_decay_rate}
+                onChange={(value) => updateInput("effect_decay_rate", value)}
                 min={0}
                 max={0.5}
                 step={0.01}
-                display={formatPercent(inputs.annual_effect_decay_rate)}
+                display={formatPercent(inputs.effect_decay_rate)}
               />
               <SliderInput
                 label="Annual participation drop-off"
@@ -1221,14 +1536,6 @@ export default function PathShiftApp() {
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.participation_dropoff_rate)}
-              />
-              <NumberInput
-                label="QALY gain per patient shifted"
-                value={inputs.qaly_gain_per_patient_shifted}
-                onChange={(value) =>
-                  updateInput("qaly_gain_per_patient_shifted", value)
-                }
-                step={0.01}
               />
               <NumberInput
                 label="Discount rate"
@@ -1253,7 +1560,7 @@ export default function PathShiftApp() {
             key={key}
             label={meta.label}
             value={meta.formatter(rawValue as never)}
-            note={meta.description}
+            note={`${meta.source_type} · ${meta.confidence}`}
           />
         );
       })}
@@ -1262,7 +1569,7 @@ export default function PathShiftApp() {
 
   const mobileCharts = (
     <div className="space-y-4 lg:hidden">
-      <PatientsShiftedChart yearlyResults={results.yearly_results} />
+      <CasesShiftedChart yearlyResults={results.yearly_results} />
 
       <MobileAccordion title="Cost vs savings">
         <CostVsSavingsChart yearlyResults={results.yearly_results} />
@@ -1283,41 +1590,12 @@ export default function PathShiftApp() {
 
   const desktopCharts = (
     <div className="space-y-4">
-      <PatientsShiftedChart yearlyResults={results.yearly_results} />
+      <CasesShiftedChart yearlyResults={results.yearly_results} />
       <CostVsSavingsChart yearlyResults={results.yearly_results} />
       <PathwayImpactChart results={results} />
       <BoundedUncertaintyChart
         uncertaintyRows={uncertainty}
         threshold={inputs.cost_effectiveness_threshold}
-      />
-    </div>
-  );
-
-  const comparatorSummary = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <AssumptionReviewCard
-        label="Comparator"
-        value={comparatorMode}
-        note="Current selection versus comparator case."
-      />
-      <AssumptionReviewCard
-        label="Patients shifted delta"
-        value={formatNumber(
-          comparatorResults.patients_shifted_total - results.patients_shifted_total,
-        )}
-      />
-      <AssumptionReviewCard
-        label="Admissions avoided delta"
-        value={formatNumber(
-          comparatorResults.admissions_avoided_total - results.admissions_avoided_total,
-        )}
-      />
-      <AssumptionReviewCard
-        label="Discounted net cost delta"
-        value={formatCurrency(
-          comparatorResults.discounted_net_cost_total -
-            results.discounted_net_cost_total,
-        )}
       />
     </div>
   );
@@ -1329,11 +1607,11 @@ export default function PathShiftApp() {
           Health Economics Scenario Lab
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
-          PathShift
+          ClearPath
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
-          Explore how pathway redesign might shift care into lower-cost settings,
-          reduce admissions and follow-ups, and change the overall value case.
+          Explore how earlier diagnosis might reduce emergency pathway pressure,
+          admissions, bed use, and economic burden under different assumptions.
         </p>
       </div>
 
@@ -1514,7 +1792,7 @@ export default function PathShiftApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, uncertainty, comparator snapshot, and practical next checks."
+            description="Review the current case, uncertainty, sensitivity, and practical next checks."
             dense
           >
             <div className="space-y-5">
@@ -1534,8 +1812,8 @@ export default function PathShiftApp() {
                   value={formatNumber(results.admissions_avoided_total)}
                 />
                 <MetricCard
-                  label="Follow-ups avoided"
-                  value={formatNumber(results.follow_ups_avoided_total)}
+                  label="Bed days avoided"
+                  value={formatNumber(results.bed_days_avoided_total)}
                 />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
               </div>
@@ -1544,8 +1822,14 @@ export default function PathShiftApp() {
                 <h3 className={SECTION_KICKER}>Threshold readout</h3>
                 <div className="mt-3 grid gap-3">
                   <AssumptionReviewCard
-                    label="Break-even cost per patient"
-                    value={formatCurrency(results.break_even_cost_per_patient)}
+                    label="Max intervention cost per case"
+                    value={formatCurrency(results.break_even_cost_per_case)}
+                  />
+                  <AssumptionReviewCard
+                    label="Required late diagnosis reduction"
+                    value={formatPercent(
+                      results.break_even_reduction_in_late_diagnosis,
+                    )}
                   />
                   <AssumptionReviewCard
                     label="Break-even horizon"
@@ -1562,15 +1846,26 @@ export default function PathShiftApp() {
                       key={row.case}
                       label={row.case}
                       value={formatCurrency(row.discounted_cost_per_qaly)}
-                      note={`${formatNumber(row.patients_shifted_total)} patients shifted · ${row.decision_status}`}
+                      note={`${formatNumber(row.cases_shifted_total)} cases shifted earlier · ${row.decision_status}`}
                     />
                   ))}
                 </div>
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-                <div className="mt-3">{comparatorSummary}</div>
+                <h3 className={SECTION_KICKER}>Sensitivity takeaways</h3>
+                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
+                  {sensitivityTakeaways.map((takeaway) => (
+                    <p key={takeaway}>{takeaway}</p>
+                  ))}
+                </div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Confidence summary</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {confidenceSummary.summary_text}
+                </p>
               </div>
 
               <MobileAccordion title="Assumption review">
@@ -1644,7 +1939,7 @@ export default function PathShiftApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, uncertainty, comparator view, and validation prompts."
+            description="Review the current case, uncertainty, sensitivity, scenarios, comparator view, and validation prompts."
             dense
           >
             <div className="space-y-5">
@@ -1664,18 +1959,24 @@ export default function PathShiftApp() {
                   value={formatNumber(results.admissions_avoided_total)}
                 />
                 <MetricCard
-                  label="Follow-ups avoided"
-                  value={formatNumber(results.follow_ups_avoided_total)}
+                  label="Bed days avoided"
+                  value={formatNumber(results.bed_days_avoided_total)}
                 />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
               </div>
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Threshold readout</h3>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
                   <AssumptionReviewCard
-                    label="Break-even cost per patient"
-                    value={formatCurrency(results.break_even_cost_per_patient)}
+                    label="Max intervention cost per case"
+                    value={formatCurrency(results.break_even_cost_per_case)}
+                  />
+                  <AssumptionReviewCard
+                    label="Required late diagnosis reduction"
+                    value={formatPercent(
+                      results.break_even_reduction_in_late_diagnosis,
+                    )}
                   />
                   <AssumptionReviewCard
                     label="Break-even horizon"
@@ -1692,15 +1993,88 @@ export default function PathShiftApp() {
                       key={row.case}
                       label={row.case}
                       value={formatCurrency(row.discounted_cost_per_qaly)}
-                      note={`${formatNumber(row.patients_shifted_total)} patients shifted · ${row.decision_status}`}
+                      note={`${formatNumber(row.cases_shifted_total)} cases shifted earlier · ${row.decision_status}`}
                     />
                   ))}
                 </div>
               </div>
 
+              <div>
+                <h3 className={SECTION_KICKER}>Sensitivity</h3>
+                <div className="mt-3">
+                  <SensitivityChart sensitivityRows={sensitivityRows} />
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  {sensitivityTakeaways.map((takeaway) => (
+                    <MiniInsight key={takeaway} label="Takeaway" value={takeaway} />
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 className={SECTION_KICKER}>Scenario comparison</h3>
+                <div className="mt-3 grid gap-4 xl:grid-cols-2">
+                  <ScenarioNetCostChart scenarioRows={scenarioRows} />
+                  <ScenarioOutcomeChart scenarioRows={scenarioRows} />
+                </div>
+                <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm leading-6 text-slate-700">
+                    {scenarioStrengths}
+                  </p>
+                </div>
+              </div>
+
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-                <div className="mt-3">{comparatorSummary}</div>
+                <h3 className={SECTION_KICKER}>Comparator</h3>
+                <div className="mt-4">
+                  <SelectInput
+                    label="Compare current selection with"
+                    value={comparatorMode}
+                    options={COMPARATOR_OPTIONS}
+                    onChange={(value) => setComparatorMode(value)}
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {comparatorDeltas.slice(0, 3).map((row) => (
+                    <MetricCard
+                      key={row.label}
+                      label={`${row.label} delta`}
+                      value={
+                        row.isCurrency
+                          ? formatCurrency(row.delta)
+                          : formatNumber(row.delta)
+                      }
+                    />
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowComparatorDesktop((v) => !v)}
+                  className="mt-4 flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left"
+                  aria-expanded={showComparatorDesktop}
+                >
+                  <span className="text-sm font-medium text-slate-900">
+                    Show comparator chart
+                  </span>
+                  <ChevronDown
+                    className={cx(
+                      "h-4 w-4 text-slate-500 transition-transform",
+                      showComparatorDesktop && "rotate-180",
+                    )}
+                  />
+                </button>
+
+                {showComparatorDesktop ? (
+                  <div className="mt-4">
+                    <ComparatorDeltaChart
+                      baseResults={results}
+                      comparatorResults={comparatorResults}
+                      comparatorLabel={comparatorMode}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div className={SUBCARD}>
@@ -1708,16 +2082,16 @@ export default function PathShiftApp() {
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
                   <MiniInsight label="Current case type" value={caseTypeLabel} />
                   <MiniInsight
+                    label="Uncertainty readout"
+                    value={uncertaintyRobustness}
+                  />
+                  <MiniInsight
                     label="Interpretation summary"
                     value={interpretation.what_model_suggests}
                   />
                   <MiniInsight
-                    label="Main driver"
-                    value={structuredRecommendation.main_dependency}
-                  />
-                  <MiniInsight
-                    label="Main fragility"
-                    value={structuredRecommendation.main_fragility}
+                    label="Confidence summary"
+                    value={confidenceSummary.summary_text}
                   />
                 </div>
               </div>
