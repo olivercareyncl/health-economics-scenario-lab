@@ -113,7 +113,7 @@ export function generateInterpretation(
 
   const whatToValidateNext =
     "Before using this in a real decision conversation, the most important next checks are: " +
-    `${generateDecisionReadiness(inputs, results, uncertaintyRows).validate_next[0]} ` +
+    `${generateDecisionReadiness(inputs, results).validate_next[0]} ` +
     `Then check whether the support model would still look worthwhile over around ${breakEvenHorizon} under locally credible assumptions.`;
 
   const limitations =
@@ -132,7 +132,6 @@ export function generateInterpretation(
 export function generateDecisionReadiness(
   inputs: Inputs,
   results: ModelResults,
-  _uncertaintyRows: UncertaintyRow[],
 ) {
   const validateNext: string[] = [];
 
