@@ -1,0 +1,28 @@
+import type { Inputs } from "@/lib/pathshift/types";
+
+export const DEFAULT_INPUTS: Inputs = {
+  annual_cohort_size: 2000,
+  current_acute_managed_rate: 0.4,
+  current_admission_rate: 0.18,
+  current_follow_up_contacts_per_patient: 2.5,
+  current_average_length_of_stay: 5.0,
+  proportion_shifted_to_lower_cost_setting: 0.15,
+  reduction_in_admission_rate: 0.1,
+  reduction_in_follow_up_contacts: 0.2,
+  reduction_in_length_of_stay: 0.1,
+  implementation_reach_rate: 0.7,
+  redesign_cost_per_patient: 220.0,
+  effect_decay_rate: 0.1,
+  participation_dropoff_rate: 0.05,
+  cost_per_acute_managed_patient: 1200.0,
+  cost_per_community_managed_patient: 500.0,
+  cost_per_follow_up_contact: 120.0,
+  cost_per_admission: 3800.0,
+  cost_per_bed_day: 400.0,
+  costing_method: "Admission and follow-up savings only",
+  qaly_gain_per_patient_improved: 0.04,
+  targeting_mode: "Broad pathway redesign",
+  time_horizon_years: 3,
+  discount_rate: 0.035,
+  cost_effectiveness_threshold: 20000.0,
+};
