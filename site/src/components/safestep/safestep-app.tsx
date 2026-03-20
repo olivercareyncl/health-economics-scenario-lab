@@ -55,13 +55,13 @@ type AssumptionSectionKey =
   | "advanced-risk"
   | "advanced-economics";
 
-type PresetOption =
+type ScenarioPreset =
   | "Base case"
   | "Conservative case"
   | "Optimistic case"
-  | "High-risk targeted"
-  | "Adherence-led delivery"
-  | "Admission-led value";
+  | "Universal prevention"
+  | "Risk-targeted case"
+  | "High-risk only case";
 
 type LocalYearlyResultRow = {
   year: number;
@@ -89,10 +89,12 @@ type ModelResults = {
   yearly_results: LocalYearlyResultRow[];
 };
 
-type ScenarioPresetDefinition = {
-  label: PresetOption;
-  description: string;
-  overrides: Partial<Inputs>;
+type RecommendationSummary = {
+  case_type: string;
+  what_current_case_suggests: string;
+  what_is_driving_result: string;
+  what_looks_fragile: string;
+  what_should_be_validated_next: string;
 };
 
 const DEFAULT_INPUTS: Inputs = {
@@ -116,84 +118,6 @@ const DEFAULT_INPUTS: Inputs = {
   discount_rate: 0.035,
 };
 
-const PRESET_OPTIONS: readonly PresetOption[] = [
-  "Base case",
-  "Conservative case",
-  "Optimistic case",
-  "High-risk targeted",
-  "Adherence-led delivery",
-  "Admission-led value",
-];
-
-const PRESET_DEFINITIONS: Record<PresetOption, ScenarioPresetDefinition> = {
-  "Base case": {
-    label: "Base case",
-    description: "Balanced risk-targeted prevention case.",
-    overrides: {},
-  },
-  "Conservative case": {
-    label: "Conservative case",
-    description: "Lower effect, weaker participation, and higher delivery cost.",
-    overrides: {
-      relative_risk_reduction: 0.12,
-      uptake_rate: 0.62,
-      adherence_rate: 0.68,
-      intervention_cost_per_person: 210,
-      participation_dropoff_rate: 0.1,
-      effect_decay_rate: 0.08,
-    },
-  },
-  "Optimistic case": {
-    label: "Optimistic case",
-    description: "Stronger effect, better participation, and lower delivery friction.",
-    overrides: {
-      relative_risk_reduction: 0.24,
-      uptake_rate: 0.78,
-      adherence_rate: 0.82,
-      intervention_cost_per_person: 160,
-      participation_dropoff_rate: 0.05,
-      effect_decay_rate: 0.04,
-    },
-  },
-  "High-risk targeted": {
-    label: "High-risk targeted",
-    description: "More concentrated risk with tighter targeting.",
-    overrides: {
-      targeting_mode: "High-risk only",
-      annual_fall_risk: 0.32,
-      uptake_rate: 0.68,
-      adherence_rate: 0.8,
-      relative_risk_reduction: 0.2,
-      intervention_cost_per_person: 195,
-    },
-  },
-  "Adherence-led delivery": {
-    label: "Adherence-led delivery",
-    description: "Value mainly comes from stronger uptake and sustained completion.",
-    overrides: {
-      targeting_mode: "Risk-targeted",
-      uptake_rate: 0.82,
-      adherence_rate: 0.86,
-      participation_dropoff_rate: 0.05,
-      effect_decay_rate: 0.05,
-      relative_risk_reduction: 0.17,
-      intervention_cost_per_person: 185,
-    },
-  },
-  "Admission-led value": {
-    label: "Admission-led value",
-    description: "Value is concentrated in avoided admissions and bed use.",
-    overrides: {
-      costing_method: "Admission + bed days",
-      annual_fall_risk: 0.27,
-      admission_rate_after_fall: 0.28,
-      average_length_of_stay: 8,
-      relative_risk_reduction: 0.19,
-      intervention_cost_per_person: 175,
-    },
-  },
-};
-
 const COSTING_METHOD_OPTIONS: readonly Inputs["costing_method"][] = [
   "Admission costs only",
   "Admission + bed days",
@@ -204,6 +128,66 @@ const TARGETING_MODE_OPTIONS: readonly Inputs["targeting_mode"][] = [
   "Risk-targeted",
   "High-risk only",
 ];
+
+const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
+  "Base case",
+  "Conservative case",
+  "Optimistic case",
+  "Universal prevention",
+  "Risk-targeted case",
+  "High-risk only case",
+];
+
+const SCENARIO_PRESET_MAP: Record<ScenarioPreset, Partial<Inputs>> = {
+  "Base case": {},
+  "Conservative case": {
+    intervention_cost_per_person: 210,
+    relative_risk_reduction: 0.14,
+    uptake_rate: 0.62,
+    adherence_rate: 0.68,
+    participation_dropoff_rate: 0.11,
+    effect_decay_rate: 0.09,
+    admission_rate_after_fall: 0.2,
+  },
+  "Optimistic case": {
+    intervention_cost_per_person: 165,
+    relative_risk_reduction: 0.23,
+    uptake_rate: 0.78,
+    adherence_rate: 0.82,
+    participation_dropoff_rate: 0.05,
+    effect_decay_rate: 0.04,
+    admission_rate_after_fall: 0.24,
+  },
+  "Universal prevention": {
+    targeting_mode: "Universal",
+    eligible_population: 7000,
+    annual_fall_risk: 0.16,
+    intervention_cost_per_person: 145,
+    relative_risk_reduction: 0.13,
+    uptake_rate: 0.64,
+    adherence_rate: 0.7,
+  },
+  "Risk-targeted case": {
+    targeting_mode: "Risk-targeted",
+    eligible_population: 5000,
+    annual_fall_risk: 0.24,
+    intervention_cost_per_person: 180,
+    relative_risk_reduction: 0.18,
+    uptake_rate: 0.7,
+    adherence_rate: 0.75,
+  },
+  "High-risk only case": {
+    targeting_mode: "High-risk only",
+    eligible_population: 2600,
+    annual_fall_risk: 0.35,
+    intervention_cost_per_person: 235,
+    relative_risk_reduction: 0.22,
+    uptake_rate: 0.8,
+    adherence_rate: 0.82,
+    admission_rate_after_fall: 0.29,
+    qaly_loss_per_serious_fall: 0.07,
+  },
+};
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -227,11 +211,6 @@ function round(value: number) {
   return Number.isFinite(value) ? Math.round(value) : 0;
 }
 
-function safeDivide(numerator: number, denominator: number) {
-  if (denominator === 0) return 0;
-  return numerator / denominator;
-}
-
 function getTargetingMultiplier(mode: Inputs["targeting_mode"]) {
   switch (mode) {
     case "Universal":
@@ -245,22 +224,20 @@ function getTargetingMultiplier(mode: Inputs["targeting_mode"]) {
   }
 }
 
-function getScenarioCaseLabel(
+function getCaseType(
   inputs: Inputs,
-  selectedPreset: PresetOption,
+  selectedPreset: ScenarioPreset,
 ): string {
-  if (selectedPreset === "Conservative case") return "Conservative prevention case";
+  if (selectedPreset === "Conservative case") return "Conservative delivery case";
   if (selectedPreset === "Optimistic case") return "Optimistic prevention case";
-  if (selectedPreset === "High-risk targeted") return "Targeted high-risk case";
-  if (selectedPreset === "Adherence-led delivery") return "Adherence-led delivery case";
-  if (selectedPreset === "Admission-led value") return "Admission-led value case";
+  if (selectedPreset === "Universal prevention") return "Broad prevention case";
+  if (selectedPreset === "High-risk only case") return "High-risk intervention case";
+  if (selectedPreset === "Risk-targeted case") return "Risk-targeted prevention case";
 
-  if (inputs.targeting_mode === "High-risk only") return "Targeted high-risk case";
-  if (inputs.admission_rate_after_fall >= 0.26) return "Admission-led value case";
-  if (inputs.uptake_rate * inputs.adherence_rate >= 0.62) {
-    return "Participation-led prevention case";
-  }
-  return "Broad operational prevention case";
+  if (inputs.targeting_mode === "Universal") return "Broad prevention case";
+  if (inputs.targeting_mode === "High-risk only") return "High-risk intervention case";
+  if (inputs.intervention_cost_per_person >= 220) return "Higher-cost delivery case";
+  return "Risk-targeted prevention case";
 }
 
 function runModel(inputs: Inputs): ModelResults {
@@ -288,9 +265,7 @@ function runModel(inputs: Inputs): ModelResults {
       targetingMultiplier;
 
     const fallsAvoidedRaw =
-      participants *
-      inputs.annual_fall_risk *
-      clamp(effectiveRiskReduction, 0, 1);
+      participants * inputs.annual_fall_risk * clamp(effectiveRiskReduction, 0, 1);
 
     const admissionsAvoidedRaw =
       fallsAvoidedRaw * clamp(inputs.admission_rate_after_fall, 0, 1);
@@ -458,36 +433,10 @@ function getMainDriverText(inputs: Inputs) {
   return candidates[0]?.label ?? "the core programme assumptions";
 }
 
-function getComparatorStyleReadout(
-  inputs: Inputs,
-  selectedPreset: PresetOption,
-) {
-  const caseLabel = getScenarioCaseLabel(inputs, selectedPreset);
-
-  if (caseLabel === "Targeted high-risk case") {
-    return "This case is best read as a concentrated-risk prevention option rather than a broad population offer.";
-  }
-  if (caseLabel === "Adherence-led delivery case") {
-    return "This case mainly assumes delivery quality and sustained participation are doing the work.";
-  }
-  if (caseLabel === "Admission-led value case") {
-    return "This case mainly depends on avoided admissions and bed use rather than modest falls reduction alone.";
-  }
-  if (caseLabel === "Conservative prevention case") {
-    return "This case represents a cautious implementation view with weaker participation and smaller achieved effect.";
-  }
-  if (caseLabel === "Optimistic prevention case") {
-    return "This case represents a stronger implementation view with better participation and a more durable effect.";
-  }
-
-  return "This case is best read as a broad operational prevention scenario with moderate reach and effect.";
-}
-
 function generateInterpretation(
   results: ModelResults,
   inputs: Inputs,
   uncertainty: LocalUncertaintyRow[],
-  selectedPreset: PresetOption,
 ) {
   const decisionStatus = getDecisionStatus(
     results,
@@ -496,17 +445,16 @@ function generateInterpretation(
   const baseCase = uncertainty.find((row) => row.case === "Base");
   const worstCase = uncertainty.find((row) => row.case === "Low");
   const bestCase = uncertainty.find((row) => row.case === "High");
-  const caseLabel = getScenarioCaseLabel(inputs, selectedPreset);
-  const mainDriver = getMainDriverText(inputs);
 
   const whatModelSuggests =
     decisionStatus === "Appears cost-saving"
-      ? "The current case suggests the programme could save more than it costs while reducing falls and admissions."
+      ? "The base case suggests the programme could save more than it costs while reducing falls and admissions."
       : decisionStatus === "Appears cost-effective"
-        ? "The current case suggests the programme may be economically reasonable at the current threshold."
-        : "The current case sits above the threshold, so the proposition depends on stronger achieved impact or lower delivery cost.";
+        ? "The base case suggests the programme may be economically reasonable at the current threshold."
+        : "The base case currently sits above the threshold, so value depends on stronger impact or lower delivery cost.";
 
-  const whatDrivesResult = `The result is mainly shaped by ${mainDriver}, alongside who is targeted and how much participation holds over time.`;
+  const whatDrivesResult =
+    "The result is mainly shaped by fall risk, treatment effect, uptake, and the delivery cost per participant.";
 
   const uncertaintySignal =
     worstCase && bestCase
@@ -517,31 +465,49 @@ function generateInterpretation(
 
   const whatLooksFragile =
     baseCase &&
-    baseCase.discounted_cost_per_qaly >
-      inputs.cost_effectiveness_threshold * 0.85
-      ? "The case sits fairly close to the threshold, so moderate changes in effect size or delivery cost could alter the decision."
+    baseCase.discounted_cost_per_qaly > inputs.cost_effectiveness_threshold * 0.85
+      ? "The case sits fairly close to the threshold, so changes in effect size or delivery cost could alter the decision."
       : uncertaintySignal;
 
   const whatToValidateNext =
     inputs.intervention_cost_per_person > inputs.cost_per_admission
-      ? "Validate delivery cost realism, likely uptake, and whether the offer can sustain engagement at the assumed level."
-      : "Validate achievable effect size, likely uptake, and the share of falls that genuinely translate into avoided admissions.";
-
-  const recommendationTitle =
-    decisionStatus === "Appears cost-saving"
-      ? "Proceed as a prioritised option"
-      : decisionStatus === "Appears cost-effective"
-        ? "Promising option with validation"
-        : "Validate before scaling";
+      ? "Validate delivery cost realism and likely uptake before leaning heavily on the result."
+      : "Validate achievable effect size, uptake, and the share of falls that translate into avoided admissions.";
 
   return {
-    case_label: caseLabel,
-    recommendation_title: recommendationTitle,
     what_model_suggests: whatModelSuggests,
     what_drives_result: whatDrivesResult,
     what_looks_fragile: whatLooksFragile,
     what_to_validate_next: whatToValidateNext,
-    comparator_readout: getComparatorStyleReadout(inputs, selectedPreset),
+  };
+}
+
+function buildRecommendationSummary(
+  inputs: Inputs,
+  results: ModelResults,
+  uncertainty: LocalUncertaintyRow[],
+  selectedPreset: ScenarioPreset,
+): RecommendationSummary {
+  const interpretation = generateInterpretation(results, inputs, uncertainty);
+  const caseType = getCaseType(inputs, selectedPreset);
+  const decisionStatus = getDecisionStatus(
+    results,
+    inputs.cost_effectiveness_threshold,
+  );
+
+  const whatCurrentCaseSuggests =
+    decisionStatus === "Appears cost-saving"
+      ? `${caseType} with a net-saving signal in the current base case.`
+      : decisionStatus === "Appears cost-effective"
+        ? `${caseType} with a value-for-money signal at the current threshold, but not a net saving.`
+        : `${caseType} with operational benefit, but not yet a clear value-for-money signal at the current threshold.`;
+
+  return {
+    case_type: caseType,
+    what_current_case_suggests: whatCurrentCaseSuggests,
+    what_is_driving_result: interpretation.what_drives_result,
+    what_looks_fragile: interpretation.what_looks_fragile,
+    what_should_be_validated_next: interpretation.what_to_validate_next,
   };
 }
 
@@ -955,9 +921,7 @@ function NumberInput({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
       />
-      {help ? (
-        <span className="mt-1.5 block text-xs leading-5 text-slate-500">{help}</span>
-      ) : null}
+      {help ? <span className="mt-1.5 block text-xs leading-5 text-slate-500">{help}</span> : null}
     </label>
   );
 }
@@ -1030,9 +994,7 @@ function SelectInput<T extends string>({
           </option>
         ))}
       </select>
-      {help ? (
-        <span className="mt-1.5 block text-xs leading-5 text-slate-500">{help}</span>
-      ) : null}
+      {help ? <span className="mt-1.5 block text-xs leading-5 text-slate-500">{help}</span> : null}
     </label>
   );
 }
@@ -1059,7 +1021,7 @@ function AssumptionReviewCard({
 
 export default function SafeStepApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
-  const [selectedPreset, setSelectedPreset] = useState<PresetOption>("Base case");
+  const [selectedPreset, setSelectedPreset] = useState<ScenarioPreset>("Base case");
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
   const [openSections, setOpenSections] = useState<
@@ -1080,25 +1042,24 @@ export default function SafeStepApp() {
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
   const mainDriver = useMemo(() => getMainDriverText(inputs), [inputs]);
-  const scenarioCaseLabel = useMemo(
-    () => getScenarioCaseLabel(inputs, selectedPreset),
-    [inputs, selectedPreset],
-  );
   const interpretation = useMemo(
-    () => generateInterpretation(results, inputs, uncertainty, selectedPreset),
-    [results, inputs, uncertainty, selectedPreset],
+    () => generateInterpretation(results, inputs, uncertainty),
+    [results, inputs, uncertainty],
+  );
+  const recommendationSummary = useMemo(
+    () => buildRecommendationSummary(inputs, results, uncertainty, selectedPreset),
+    [inputs, results, uncertainty, selectedPreset],
   );
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
 
-  const applyPreset = (preset: PresetOption) => {
-    const definition = PRESET_DEFINITIONS[preset];
+  const applyPreset = (preset: ScenarioPreset) => {
     setSelectedPreset(preset);
     setInputs((prev) => ({
       ...prev,
-      ...definition.overrides,
+      ...SCENARIO_PRESET_MAP[preset],
     }));
   };
 
@@ -1163,37 +1124,16 @@ export default function SafeStepApp() {
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-3">
       <MiniInsight
-        label="Recommendation"
-        value={interpretation.recommendation_title}
-      />
-      <MiniInsight
-        label="Case type"
-        value={scenarioCaseLabel}
+        label="Conclusion"
+        value={interpretation.what_model_suggests}
       />
       <MiniInsight
         label="Main driver"
         value={`The result is currently most shaped by ${mainDriver}.`}
       />
-    </div>
-  );
-
-  const recommendationPanel = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <MiniInsight
-        label="What this suggests"
-        value={interpretation.what_model_suggests}
-      />
-      <MiniInsight
-        label="What drives it"
-        value={interpretation.what_drives_result}
-      />
-      <MiniInsight
-        label="What looks fragile"
+        label="Fragility"
         value={interpretation.what_looks_fragile}
-      />
-      <MiniInsight
-        label="Validate next"
-        value={interpretation.what_to_validate_next}
       />
     </div>
   );
@@ -1204,31 +1144,18 @@ export default function SafeStepApp() {
     </div>
   );
 
-  const presetControl = (
+  const presetSelector = (
     <div className={SUBCARD}>
       <p className="mb-3 text-sm font-semibold text-slate-900">
         Scenario preset
       </p>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <SelectInput
-          label="Preset"
-          value={selectedPreset}
-          options={PRESET_OPTIONS}
-          onChange={(value) => applyPreset(value)}
-          help="Applies a coherent scenario without removing the ability to edit assumptions manually."
-        />
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Current preset
-          </p>
-          <p className="mt-1.5 text-sm font-semibold text-slate-900">
-            {selectedPreset}
-          </p>
-          <p className="mt-1.5 text-sm leading-6 text-slate-600">
-            {PRESET_DEFINITIONS[selectedPreset].description}
-          </p>
-        </div>
-      </div>
+      <SelectInput
+        label="Preset"
+        value={selectedPreset}
+        options={SCENARIO_PRESET_OPTIONS}
+        onChange={applyPreset}
+        help="Applies a coherent workshop scenario. Manual edits can still be made afterward."
+      />
     </div>
   );
 
@@ -1499,15 +1426,6 @@ export default function SafeStepApp() {
   const assumptionsReview = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       <AssumptionReviewCard
-        label="Preset"
-        value={selectedPreset}
-        note={PRESET_DEFINITIONS[selectedPreset].description}
-      />
-      <AssumptionReviewCard
-        label="Case type"
-        value={scenarioCaseLabel}
-      />
-      <AssumptionReviewCard
         label="Targeting mode"
         value={inputs.targeting_mode}
         note="Primary determinant of who is reached and how concentrated risk is."
@@ -1703,7 +1621,6 @@ export default function SafeStepApp() {
           >
             {summaryMetrics}
             <div className="mt-4">{interpretationPanel}</div>
-            <div className="mt-4">{recommendationPanel}</div>
           </SectionCard>
 
           <div className="mt-4">
@@ -1734,7 +1651,7 @@ export default function SafeStepApp() {
             dense
           >
             <div className="space-y-4">
-              {presetControl}
+              {presetSelector}
 
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
@@ -1779,10 +1696,6 @@ export default function SafeStepApp() {
             <div className="space-y-5">
               <div className="grid grid-cols-1 gap-3">
                 <MetricCard
-                  label="Case type"
-                  value={scenarioCaseLabel}
-                />
-                <MetricCard
                   label="Bed days avoided"
                   value={formatNumber(results.bed_days_avoided_total)}
                 />
@@ -1793,27 +1706,25 @@ export default function SafeStepApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Decision support readout</h3>
-                <div className="mt-3 grid gap-3">
-                  <AssumptionReviewCard
-                    label="Recommendation"
-                    value={interpretation.recommendation_title}
-                  />
-                  <AssumptionReviewCard
-                    label="Case interpretation"
-                    value={scenarioCaseLabel}
-                    note={interpretation.comparator_readout}
-                  />
-                </div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Recommendation</h3>
+                <h3 className={SECTION_KICKER}>Decision summary</h3>
                 <div className="mt-3 space-y-3">
-                  <p className={SECTION_BODY}>{interpretation.what_model_suggests}</p>
-                  <p className={SECTION_BODY}>{interpretation.what_drives_result}</p>
-                  <p className={SECTION_BODY}>{interpretation.what_looks_fragile}</p>
-                  <p className={SECTION_BODY}>{interpretation.what_to_validate_next}</p>
+                  <MiniInsight label="Case type" value={recommendationSummary.case_type} />
+                  <MiniInsight
+                    label="What current case suggests"
+                    value={recommendationSummary.what_current_case_suggests}
+                  />
+                  <MiniInsight
+                    label="What is driving the result"
+                    value={recommendationSummary.what_is_driving_result}
+                  />
+                  <MiniInsight
+                    label="What looks fragile"
+                    value={recommendationSummary.what_looks_fragile}
+                  />
+                  <MiniInsight
+                    label="What should be validated next"
+                    value={recommendationSummary.what_should_be_validated_next}
+                  />
                 </div>
               </div>
 
@@ -1849,7 +1760,6 @@ export default function SafeStepApp() {
             {summaryMetrics}
             <div className="mt-3">{desktopSecondaryMetrics}</div>
             <div className="mt-4">{interpretationPanel}</div>
-            <div className="mt-4">{recommendationPanel}</div>
           </SectionCard>
 
           <div className="mt-4">
@@ -1880,7 +1790,7 @@ export default function SafeStepApp() {
             dense
           >
             <div className="space-y-4">
-              {presetControl}
+              {presetSelector}
 
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
@@ -1925,10 +1835,6 @@ export default function SafeStepApp() {
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 <MetricCard
-                  label="Case type"
-                  value={scenarioCaseLabel}
-                />
-                <MetricCard
                   label="Bed days avoided"
                   value={formatNumber(results.bed_days_avoided_total)}
                 />
@@ -1940,29 +1846,32 @@ export default function SafeStepApp() {
                   label="Programme cost"
                   value={formatCurrency(results.discounted_programme_cost_total)}
                 />
+                <MetricCard
+                  label="Gross savings"
+                  value={formatCurrency(results.discounted_gross_savings_total)}
+                />
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Decision support readout</h3>
+                <h3 className={SECTION_KICKER}>Decision summary</h3>
                 <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                  <MiniInsight label="Case type" value={recommendationSummary.case_type} />
                   <MiniInsight
-                    label="Recommendation"
-                    value={interpretation.recommendation_title}
+                    label="What current case suggests"
+                    value={recommendationSummary.what_current_case_suggests}
                   />
                   <MiniInsight
-                    label="Case interpretation"
-                    value={interpretation.comparator_readout}
+                    label="What is driving the result"
+                    value={recommendationSummary.what_is_driving_result}
                   />
-                </div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Recommendation</h3>
-                <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                  <p className={SECTION_BODY}>{interpretation.what_model_suggests}</p>
-                  <p className={SECTION_BODY}>{interpretation.what_drives_result}</p>
-                  <p className={SECTION_BODY}>{interpretation.what_looks_fragile}</p>
-                  <p className={SECTION_BODY}>{interpretation.what_to_validate_next}</p>
+                  <MiniInsight
+                    label="What looks fragile"
+                    value={recommendationSummary.what_looks_fragile}
+                  />
+                  <MiniInsight
+                    label="What should be validated next"
+                    value={recommendationSummary.what_should_be_validated_next}
+                  />
                 </div>
               </div>
 
@@ -1983,6 +1892,14 @@ export default function SafeStepApp() {
               <MobileAccordion title="Review current assumptions">
                 <div>{assumptionsReview}</div>
               </MobileAccordion>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Interpretation</h3>
+                <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                  <p className={SECTION_BODY}>{interpretation.what_model_suggests}</p>
+                  <p className={SECTION_BODY}>{interpretation.what_to_validate_next}</p>
+                </div>
+              </div>
             </div>
           </SectionCard>
         </div>
