@@ -411,7 +411,9 @@ function AssumptionReviewCard({
         {label}
       </p>
       <p className="mt-1.5 text-sm font-semibold text-slate-900">{value}</p>
-      {note ? <p className="mt-1.5 text-sm leading-6 text-slate-600">{note}</p> : null}
+      {note ? (
+        <p className="mt-1.5 text-sm leading-6 text-slate-600">{note}</p>
+      ) : null}
     </div>
   );
 }
@@ -1235,7 +1237,7 @@ export default function ClearPathApp() {
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <MiniInsight
         label="What this suggests"
-        value={structuredRecommendation.what_this_suggests}
+        value={interpretation.what_model_suggests}
       />
       <MiniInsight
         label="What is driving it"
@@ -1247,7 +1249,7 @@ export default function ClearPathApp() {
       />
       <MiniInsight
         label="What to validate next"
-        value={structuredRecommendation.next_validation_priority}
+        value={structuredRecommendation.best_next_step}
       />
     </div>
   );
