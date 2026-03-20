@@ -8,6 +8,13 @@ export type CostingMethod =
   | "Bed-day value only"
   | "Combined illustrative view";
 
+export type ComparatorOption =
+  | "Demand reduction focus"
+  | "Throughput boost"
+  | "Long-wait targeting"
+  | "Lower-cost delivery"
+  | "Targeted and stronger effect";
+
 export type MobileTab = "summary" | "assumptions" | "analysis";
 
 export type AssumptionSectionKey =
