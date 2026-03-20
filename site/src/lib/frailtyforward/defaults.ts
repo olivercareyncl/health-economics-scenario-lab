@@ -1,0 +1,24 @@
+import type { Inputs } from "@/lib/frailtyforward/types";
+
+export const DEFAULT_INPUTS: Inputs = {
+  annual_frailty_cohort_size: 1500,
+  baseline_crisis_event_rate: 0.35,
+  baseline_non_elective_admission_rate: 0.22,
+  current_average_length_of_stay: 6.0,
+  implementation_reach_rate: 0.6,
+  reduction_in_crisis_event_rate: 0.12,
+  reduction_in_admission_rate: 0.1,
+  reduction_in_length_of_stay: 0.08,
+  support_cost_per_patient: 350.0,
+  effect_decay_rate: 0.1,
+  participation_dropoff_rate: 0.05,
+  cost_per_crisis_event: 900.0,
+  cost_per_admission: 4200.0,
+  cost_per_bed_day: 400.0,
+  costing_method: "Admission and crisis savings only",
+  qaly_gain_per_patient_stabilised: 0.05,
+  targeting_mode: "Broad frailty cohort",
+  time_horizon_years: 3,
+  discount_rate: 0.035,
+  cost_effectiveness_threshold: 20000.0,
+};
