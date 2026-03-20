@@ -473,7 +473,9 @@ function MobileAccordion({
           )}
         />
       </button>
-      {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
+      {open ? (
+        <div className="border-t border-slate-200 p-4">{children}</div>
+      ) : null}
     </div>
   );
 }
@@ -549,7 +551,9 @@ function SliderInput({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full"
       />
-      {help ? <p className="mt-1.5 text-xs leading-5 text-slate-500">{help}</p> : null}
+      {help ? (
+        <p className="mt-1.5 text-xs leading-5 text-slate-500">{help}</p>
+      ) : null}
     </div>
   );
 }
@@ -606,7 +610,8 @@ function CasesShiftedChart({
           Cases shifted earlier
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Annual shift from later to earlier diagnosis across the selected horizon.
+          Annual shift from later to earlier diagnosis across the selected
+          horizon.
         </p>
       </div>
 
@@ -614,7 +619,12 @@ function CasesShiftedChart({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="year"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => formatNumber(Number(value))}
               tickLine={false}
@@ -657,7 +667,12 @@ function CostVsSavingsChart({
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="year"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
@@ -748,7 +763,12 @@ function PathwayImpactChart({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => formatNumber(Number(value))}
               tickLine={false}
@@ -789,7 +809,12 @@ function BoundedUncertaintyChart({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="case"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
@@ -920,7 +945,12 @@ function ScenarioNetCostChart({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="scenario" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="scenario"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
@@ -963,7 +993,12 @@ function ScenarioOutcomeChart({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="scenario" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="scenario"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => formatNumber(Number(value))}
               tickLine={false}
@@ -1008,7 +1043,8 @@ function ComparatorDeltaChart({
           Comparator deltas
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Change versus the current configuration using {comparatorLabel.toLowerCase()}.
+          Change versus the current configuration using{" "}
+          {comparatorLabel.toLowerCase()}.
         </p>
       </div>
 
@@ -1016,7 +1052,12 @@ function ComparatorDeltaChart({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
@@ -1035,7 +1076,9 @@ function ComparatorDeltaChart({
                     <p className="text-sm font-medium text-slate-900">{label}</p>
                     <p className="mt-2 text-sm text-slate-600">
                       <span className="font-medium text-slate-800">Delta:</span>{" "}
-                      {row?.isCurrency ? formatCurrency(value) : formatNumber(value)}
+                      {row?.isCurrency
+                        ? formatCurrency(value)
+                        : formatNumber(value)}
                     </p>
                   </div>
                 );
