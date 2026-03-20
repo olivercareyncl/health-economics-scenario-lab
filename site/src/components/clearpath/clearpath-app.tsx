@@ -153,9 +153,7 @@ const CLEARPATH_PRESETS: Record<PresetOption, PresetDefinition> = {
     description:
       "Emphasises wider operational reach and stronger programme penetration.",
     apply: () => ({
-      targeting_mode: TARGETING_MODE_OPTIONS.includes("Broad")
-        ? "Broad"
-        : DEFAULT_INPUTS.targeting_mode,
+      targeting_mode: DEFAULT_INPUTS.targeting_mode,
       intervention_reach_rate: 0.82,
       achievable_reduction_in_late_diagnosis: 0.13,
       participation_dropoff_rate: 0.04,
