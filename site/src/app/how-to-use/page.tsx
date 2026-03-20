@@ -30,7 +30,7 @@ export default function HowToUsePage() {
       ],
       signal:
         "The programme appears valuable if it meaningfully reduces falls in a sufficiently high-risk population at a controlled delivery cost.",
-      appHref: "https://safestep-mnjcyn8idt5rrddqsmnncd.streamlit.app/",
+      appHref: "/sandboxes/safestep",
       appLabel: "Open sandbox",
     },
     {
@@ -58,8 +58,7 @@ export default function HowToUsePage() {
       ],
       signal:
         "Value is created only if unnecessary activity is genuinely reduced, not redistributed.",
-      appHref:
-        "https://health-economics-scenario-lab-7nhwymodtxwru3ftvwhdoc.streamlit.app/",
+      appHref: "/sandboxes/waitwise",
       appLabel: "Open sandbox",
     },
   ];
