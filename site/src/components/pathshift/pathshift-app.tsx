@@ -66,6 +66,112 @@ import type {
   YearlyResultRow,
 } from "@/lib/pathshift/types";
 
+type ScenarioPreset =
+  | "Base case"
+  | "Conservative case"
+  | "Optimistic case"
+  | "Lower-cost setting shift"
+  | "Follow-up reduction focus"
+  | "Admission reduction focus";
+
+const PRESET_OPTIONS: readonly ScenarioPreset[] = [
+  "Base case",
+  "Conservative case",
+  "Optimistic case",
+  "Lower-cost setting shift",
+  "Follow-up reduction focus",
+  "Admission reduction focus",
+];
+
+const PRESET_PATCHES: Record<ScenarioPreset, Partial<Inputs>> = {
+  "Base case": {
+    targeting_mode: DEFAULT_INPUTS.targeting_mode,
+    annual_cohort_size: DEFAULT_INPUTS.annual_cohort_size,
+    implementation_reach_rate: DEFAULT_INPUTS.implementation_reach_rate,
+    redesign_cost_per_patient: DEFAULT_INPUTS.redesign_cost_per_patient,
+    proportion_shifted_to_lower_cost_setting:
+      DEFAULT_INPUTS.proportion_shifted_to_lower_cost_setting,
+    reduction_in_admission_rate: DEFAULT_INPUTS.reduction_in_admission_rate,
+    reduction_in_follow_up_contacts:
+      DEFAULT_INPUTS.reduction_in_follow_up_contacts,
+    reduction_in_length_of_stay: DEFAULT_INPUTS.reduction_in_length_of_stay,
+    time_horizon_years: DEFAULT_INPUTS.time_horizon_years,
+    current_acute_managed_rate: DEFAULT_INPUTS.current_acute_managed_rate,
+    current_admission_rate: DEFAULT_INPUTS.current_admission_rate,
+    current_follow_up_contacts_per_patient:
+      DEFAULT_INPUTS.current_follow_up_contacts_per_patient,
+    current_average_length_of_stay:
+      DEFAULT_INPUTS.current_average_length_of_stay,
+    costing_method: DEFAULT_INPUTS.costing_method,
+    cost_effectiveness_threshold:
+      DEFAULT_INPUTS.cost_effectiveness_threshold,
+    cost_per_acute_managed_patient:
+      DEFAULT_INPUTS.cost_per_acute_managed_patient,
+    cost_per_community_managed_patient:
+      DEFAULT_INPUTS.cost_per_community_managed_patient,
+    cost_per_follow_up_contact: DEFAULT_INPUTS.cost_per_follow_up_contact,
+    cost_per_admission: DEFAULT_INPUTS.cost_per_admission,
+    cost_per_bed_day: DEFAULT_INPUTS.cost_per_bed_day,
+    discount_rate: DEFAULT_INPUTS.discount_rate,
+    effect_decay_rate: DEFAULT_INPUTS.effect_decay_rate,
+    participation_dropoff_rate: DEFAULT_INPUTS.participation_dropoff_rate,
+    qaly_gain_per_patient_improved:
+      DEFAULT_INPUTS.qaly_gain_per_patient_improved,
+  },
+  "Conservative case": {
+    implementation_reach_rate: 0.42,
+    redesign_cost_per_patient: 260,
+    proportion_shifted_to_lower_cost_setting: 0.12,
+    reduction_in_admission_rate: 0.07,
+    reduction_in_follow_up_contacts: 0.12,
+    reduction_in_length_of_stay: 0.04,
+    participation_dropoff_rate: 0.12,
+    effect_decay_rate: 0.12,
+    qaly_gain_per_patient_improved: 0.03,
+  },
+  "Optimistic case": {
+    implementation_reach_rate: 0.72,
+    redesign_cost_per_patient: 160,
+    proportion_shifted_to_lower_cost_setting: 0.32,
+    reduction_in_admission_rate: 0.18,
+    reduction_in_follow_up_contacts: 0.34,
+    reduction_in_length_of_stay: 0.14,
+    participation_dropoff_rate: 0.05,
+    effect_decay_rate: 0.05,
+    qaly_gain_per_patient_improved: 0.08,
+  },
+  "Lower-cost setting shift": {
+    targeting_mode: "Broad redesign",
+    implementation_reach_rate: 0.62,
+    redesign_cost_per_patient: 190,
+    proportion_shifted_to_lower_cost_setting: 0.42,
+    reduction_in_admission_rate: 0.1,
+    reduction_in_follow_up_contacts: 0.16,
+    reduction_in_length_of_stay: 0.08,
+    qaly_gain_per_patient_improved: 0.05,
+  },
+  "Follow-up reduction focus": {
+    targeting_mode: "Broad redesign",
+    implementation_reach_rate: 0.58,
+    redesign_cost_per_patient: 170,
+    proportion_shifted_to_lower_cost_setting: 0.18,
+    reduction_in_admission_rate: 0.06,
+    reduction_in_follow_up_contacts: 0.42,
+    reduction_in_length_of_stay: 0.05,
+    qaly_gain_per_patient_improved: 0.04,
+  },
+  "Admission reduction focus": {
+    targeting_mode: "Higher-opportunity subgroup",
+    implementation_reach_rate: 0.54,
+    redesign_cost_per_patient: 210,
+    proportion_shifted_to_lower_cost_setting: 0.2,
+    reduction_in_admission_rate: 0.2,
+    reduction_in_follow_up_contacts: 0.18,
+    reduction_in_length_of_stay: 0.14,
+    qaly_gain_per_patient_improved: 0.07,
+  },
+};
+
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
 const SUBCARD =
@@ -74,12 +180,67 @@ const SUBCARD_DENSE =
   "rounded-2xl border border-slate-200 bg-white p-3.5 lg:p-4";
 const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
-const SECTION_TITLE =
-  "mt-1 text-lg font-semibold tracking-tight text-slate-950 lg:text-[1.1rem]";
-const SECTION_BODY = "text-sm leading-6 text-slate-700";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function getCaseTypeLabel(
+  preset: ScenarioPreset,
+  inputs: Inputs,
+): string {
+  if (preset === "Lower-cost setting shift") {
+    return "Lower-cost setting shift case";
+  }
+  if (preset === "Follow-up reduction focus") {
+    return "Follow-up reduction case";
+  }
+  if (preset === "Admission reduction focus") {
+    return "Admission reduction case";
+  }
+  if (preset === "Conservative case") {
+    return "Conservative redesign case";
+  }
+  if (preset === "Optimistic case") {
+    return "Higher-impact redesign case";
+  }
+
+  if (
+    inputs.proportion_shifted_to_lower_cost_setting >=
+      inputs.reduction_in_follow_up_contacts &&
+    inputs.proportion_shifted_to_lower_cost_setting >=
+      inputs.reduction_in_admission_rate
+  ) {
+    return "Lower-cost setting shift case";
+  }
+
+  if (
+    inputs.reduction_in_follow_up_contacts >=
+      inputs.proportion_shifted_to_lower_cost_setting &&
+    inputs.reduction_in_follow_up_contacts >=
+      inputs.reduction_in_admission_rate
+  ) {
+    return "Follow-up reduction case";
+  }
+
+  if (inputs.targeting_mode === "Higher-opportunity subgroup") {
+    return "Higher-opportunity subgroup case";
+  }
+
+  return "Broad pathway redesign case";
+}
+
+function getRecommendationSignal(
+  results: ModelResults,
+  threshold: number,
+): string {
+  if (results.discounted_net_cost_total < 0) {
+    return "Looks decision-positive on cost saving grounds.";
+  }
+  if (results.discounted_cost_per_qaly <= threshold) {
+    return "Looks decision-positive on cost-effectiveness grounds.";
+  }
+  return "Needs stronger impact or lower delivery cost to support the case.";
 }
 
 function CurrencyTooltip({
@@ -634,7 +795,10 @@ export default function PathShiftApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-  const [showAssumptionReviewMobile, setShowAssumptionReviewMobile] = useState(false);
+  const [showAssumptionReviewMobile, setShowAssumptionReviewMobile] =
+    useState(false);
+  const [selectedPreset, setSelectedPreset] =
+    useState<ScenarioPreset>("Base case");
   const [openSections, setOpenSections] = useState<
     Record<AssumptionSectionKey, boolean>
   >({
@@ -665,6 +829,18 @@ export default function PathShiftApp() {
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
   const mainDriver = useMemo(() => getMainDriverText(inputs), [inputs]);
+  const caseTypeLabel = useMemo(
+    () => getCaseTypeLabel(selectedPreset, inputs),
+    [selectedPreset, inputs],
+  );
+  const recommendationSignal = useMemo(
+    () =>
+      getRecommendationSignal(
+        results,
+        inputs.cost_effectiveness_threshold,
+      ),
+    [results, inputs.cost_effectiveness_threshold],
+  );
 
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty),
@@ -675,8 +851,14 @@ export default function PathShiftApp() {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
 
+  const applyPreset = (preset: ScenarioPreset) => {
+    setSelectedPreset(preset);
+    setInputs((prev) => ({ ...prev, ...PRESET_PATCHES[preset] }));
+  };
+
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
+    setSelectedPreset("Base case");
     setComparatorMode("Follow-up reduction focus");
     setShowAdvancedMobile(false);
     setShowAssumptionReviewMobile(false);
@@ -714,7 +896,8 @@ export default function PathShiftApp() {
   );
 
   const interpretationPanel = (
-    <div className="grid gap-3 lg:grid-cols-3">
+    <div className="grid gap-3 lg:grid-cols-4">
+      <MiniInsight label="Case type" value={caseTypeLabel} />
       <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
       <MiniInsight
         label="Main driver"
@@ -724,9 +907,44 @@ export default function PathShiftApp() {
     </div>
   );
 
+  const recommendationPanel = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <MiniInsight label="What this suggests" value={recommendationSignal} />
+      <MiniInsight
+        label="What is driving it"
+        value={`This is mainly a ${caseTypeLabel.toLowerCase()}, with the result currently most shaped by ${mainDriver}.`}
+      />
+      <MiniInsight
+        label="What looks fragile"
+        value={interpretation.what_looks_fragile}
+      />
+      <MiniInsight
+        label="Validate next"
+        value={interpretation.what_to_validate_next}
+      />
+    </div>
+  );
+
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
       These are the levers most likely to change the decision signal.
+    </div>
+  );
+
+  const presetControl = (
+    <div className={SUBCARD_DENSE}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Scenario preset
+      </p>
+      <div className="mt-3">
+        <SelectInput
+          label="Preset"
+          value={selectedPreset}
+          options={PRESET_OPTIONS}
+          onChange={applyPreset}
+          help="Applies a coherent scenario while still allowing manual edits afterward."
+        />
+      </div>
     </div>
   );
 
@@ -1263,7 +1481,7 @@ export default function PathShiftApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Preset first, then quick assumptions. Advanced settings stay below."
             action={
               <button
                 type="button"
@@ -1277,6 +1495,8 @@ export default function PathShiftApp() {
             dense
           >
             <div className="space-y-4">
+              {presetControl}
+
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1328,6 +1548,11 @@ export default function PathShiftApp() {
                   value={formatNumber(results.bed_days_avoided_total)}
                 />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
+                <div className="mt-3">{recommendationPanel}</div>
               </div>
 
               <div className={SUBCARD}>
@@ -1388,14 +1613,6 @@ export default function PathShiftApp() {
                 {showAssumptionReviewMobile ? (
                   <div className="mt-4">{assumptionsReview}</div>
                 ) : null}
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                  <p>{interpretation.what_model_suggests}</p>
-                  <p>{interpretation.what_to_validate_next}</p>
-                </div>
               </div>
             </div>
           </SectionCard>
@@ -1459,7 +1676,7 @@ export default function PathShiftApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Preset first, then quick assumptions. Advanced settings stay below."
             action={
               <button
                 type="button"
@@ -1473,6 +1690,8 @@ export default function PathShiftApp() {
             dense
           >
             <div className="space-y-4">
+              {presetControl}
+
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1511,6 +1730,11 @@ export default function PathShiftApp() {
               </div>
 
               <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
+                <div className="mt-3">{recommendationPanel}</div>
+              </div>
+
+              <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Threshold readout</h3>
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                   <AssumptionReviewCard
@@ -1545,19 +1769,6 @@ export default function PathShiftApp() {
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
                 <div className="mt-3">{comparatorSummary}</div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-                  <MiniInsight
-                    label="Main driver"
-                    value={`The result is currently most shaped by ${mainDriver}.`}
-                  />
-                  <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
-                  <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
-                </div>
               </div>
 
               <div>
