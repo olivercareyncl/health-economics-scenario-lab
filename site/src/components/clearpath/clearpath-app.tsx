@@ -1738,10 +1738,9 @@ export default function ClearPathApp() {
                 </p>
               </div>
 
-              <div>
-                <h3 className={SECTION_KICKER}>Assumption review</h3>
-                <div className="mt-3">{assumptionsReview}</div>
-              </div>
+              <MobileAccordion title="Assumption review">
+                {assumptionsReview}
+              </MobileAccordion>
             </div>
           </SectionCard>
         </div>
