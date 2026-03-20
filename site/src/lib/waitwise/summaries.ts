@@ -1,4 +1,9 @@
-import type { Inputs, ModelResults, ScenarioComparisonRow, UncertaintyRow } from "@/lib/waitwise/types";
+import type {
+  Inputs,
+  ModelResults,
+  ScenarioComparisonRow,
+  UncertaintyRow,
+} from "@/lib/waitwise/types";
 
 export function getDecisionStatus(results: ModelResults, threshold: number): string {
   if (results.discounted_net_cost_total < 0) {
@@ -155,7 +160,7 @@ export function generateStructuredRecommendation(
 export function generateDecisionReadiness(
   inputs: Inputs,
   results: ModelResults,
-  uncertaintyRows: UncertaintyRow[],
+  _uncertaintyRows: UncertaintyRow[],
 ) {
   const validateNext: string[] = [];
 
