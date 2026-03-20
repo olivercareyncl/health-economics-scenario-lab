@@ -10,14 +10,15 @@ export default function AboutPage() {
         </h1>
 
         <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600 md:hidden">
-          An exploration of how healthcare strategy and economic reasoning might
-          become more interactive, transparent, and testable.
+          An open exploration of how healthcare strategy, health economics, and
+          decision support might become more interactive, transparent, and testable.
         </p>
 
         <p className="mt-6 hidden max-w-3xl text-base leading-8 text-slate-600 md:block md:text-lg">
-          The Health Economics Scenario Lab explores how healthcare strategy and
-          economic reasoning might become more interactive, transparent, and
-          testable before ideas harden into static cases.
+          The Health Economics Scenario Lab is an open project exploring how
+          healthcare strategy, health economics, and decision support might become
+          more interactive, transparent, and testable before ideas harden into
+          static business cases.
         </p>
 
         <div className="mt-12 space-y-8 md:space-y-10">
@@ -26,25 +27,27 @@ export default function AboutPage() {
 
             <div className="mt-4 max-w-3xl leading-8 text-slate-600 md:hidden">
               <p>
-                A lot of service change thinking still happens through static
-                decks, rough spreadsheets, and loosely structured conversations.
-                I built the lab to explore whether that stage could be made more
-                decision-useful.
+                A lot of early service change thinking still happens through
+                static decks, rough spreadsheets, and loosely structured
+                conversations. I built the lab to explore whether that stage
+                could be made more decision-useful.
               </p>
             </div>
 
             <div className="mt-4 hidden max-w-3xl space-y-5 leading-8 text-slate-600 md:block">
               <p>
-                A lot of service change thinking still happens through static
-                decks, rough spreadsheets, and loosely structured conversations.
-                Those tools are often enough to start a discussion, but they are
-                not always good at showing which assumptions are really doing
-                the work, where value is expected to come from, or how fragile a
-                case might be under different conditions.
+                A lot of early service change thinking still happens through
+                static decks, rough spreadsheets, and loosely structured
+                conversations. Those formats are often good enough to begin a
+                discussion, but they are not always good at showing which
+                assumptions are really doing the work, where value is expected
+                to come from, or how fragile a case might be under different
+                conditions.
               </p>
               <p>
-                I built the lab to explore whether that stage could be made more
-                decision-useful.
+                I built the lab to explore whether that earlier stage could be
+                made more decision-useful: more explicit, more inspectable, and
+                more testable before formal modelling or business case writing begins.
               </p>
             </div>
           </section>
@@ -55,23 +58,29 @@ export default function AboutPage() {
             <div className="mt-4 max-w-3xl leading-8 text-slate-600 md:hidden">
               <p>
                 A set of lightweight interactive sandboxes for exploring how
-                healthcare interventions and service changes might affect
-                activity, cost, outcomes, and value under uncertainty.
+                interventions and service changes might affect activity, cost,
+                outcomes, and value under uncertainty.
               </p>
             </div>
 
             <div className="mt-4 hidden max-w-3xl space-y-5 leading-8 text-slate-600 md:block">
               <p>
                 The platform brings together a set of lightweight interactive
-                sandboxes for exploring how healthcare interventions and service
-                changes might affect activity, cost, outcomes, and value under
+                sandboxes for exploring how interventions and service changes
+                might affect activity, cost, outcomes, and value under
                 uncertainty.
               </p>
               <p>
-                Each sandbox focuses on a different intervention context, but
-                they share the same broad logic: define a population, estimate
-                risk, apply an intervention, model a change in events, and test
-                whether value appears under the chosen assumptions.
+                Each sandbox focuses on a different intervention logic, but they
+                share the same broad structure: define a population, estimate
+                baseline risk or pressure, apply an intervention, model changes
+                in events or activity, and test whether value appears under the
+                chosen assumptions.
+              </p>
+              <p>
+                The aim is not to simulate the whole system in full detail. It is
+                to create a more disciplined way to ask: what would need to be true
+                for this idea to look worthwhile?
               </p>
             </div>
           </section>
@@ -99,6 +108,12 @@ export default function AboutPage() {
                 driving the value case, what looks fragile, and what should be
                 validated next.
               </p>
+              <p>
+                In practice, a lot of weak cases survive too long because the
+                assumptions stay vague, while some strong ideas are never framed
+                clearly enough to show where their value really sits. This project
+                is an attempt to make that stage more rigorous.
+              </p>
             </div>
           </section>
 
@@ -121,8 +136,12 @@ export default function AboutPage() {
               </p>
               <p>
                 They are designed to support better framing, clearer thinking,
-                and more transparent decision discussion — not to produce a
-                final answer on their own.
+                and more transparent decision discussion — not to produce a final
+                answer on their own.
+              </p>
+              <p>
+                The outputs should be treated as structured exploratory signals,
+                not as decision-ready evidence.
               </p>
             </div>
           </section>
@@ -141,13 +160,50 @@ export default function AboutPage() {
             <div className="mt-4 hidden max-w-3xl space-y-5 leading-8 text-slate-600 md:block">
               <p>
                 I wanted the work to be visible, inspectable, and usable. That
-                is why the project is open, lightweight, and built around
+                is why the project is open source, lightweight, and built around
                 explicit assumptions rather than black-box outputs.
               </p>
               <p>
-                My interest here is not just in individual models, but in the
-                broader question of how healthcare strategy, economic reasoning,
-                and decision support might become more interactive in practice.
+                The point is partly methodological and partly practical. I am
+                interested not just in individual models, but in how strategy,
+                analytics, and economic reasoning might be turned into tools that
+                people can actually interrogate.
+              </p>
+              <p>
+                In that sense, the lab is also a public working example of how I
+                think: structured, assumption-led, product-oriented, and focused
+                on making complex reasoning easier to inspect and use.
+              </p>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 md:p-8">
+            <h2 className="text-xl font-semibold">What this project represents</h2>
+
+            <div className="mt-4 max-w-3xl leading-8 text-slate-600 md:hidden">
+              <p>
+                This is both a practical tool and a public portfolio project. It
+                reflects my interest in health economics, decision support,
+                product thinking, and applied analytics.
+              </p>
+            </div>
+
+            <div className="mt-4 hidden max-w-3xl space-y-5 leading-8 text-slate-600 md:block">
+              <p>
+                This is both a practical tool and a public portfolio project. It
+                reflects my interest in health economics, decision support,
+                product thinking, and applied analytics.
+              </p>
+              <p>
+                More broadly, it is an exploration of the space between strategy
+                work, economic reasoning, and interactive products: not just
+                analysing decisions after the fact, but helping structure them
+                earlier and more clearly.
+              </p>
+              <p>
+                That is the direction I am increasingly interested in: work that
+                combines analytical depth, real-world decision context, and
+                usable tools.
               </p>
             </div>
           </section>
