@@ -74,12 +74,237 @@ const SUBCARD_DENSE =
   "rounded-2xl border border-slate-200 bg-white p-3.5 lg:p-4";
 const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
-const SECTION_TITLE =
-  "mt-1 text-lg font-semibold tracking-tight text-slate-950 lg:text-[1.1rem]";
-const SECTION_BODY = "text-sm leading-6 text-slate-700";
+
+type PresetKey =
+  | "Base case"
+  | "Conservative case"
+  | "Optimistic case"
+  | "Secondary prevention focus"
+  | "Lower-cost delivery"
+  | "Higher-risk population"
+  | "Custom";
+
+const PRESET_OPTIONS: readonly PresetKey[] = [
+  "Base case",
+  "Conservative case",
+  "Optimistic case",
+  "Secondary prevention focus",
+  "Lower-cost delivery",
+  "Higher-risk population",
+  "Custom",
+] as const;
+
+const WORKSHOP_PRESET_OPTIONS: readonly Exclude<PresetKey, "Custom">[] = [
+  "Base case",
+  "Conservative case",
+  "Optimistic case",
+  "Secondary prevention focus",
+  "Lower-cost delivery",
+  "Higher-risk population",
+] as const;
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function getPresetPatch(
+  preset: Exclude<PresetKey, "Custom">,
+): Partial<Inputs> {
+  const baseTarget = TARGETING_MODE_OPTIONS[0] as TargetingMode;
+  const secondaryTarget = (TARGETING_MODE_OPTIONS[1] ??
+    TARGETING_MODE_OPTIONS[0]) as TargetingMode;
+  const higherRiskTarget = (TARGETING_MODE_OPTIONS[2] ??
+    TARGETING_MODE_OPTIONS[1] ??
+    TARGETING_MODE_OPTIONS[0]) as TargetingMode;
+
+  const baseCosting = COSTING_METHOD_OPTIONS[0] as CostingMethod;
+  const fullerCosting = (COSTING_METHOD_OPTIONS[1] ??
+    COSTING_METHOD_OPTIONS[0]) as CostingMethod;
+
+  switch (preset) {
+    case "Base case":
+      return { ...DEFAULT_INPUTS };
+
+    case "Conservative case":
+      return {
+        targeting_mode: baseTarget,
+        intervention_reach_rate: 0.4,
+        sustained_engagement_rate: 0.58,
+        risk_reduction_in_recurrent_events: 0.12,
+        intervention_cost_per_patient_reached: 260,
+        baseline_recurrent_event_rate: 0.16,
+        admission_probability_per_event: 0.3,
+        annual_effect_decay_rate: 0.14,
+        annual_participation_dropoff_rate: 0.12,
+        qaly_gain_per_event_avoided: 0.05,
+        costing_method: baseCosting,
+      };
+
+    case "Optimistic case":
+      return {
+        targeting_mode: baseTarget,
+        intervention_reach_rate: 0.68,
+        sustained_engagement_rate: 0.78,
+        risk_reduction_in_recurrent_events: 0.26,
+        intervention_cost_per_patient_reached: 160,
+        baseline_recurrent_event_rate: 0.22,
+        admission_probability_per_event: 0.38,
+        annual_effect_decay_rate: 0.05,
+        annual_participation_dropoff_rate: 0.05,
+        qaly_gain_per_event_avoided: 0.09,
+        costing_method: fullerCosting,
+      };
+
+    case "Secondary prevention focus":
+      return {
+        targeting_mode: secondaryTarget,
+        eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.8),
+        intervention_reach_rate: 0.66,
+        sustained_engagement_rate: 0.74,
+        risk_reduction_in_recurrent_events: 0.24,
+        baseline_recurrent_event_rate: 0.25,
+        admission_probability_per_event: 0.41,
+        qaly_gain_per_event_avoided: 0.08,
+      };
+
+    case "Lower-cost delivery":
+      return {
+        intervention_cost_per_patient_reached: 140,
+        intervention_reach_rate: 0.62,
+        sustained_engagement_rate: 0.68,
+        annual_effect_decay_rate: 0.07,
+        annual_participation_dropoff_rate: 0.07,
+        costing_method: fullerCosting,
+      };
+
+    case "Higher-risk population":
+      return {
+        targeting_mode: higherRiskTarget,
+        eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.75),
+        intervention_reach_rate: 0.58,
+        sustained_engagement_rate: 0.7,
+        baseline_recurrent_event_rate: 0.3,
+        admission_probability_per_event: 0.44,
+        risk_reduction_in_recurrent_events: 0.23,
+        qaly_gain_per_event_avoided: 0.09,
+      };
+  }
+}
+
+function getPresetDescription(preset: PresetKey) {
+  switch (preset) {
+    case "Base case":
+      return "Restores the default workshop configuration.";
+    case "Conservative case":
+      return "Lower effect, weaker persistence, and higher delivery cost.";
+    case "Optimistic case":
+      return "Stronger effect, better persistence, and more favourable cost profile.";
+    case "Secondary prevention focus":
+      return "Concentrates the offer where recurrent cardiovascular risk is already established.";
+    case "Lower-cost delivery":
+      return "Tests whether the case strengthens under a leaner delivery model.";
+    case "Higher-risk population":
+      return "Concentrates value in a smaller group with higher baseline event risk.";
+    case "Custom":
+      return "Inputs have been edited away from a named preset.";
+  }
+}
+
+function deriveCaseType(
+  preset: PresetKey,
+  inputs: Inputs,
+): string {
+  if (preset !== "Custom") {
+    switch (preset) {
+      case "Base case":
+        return "Broad proactive management case";
+      case "Conservative case":
+        return "Conservative delivery case";
+      case "Optimistic case":
+        return "Optimistic improvement case";
+      case "Secondary prevention focus":
+        return "Secondary prevention case";
+      case "Lower-cost delivery":
+        return "Lower-cost delivery case";
+      case "Higher-risk population":
+        return "Higher-risk population case";
+      default:
+        return "Current scenario case";
+    }
+  }
+
+  if (inputs.intervention_cost_per_patient_reached <= 150) {
+    return "Lower-cost delivery case";
+  }
+
+  if (
+    inputs.baseline_recurrent_event_rate >= 0.26 ||
+    inputs.admission_probability_per_event >= 0.42
+  ) {
+    return "Higher-risk population case";
+  }
+
+  if (inputs.sustained_engagement_rate >= 0.72) {
+    return "Secondary prevention-style case";
+  }
+
+  return "Broad proactive management case";
+}
+
+function buildRecommendationSummary(
+  inputs: Inputs,
+  results: ModelResults,
+  uncertaintyRows: UncertaintyRow[],
+  preset: PresetKey,
+  caseType: string,
+) {
+  const interpretation = generateInterpretation(results, inputs, uncertaintyRows);
+  const decisionStatus = getDecisionStatus(
+    results,
+    inputs.cost_effectiveness_threshold,
+  );
+  const baseRow = uncertaintyRows.find((row) => row.case === "Base");
+  const lowRow = uncertaintyRows.find((row) => row.case === "Low");
+  const highRow = uncertaintyRows.find((row) => row.case === "High");
+  const mainDriver = getMainDriverText(inputs);
+
+  const currentCaseSuggests =
+    decisionStatus === "Appears cost-saving"
+      ? `${caseType} currently suggests avoided recurrent events with a net saving signal.`
+      : decisionStatus === "Appears cost-effective"
+        ? `${caseType} currently suggests a plausible value case at the present threshold.`
+        : `${caseType} currently suggests operational benefit, but the economic case remains above threshold.`;
+
+  const drivingResult =
+    mainDriver === "the core programme assumptions"
+      ? "The result is mainly being shaped by the core event-rate, effect, and delivery assumptions."
+      : `The result is mainly being driven by ${mainDriver}.`;
+
+  const fragilePoint =
+    lowRow && highRow
+      ? lowRow.decision_status !== highRow.decision_status
+        ? "The bounded range crosses decision categories, so moderate assumption shifts could change the conclusion."
+        : interpretation.what_looks_fragile
+      : interpretation.what_looks_fragile;
+
+  const validateNext =
+    baseRow &&
+    baseRow.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
+      ? "Validate baseline recurrent event risk, achievable engagement, and real delivery cost before treating the case as decision-ready."
+      : interpretation.what_to_validate_next;
+
+  const recommendationLine =
+    preset === "Custom"
+      ? "This is currently a custom workshop case. Use the named presets to benchmark whether the current setup is unusually strict or favourable."
+      : `This is currently framed as a ${caseType.toLowerCase()}. Use comparator mode to judge whether a nearby alternative looks materially stronger.`;
+
+  return {
+    current_case_suggests: currentCaseSuggests,
+    driving_result: drivingResult,
+    fragile_point: fragilePoint,
+    validate_next: validateNext,
+    recommendation_line: recommendationLine,
+  };
 }
 
 function CurrencyTooltip({
@@ -595,6 +820,7 @@ export default function StableHeartApp() {
     "advanced-outcomes": false,
   });
   const [comparatorMode, setComparatorMode] = useState<ComparatorOption>("Lower-cost delivery");
+  const [selectedPreset, setSelectedPreset] = useState<PresetKey>("Base case");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
@@ -617,13 +843,38 @@ export default function StableHeartApp() {
     [results, inputs, uncertainty],
   );
 
+  const currentCaseType = useMemo(
+    () => deriveCaseType(selectedPreset, inputs),
+    [selectedPreset, inputs],
+  );
+
+  const recommendationSummary = useMemo(
+    () =>
+      buildRecommendationSummary(
+        inputs,
+        results,
+        uncertainty,
+        selectedPreset,
+        currentCaseType,
+      ),
+    [inputs, results, uncertainty, selectedPreset, currentCaseType],
+  );
+
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
+    setSelectedPreset("Custom");
+  };
+
+  const applyPreset = (preset: Exclude<PresetKey, "Custom">) => {
+    const patch = getPresetPatch(preset);
+    setInputs((prev) => ({ ...prev, ...patch }));
+    setSelectedPreset(preset);
   };
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
     setComparatorMode("Lower-cost delivery");
+    setSelectedPreset("Base case");
     setShowAdvancedMobile(false);
     setOpenSections({
       "advanced-baseline": false,
@@ -662,7 +913,30 @@ export default function StableHeartApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      These are the levers most likely to change the decision signal.
+      Use a preset to frame the workshop case, then fine-tune the key assumptions below.
+    </div>
+  );
+
+  const presetControl = (
+    <div className={SUBCARD}>
+      <p className="mb-3 text-sm font-semibold text-slate-900">Scenario preset</p>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SelectInput<PresetKey>
+          label="Preset"
+          value={selectedPreset}
+          options={PRESET_OPTIONS}
+          onChange={(value) => {
+            if (value === "Custom") return;
+            applyPreset(value);
+          }}
+          help="Applies a coherent scenario configuration without resetting the full app."
+        />
+        <AssumptionReviewCard
+          label="Current case type"
+          value={currentCaseType}
+          note={getPresetDescription(selectedPreset)}
+        />
+      </div>
     </div>
   );
 
@@ -895,6 +1169,7 @@ export default function StableHeartApp() {
                 value={comparatorMode}
                 options={COMPARATOR_OPTIONS as readonly ComparatorOption[]}
                 onChange={(value) => setComparatorMode(value)}
+                help="Use this to compare the current case with a nearby alternative framing."
               />
             </div>
           </div>
@@ -969,6 +1244,28 @@ export default function StableHeartApp() {
         value={formatCurrency(
           comparatorResults.discounted_net_cost_total - results.discounted_net_cost_total,
         )}
+      />
+    </div>
+  );
+
+  const recommendationPanel = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <MiniInsight label="Case type" value={currentCaseType} />
+      <MiniInsight
+        label="What this suggests"
+        value={recommendationSummary.current_case_suggests}
+      />
+      <MiniInsight
+        label="What is driving it"
+        value={recommendationSummary.driving_result}
+      />
+      <MiniInsight
+        label="What looks fragile"
+        value={recommendationSummary.fragile_point}
+      />
+      <MiniInsight
+        label="Validate next"
+        value={recommendationSummary.validate_next}
       />
     </div>
   );
@@ -1111,7 +1408,7 @@ export default function StableHeartApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Apply a workshop preset first, then fine-tune the case."
             action={
               <button
                 type="button"
@@ -1125,6 +1422,8 @@ export default function StableHeartApp() {
             dense
           >
             <div className="space-y-4">
+              {presetControl}
+
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
                 {quickAssumptionNotice}
@@ -1158,10 +1457,18 @@ export default function StableHeartApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, and the next checks."
+            description="Review the current case, bounded uncertainty, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Recommendation summary</h3>
+                <div className="mt-3">{recommendationPanel}</div>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {recommendationSummary.recommendation_line}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 gap-3">
                 <MetricCard label="Bed days avoided" value={formatNumber(results.bed_days_avoided_total)} />
                 <MetricCard label="Patients reached" value={formatNumber(results.patients_reached_total)} />
@@ -1272,7 +1579,7 @@ export default function StableHeartApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Apply a workshop preset first, then fine-tune the case."
             action={
               <button
                 type="button"
@@ -1286,6 +1593,8 @@ export default function StableHeartApp() {
             dense
           >
             <div className="space-y-4">
+              {presetControl}
+
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
                 {quickAssumptionNotice}
@@ -1307,6 +1616,14 @@ export default function StableHeartApp() {
             dense
           >
             <div className="space-y-5">
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Recommendation summary</h3>
+                <div className="mt-3">{recommendationPanel}</div>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {recommendationSummary.recommendation_line}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <MetricCard label="Bed days avoided" value={formatNumber(results.bed_days_avoided_total)} />
                 <MetricCard label="Patients reached" value={formatNumber(results.patients_reached_total)} />
@@ -1362,6 +1679,7 @@ export default function StableHeartApp() {
                   <MiniInsight label="Value mechanism" value={interpretation.where_value_is_coming_from} />
                   <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
                   <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
+                  <MiniInsight label="Current case type" value={currentCaseType} />
                 </div>
               </div>
 
