@@ -160,7 +160,6 @@ export function generateStructuredRecommendation(
 export function generateDecisionReadiness(
   inputs: Inputs,
   results: ModelResults,
-  _uncertaintyRows: UncertaintyRow[],
 ) {
   const validateNext: string[] = [];
 
@@ -292,7 +291,7 @@ export function generateInterpretation(
     threshold,
   );
   const dependency = getMainDriverText(inputs);
-  const readiness = generateDecisionReadiness(inputs, results, uncertaintyRows);
+  const readiness = generateDecisionReadiness(inputs, results);
 
   let whatModelSuggests: string;
 
