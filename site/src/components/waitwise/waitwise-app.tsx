@@ -759,18 +759,18 @@ function generateInterpretation(
       : results.discounted_cost_per_qaly > 0 &&
           results.discounted_cost_per_qaly <= threshold
         ? `The current case suggests operational benefit and a cost-effective result over ${horizon} year${horizon === 1 ? "" : "s"}, but not a net saving.`
-        : `The current case suggests operational benefit, but the economic result remains above the current threshold over ${horizon} year${horizon === 1 ? "" : "s"}.`;
+        : `The current case suggests operational benefit, but the economic result stays above the current threshold over ${horizon} year${horizon === 1 ? "" : "s"}.`;
 
-  const whatDrivesResult = `The result is most shaped by ${dependency}, alongside reach, targeting, and how well the effect holds over time.`;
+  const whatDrivesResult = `The result is mainly shaped by ${dependency}, alongside reach, targeting, and whether the effect holds over time.`;
 
   const whatLooksFragile =
     inputs.costing_method === "Combined illustrative view"
-      ? "The result may look stronger than reality if overlapping cost components are being counted together."
+      ? "The result may look stronger than reality if overlapping cost components are counted together."
       : inputs.targeting_mode === "Broad waiting list"
         ? "Broad implementation may dilute value if the highest-opportunity patients are only a subset of the list."
         : uncertaintyText;
 
-  const whatToValidateNext = `Validate local cost inputs, escalation risk, and whether the case still looks worthwhile over about ${breakEvenHorizon} under credible local assumptions.`;
+  const whatToValidateNext = `Validate local cost inputs, escalation risk, and whether the case still looks worthwhile over about ${breakEvenHorizon}.`;
 
   return {
     what_model_suggests: whatModelSuggests,
@@ -1558,14 +1558,6 @@ export default function WaitWiseApp() {
         help="Baseline backlog size."
       />
 
-      <NumberInput
-        label="Baseline throughput"
-        value={inputs.baseline_monthly_throughput}
-        onChange={(value) => updateInput("baseline_monthly_throughput", value)}
-        step={25}
-        help="Patients processed before intervention."
-      />
-
       <SliderInput
         label="Intervention reach"
         value={inputs.intervention_reach_rate}
@@ -1663,6 +1655,13 @@ export default function WaitWiseApp() {
                 onChange={(value) => updateInput("monthly_inflow", value)}
                 step={25}
                 help="New demand entering the list each month."
+              />
+              <NumberInput
+                label="Baseline throughput"
+                value={inputs.baseline_monthly_throughput}
+                onChange={(value) => updateInput("baseline_monthly_throughput", value)}
+                step={25}
+                help="Patients processed before intervention."
               />
               <SliderInput
                 label="Annual effect decay"
@@ -2045,15 +2044,8 @@ export default function WaitWiseApp() {
           >
             <div className="space-y-5">
               <div className="grid grid-cols-1 gap-3">
-                <MetricCard
-                  label="Admissions avoided"
-                  value={formatNumber(results.admissions_avoided_total)}
-                />
-                <MetricCard
-                  label="Bed days avoided"
-                  value={formatNumber(results.bed_days_avoided_total)}
-                />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+                <MetricCard label="Break-even horizon" value={results.break_even_horizon} />
               </div>
 
               <div className={SUBCARD}>
@@ -2082,11 +2074,11 @@ export default function WaitWiseApp() {
                 <h3 className={SECTION_KICKER}>Threshold readout</h3>
                 <div className="mt-3 grid gap-3">
                   <AssumptionReviewCard
-                    label="Break-even cost per patient"
+                    label="Break-even cost"
                     value={formatCurrency(results.break_even_cost_per_patient)}
                   />
                   <AssumptionReviewCard
-                    label="Required intervention effect"
+                    label="Required effect"
                     value={formatPercent(results.break_even_effect_required)}
                   />
                   <AssumptionReviewCard
@@ -2096,10 +2088,9 @@ export default function WaitWiseApp() {
                 </div>
               </div>
 
-              <div>
-                <h3 className={SECTION_KICKER}>Assumption review</h3>
-                <div className="mt-3">{assumptionsReview}</div>
-              </div>
+              <MobileAccordion title="Review current assumptions">
+                <div>{assumptionsReview}</div>
+              </MobileAccordion>
             </div>
           </SectionCard>
         </div>
