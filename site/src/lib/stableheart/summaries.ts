@@ -69,7 +69,10 @@ export function generateOverallSignal(
   if (results.discounted_net_cost_total < 0) {
     return `Promising for further exploration. The current configuration appears cost-saving. ${robustness}`;
   }
-  if (results.discounted_cost_per_qaly > 0 && results.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold) {
+  if (
+    results.discounted_cost_per_qaly > 0 &&
+    results.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
+  ) {
     return `Promising, but still assumption-dependent. The current configuration appears cost-effective rather than cost-saving. ${robustness}`;
   }
   return `Currently weak as a decision case. The intervention improves outcomes, but the economics are not yet convincing. ${robustness}`;
@@ -128,7 +131,6 @@ export function generateStructuredRecommendation(
 export function generateDecisionReadiness(
   inputs: Inputs,
   results: ModelResults,
-  _uncertaintyRows: UncertaintyRow[],
 ) {
   const validate_next: string[] = [];
 
@@ -241,7 +243,7 @@ export function generateInterpretation(
     inputs.cost_effectiveness_threshold,
   );
   const dependency = getMainDriverText(inputs);
-  const readiness = generateDecisionReadiness(inputs, results, uncertaintyRows);
+  const readiness = generateDecisionReadiness(inputs, results);
 
   let what_model_suggests: string;
   if (results.discounted_net_cost_total < 0) {
