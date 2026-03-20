@@ -160,6 +160,7 @@ const CLEARPATH_PRESETS: Record<PresetOption, PresetDefinition> = {
       effect_decay_rate: 0.05,
     }),
   },
+
   "Emergency-pressure reduction focus": {
     description:
       "Pushes value toward avoided emergency presentations and acute pressure.",
