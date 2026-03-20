@@ -102,10 +102,12 @@ const PRESET_OPTIONS: readonly PresetOption[] = [
   "Higher-risk frailty cohort",
 ] as const;
 
+const DEFAULT_COMPARATOR_MODE = "Crisis prevention focus" as ComparatorOption;
+
 const PRESET_DEFINITIONS: Record<PresetOption, PresetDefinition> = {
   "Base case": {
     patch: {},
-    comparatorMode: "Crisis prevention focus",
+    comparatorMode: DEFAULT_COMPARATOR_MODE,
     description: "Restores the default central case.",
     caseType: "Broad frailty support case",
   },
@@ -120,7 +122,7 @@ const PRESET_DEFINITIONS: Record<PresetOption, PresetDefinition> = {
       participation_dropoff_rate: 0.12,
       qaly_gain_per_patient_stabilised: 0.025,
     },
-    comparatorMode: "Crisis prevention focus",
+    comparatorMode: DEFAULT_COMPARATOR_MODE,
     description: "Lower reach, lower effect, and less persistence.",
     caseType: "Conservative frailty support case",
   },
@@ -135,7 +137,7 @@ const PRESET_DEFINITIONS: Record<PresetOption, PresetDefinition> = {
       participation_dropoff_rate: 0.04,
       qaly_gain_per_patient_stabilised: 0.05,
     },
-    comparatorMode: "Lower-cost delivery",
+    comparatorMode: DEFAULT_COMPARATOR_MODE,
     description: "Stronger reach, better persistence, and lower delivery cost.",
     caseType: "High-performing frailty support case",
   },
@@ -147,7 +149,7 @@ const PRESET_DEFINITIONS: Record<PresetOption, PresetDefinition> = {
       reduction_in_length_of_stay: 0.05,
       qaly_gain_per_patient_stabilised: 0.045,
     },
-    comparatorMode: "Crisis prevention focus",
+    comparatorMode: DEFAULT_COMPARATOR_MODE,
     description: "Shifts emphasis toward preventing deterioration and crisis.",
     caseType: "Crisis prevention case",
   },
@@ -160,7 +162,7 @@ const PRESET_DEFINITIONS: Record<PresetOption, PresetDefinition> = {
       reduction_in_length_of_stay: 0.08,
       effect_decay_rate: 0.07,
     },
-    comparatorMode: "Lower-cost delivery",
+    comparatorMode: DEFAULT_COMPARATOR_MODE,
     description: "Tests whether a leaner model improves value for money.",
     caseType: "Lower-cost delivery case",
   },
@@ -175,7 +177,7 @@ const PRESET_DEFINITIONS: Record<PresetOption, PresetDefinition> = {
       reduction_in_admission_rate: 0.12,
       qaly_gain_per_patient_stabilised: 0.05,
     },
-    comparatorMode: "Crisis prevention focus",
+    comparatorMode: DEFAULT_COMPARATOR_MODE,
     description: "Concentrates value in a smaller but higher-risk cohort.",
     caseType: "Higher-risk frailty cohort case",
   },
@@ -781,7 +783,7 @@ export default function FrailtyForwardApp() {
     "advanced-outcomes": false,
   });
   const [comparatorMode, setComparatorMode] = useState<ComparatorOption>(
-    "Crisis prevention focus",
+    DEFAULT_COMPARATOR_MODE,
   );
   const [selectedPreset, setSelectedPreset] = useState<PresetOption>("Base case");
 
@@ -817,6 +819,7 @@ export default function FrailtyForwardApp() {
 
   const recommendationPanel = useMemo(() => {
     const presetDescription = PRESET_DEFINITIONS[selectedPreset].description;
+
     return {
       currentCaseType,
       whatModelSuggests: interpretation.what_model_suggests,
@@ -841,7 +844,7 @@ export default function FrailtyForwardApp() {
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
-    setComparatorMode("Crisis prevention focus");
+    setComparatorMode(DEFAULT_COMPARATOR_MODE);
     setSelectedPreset("Base case");
     setShowAdvancedMobile(false);
     setOpenSections({
