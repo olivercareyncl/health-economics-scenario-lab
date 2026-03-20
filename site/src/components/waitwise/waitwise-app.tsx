@@ -22,41 +22,43 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-type TargetingMode =
-  | "Broad waiting list"
-  | "Higher-risk targeting"
-  | "Long-wait targeting";
-
-type CostingMethod =
-  | "Escalation and admission savings only"
-  | "Bed-day value only"
-  | "Combined illustrative view";
-
-type Inputs = {
-  starting_waiting_list_size: number;
-  monthly_inflow: number;
-  baseline_monthly_throughput: number;
-  intervention_reach_rate: number;
-  demand_reduction_effect: number;
-  throughput_increase_effect: number;
-  escalation_reduction_effect: number;
-  intervention_cost_per_patient_reached: number;
-  effect_decay_rate: number;
-  participation_dropoff_rate: number;
-  monthly_escalation_rate: number;
-  admission_rate_after_escalation: number;
-  average_length_of_stay: number;
-  qaly_gain_per_escalation_avoided: number;
-  cost_per_escalation: number;
-  cost_per_admission: number;
-  cost_per_bed_day: number;
-  costing_method: CostingMethod;
-  targeting_mode: TargetingMode;
-  time_horizon_years: 1 | 3 | 5;
-  discount_rate: number;
-  cost_effectiveness_threshold: number;
-};
+import {
+  DEFAULT_INPUTS,
+  COSTING_METHOD_OPTIONS,
+  TARGETING_MODE_OPTIONS,
+} from "@/lib/waitwise/defaults";
+import {
+  runModel,
+  runBoundedUncertainty,
+} from "@/lib/waitwise/calculations";
+import {
+  getDecisionStatus,
+  getNetCostLabel,
+  getMainDriverText,
+  generateInterpretation,
+  assessUncertaintyRobustness,
+} from "@/lib/waitwise/summaries";
+import {
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+  formatRatio,
+} from "@/lib/waitwise/formatters";
+import {
+  buildBacklogReductionChartData,
+  buildCumulativeCostChartData,
+  buildImpactBarChartData,
+  buildUncertaintyChartData,
+  compactCurrencyAxis,
+} from "@/lib/waitwise/charts";
+import type {
+  Inputs,
+  CostingMethod,
+  TargetingMode,
+  ModelResults,
+  UncertaintyRow,
+  YearlyResultRow,
+} from "@/lib/waitwise/types";
 
 type MobileTab = "summary" | "assumptions" | "analysis";
 
@@ -64,117 +66,6 @@ type AssumptionSectionKey =
   | "advanced-delivery"
   | "advanced-pathway"
   | "advanced-economics";
-
-type YearlyResultRow = {
-  year: number;
-  waiting_list_start: number;
-  waiting_list_end: number;
-  waiting_list_reduction: number;
-  escalations_avoided: number;
-  admissions_avoided: number;
-  bed_days_avoided: number;
-  patients_reached: number;
-  programme_cost: number;
-  gross_savings: number;
-  net_cost: number;
-  qalys_gained: number;
-  discount_factor: number;
-  discounted_programme_cost: number;
-  discounted_gross_savings: number;
-  discounted_net_cost: number;
-  discounted_qalys: number;
-  cumulative_programme_cost: number;
-  cumulative_gross_savings: number;
-  cumulative_net_cost: number;
-};
-
-type ModelResults = {
-  waiting_list_start_year_1: number;
-  waiting_list_end_final: number;
-  waiting_list_reduction_total: number;
-  escalations_avoided_total: number;
-  admissions_avoided_total: number;
-  bed_days_avoided_total: number;
-  programme_cost_total: number;
-  gross_savings_total: number;
-  discounted_programme_cost_total: number;
-  discounted_gross_savings_total: number;
-  discounted_net_cost_total: number;
-  discounted_qalys_total: number;
-  discounted_cost_per_qaly: number;
-  roi: number;
-  yearly_results: YearlyResultRow[];
-  break_even_effect_required: number;
-  break_even_cost_per_patient: number;
-  break_even_horizon: string;
-};
-
-type UncertaintyRow = {
-  case: string;
-  waiting_list_reduction_total: number;
-  discounted_net_cost_total: number;
-  discounted_cost_per_qaly: number;
-  dominant_domain: string;
-  decision_status: string;
-};
-
-const DEFAULT_INPUTS: Inputs = {
-  starting_waiting_list_size: 8000,
-  monthly_inflow: 900,
-  baseline_monthly_throughput: 800,
-  intervention_reach_rate: 0.4,
-  demand_reduction_effect: 0.08,
-  throughput_increase_effect: 0.1,
-  escalation_reduction_effect: 0.12,
-  intervention_cost_per_patient_reached: 180,
-  effect_decay_rate: 0.1,
-  participation_dropoff_rate: 0.05,
-  monthly_escalation_rate: 0.03,
-  admission_rate_after_escalation: 0.25,
-  average_length_of_stay: 4,
-  qaly_gain_per_escalation_avoided: 0.08,
-  cost_per_escalation: 700,
-  cost_per_admission: 3500,
-  cost_per_bed_day: 400,
-  costing_method: "Escalation and admission savings only",
-  targeting_mode: "Broad waiting list",
-  time_horizon_years: 3,
-  discount_rate: 0.035,
-  cost_effectiveness_threshold: 20000,
-};
-
-const TARGETING_MODE_OPTIONS: readonly TargetingMode[] = [
-  "Broad waiting list",
-  "Higher-risk targeting",
-  "Long-wait targeting",
-];
-
-const COSTING_METHOD_OPTIONS: readonly CostingMethod[] = [
-  "Escalation and admission savings only",
-  "Bed-day value only",
-  "Combined illustrative view",
-];
-
-const TARGETING_MODE_MAP: Record<
-  TargetingMode,
-  { population_multiplier: number; reach_multiplier: number; risk_multiplier: number }
-> = {
-  "Broad waiting list": {
-    population_multiplier: 1.0,
-    reach_multiplier: 1.0,
-    risk_multiplier: 1.0,
-  },
-  "Higher-risk targeting": {
-    population_multiplier: 0.6,
-    reach_multiplier: 1.05,
-    risk_multiplier: 1.3,
-  },
-  "Long-wait targeting": {
-    population_multiplier: 0.45,
-    reach_multiplier: 1.1,
-    risk_multiplier: 1.45,
-  },
-};
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -189,585 +80,6 @@ const SECTION_TITLE =
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
-}
-
-function clampRate(value: number) {
-  return Math.max(0, Math.min(1, value));
-}
-
-function safeDivide(numerator: number, denominator: number) {
-  if (denominator === 0) return 0;
-  return numerator / denominator;
-}
-
-function formatCurrency(value: number) {
-  return `£${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-}
-
-function formatPercent(value: number) {
-  return `${(value * 100).toFixed(1)}%`;
-}
-
-function formatNumber(value: number) {
-  return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
-}
-
-function formatRatio(value: number) {
-  return `${value.toFixed(2)}x`;
-}
-
-function getDiscountFactor(year: number, discountRate: number) {
-  return 1 / Math.pow(1 + discountRate, year - 1);
-}
-
-function getTargetingAdjustments(inputs: Inputs) {
-  const targeting = TARGETING_MODE_MAP[inputs.targeting_mode];
-  const adjusted_waiting_list =
-    inputs.starting_waiting_list_size * targeting.population_multiplier;
-  const adjusted_reach_rate = clampRate(
-    inputs.intervention_reach_rate * targeting.reach_multiplier,
-  );
-  const adjusted_escalation_rate = clampRate(
-    inputs.monthly_escalation_rate * targeting.risk_multiplier,
-  );
-
-  return {
-    adjusted_waiting_list,
-    adjusted_reach_rate,
-    adjusted_escalation_rate,
-  };
-}
-
-function calculateGrossSavings(
-  escalationsAvoided: number,
-  admissionsAvoided: number,
-  bedDaysAvoided: number,
-  inputs: Inputs,
-) {
-  const escalationAndAdmissionSavings =
-    escalationsAvoided * inputs.cost_per_escalation +
-    admissionsAvoided * inputs.cost_per_admission;
-
-  const bedDayValue = bedDaysAvoided * inputs.cost_per_bed_day;
-
-  if (inputs.costing_method === "Escalation and admission savings only") {
-    return escalationAndAdmissionSavings;
-  }
-
-  if (inputs.costing_method === "Bed-day value only") {
-    return bedDayValue;
-  }
-
-  return escalationAndAdmissionSavings + bedDayValue;
-}
-
-function runModelCore(inputs: Inputs) {
-  const targeting = getTargetingAdjustments(inputs);
-
-  const startingWaitingList = targeting.adjusted_waiting_list;
-  const monthlyInflow = inputs.monthly_inflow;
-  const monthlyThroughput = inputs.baseline_monthly_throughput;
-
-  const yearlyRows: YearlyResultRow[] = [];
-  let cumulativeProgrammeCost = 0;
-  let cumulativeGrossSavings = 0;
-  let cumulativeNetCost = 0;
-  let waitingListCurrent = startingWaitingList;
-
-  for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const effectMultiplier = Math.pow(1 - inputs.effect_decay_rate, year - 1);
-    const participationMultiplier = Math.pow(
-      1 - inputs.participation_dropoff_rate,
-      year - 1,
-    );
-
-    const effectiveReach =
-      targeting.adjusted_reach_rate * participationMultiplier;
-    const demandReduction =
-      inputs.demand_reduction_effect * effectMultiplier;
-    const throughputIncrease =
-      inputs.throughput_increase_effect * effectMultiplier;
-    const escalationReduction =
-      inputs.escalation_reduction_effect * effectMultiplier;
-
-    const annualInflow = monthlyInflow * 12;
-    const annualBaselineThroughput = monthlyThroughput * 12;
-
-    const reducedInflow =
-      annualInflow * (1 - demandReduction * effectiveReach);
-    const improvedThroughput =
-      annualBaselineThroughput * (1 + throughputIncrease * effectiveReach);
-
-    const waitingListNext = Math.max(
-      waitingListCurrent + reducedInflow - improvedThroughput,
-      0,
-    );
-    const baselineWaitingListNext = Math.max(
-      waitingListCurrent + annualInflow - annualBaselineThroughput,
-      0,
-    );
-
-    const waitingListReduction = Math.max(
-      baselineWaitingListNext - waitingListNext,
-      0,
-    );
-
-    const annualEscalationsBaseline =
-      waitingListCurrent * targeting.adjusted_escalation_rate * 12;
-
-    const escalationsAvoided =
-      annualEscalationsBaseline * escalationReduction * effectiveReach;
-    const admissionsAvoided =
-      escalationsAvoided * inputs.admission_rate_after_escalation;
-    const bedDaysAvoided =
-      admissionsAvoided * inputs.average_length_of_stay;
-
-    const patientsReached = waitingListCurrent * effectiveReach;
-    const programmeCost =
-      patientsReached * inputs.intervention_cost_per_patient_reached;
-
-    const grossSavings = calculateGrossSavings(
-      escalationsAvoided,
-      admissionsAvoided,
-      bedDaysAvoided,
-      inputs,
-    );
-
-    const netCost = programmeCost - grossSavings;
-    const qalysGained =
-      escalationsAvoided * inputs.qaly_gain_per_escalation_avoided;
-
-    const discountFactor = getDiscountFactor(year, inputs.discount_rate);
-    const discountedProgrammeCost = programmeCost * discountFactor;
-    const discountedGrossSavings = grossSavings * discountFactor;
-    const discountedNetCost = netCost * discountFactor;
-    const discountedQalys = qalysGained * discountFactor;
-
-    cumulativeProgrammeCost += programmeCost;
-    cumulativeGrossSavings += grossSavings;
-    cumulativeNetCost += netCost;
-
-    yearlyRows.push({
-      year,
-      waiting_list_start: waitingListCurrent,
-      waiting_list_end: waitingListNext,
-      waiting_list_reduction: waitingListReduction,
-      escalations_avoided: escalationsAvoided,
-      admissions_avoided: admissionsAvoided,
-      bed_days_avoided: bedDaysAvoided,
-      patients_reached: patientsReached,
-      programme_cost: programmeCost,
-      gross_savings: grossSavings,
-      net_cost: netCost,
-      qalys_gained: qalysGained,
-      discount_factor: discountFactor,
-      discounted_programme_cost: discountedProgrammeCost,
-      discounted_gross_savings: discountedGrossSavings,
-      discounted_net_cost: discountedNetCost,
-      discounted_qalys: discountedQalys,
-      cumulative_programme_cost: cumulativeProgrammeCost,
-      cumulative_gross_savings: cumulativeGrossSavings,
-      cumulative_net_cost: cumulativeNetCost,
-    });
-
-    waitingListCurrent = waitingListNext;
-  }
-
-  const waiting_list_reduction_total = yearlyRows.reduce(
-    (sum, row) => sum + row.waiting_list_reduction,
-    0,
-  );
-  const escalations_avoided_total = yearlyRows.reduce(
-    (sum, row) => sum + row.escalations_avoided,
-    0,
-  );
-  const admissions_avoided_total = yearlyRows.reduce(
-    (sum, row) => sum + row.admissions_avoided,
-    0,
-  );
-  const bed_days_avoided_total = yearlyRows.reduce(
-    (sum, row) => sum + row.bed_days_avoided,
-    0,
-  );
-  const programme_cost_total = yearlyRows.reduce(
-    (sum, row) => sum + row.programme_cost,
-    0,
-  );
-  const gross_savings_total = yearlyRows.reduce(
-    (sum, row) => sum + row.gross_savings,
-    0,
-  );
-  const discounted_programme_cost_total = yearlyRows.reduce(
-    (sum, row) => sum + row.discounted_programme_cost,
-    0,
-  );
-  const discounted_gross_savings_total = yearlyRows.reduce(
-    (sum, row) => sum + row.discounted_gross_savings,
-    0,
-  );
-  const discounted_net_cost_total = yearlyRows.reduce(
-    (sum, row) => sum + row.discounted_net_cost,
-    0,
-  );
-  const discounted_qalys_total = yearlyRows.reduce(
-    (sum, row) => sum + row.discounted_qalys,
-    0,
-  );
-
-  const discounted_cost_per_qaly = safeDivide(
-    discounted_net_cost_total,
-    discounted_qalys_total,
-  );
-  const roi = safeDivide(gross_savings_total, programme_cost_total);
-
-  return {
-    waiting_list_start_year_1: yearlyRows[0]?.waiting_list_start ?? 0,
-    waiting_list_end_final: yearlyRows[yearlyRows.length - 1]?.waiting_list_end ?? 0,
-    waiting_list_reduction_total,
-    escalations_avoided_total,
-    admissions_avoided_total,
-    bed_days_avoided_total,
-    programme_cost_total,
-    gross_savings_total,
-    discounted_programme_cost_total,
-    discounted_gross_savings_total,
-    discounted_net_cost_total,
-    discounted_qalys_total,
-    discounted_cost_per_qaly,
-    roi,
-    yearly_results: yearlyRows,
-  };
-}
-
-function calculateBreakEvenEffect(inputs: Inputs) {
-  const targeting = getTargetingAdjustments(inputs);
-  const waitingListBase = targeting.adjusted_waiting_list;
-
-  let numerator = 0;
-  let denominator = 0;
-
-  for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const participationMultiplier = Math.pow(
-      1 - inputs.participation_dropoff_rate,
-      year - 1,
-    );
-    const effectMultiplier = Math.pow(1 - inputs.effect_decay_rate, year - 1);
-    const effectiveReach = targeting.adjusted_reach_rate * participationMultiplier;
-
-    const patientsReached = waitingListBase * effectiveReach;
-
-    const escalationsAvoidedPerUnit =
-      waitingListBase *
-      targeting.adjusted_escalation_rate *
-      12 *
-      effectMultiplier *
-      effectiveReach;
-
-    const admissionsAvoidedPerUnit =
-      escalationsAvoidedPerUnit * inputs.admission_rate_after_escalation;
-    const bedDaysAvoidedPerUnit =
-      admissionsAvoidedPerUnit * inputs.average_length_of_stay;
-
-    const grossSavingsPerUnit = calculateGrossSavings(
-      escalationsAvoidedPerUnit,
-      admissionsAvoidedPerUnit,
-      bedDaysAvoidedPerUnit,
-      inputs,
-    );
-
-    const qalyValuePerUnit =
-      escalationsAvoidedPerUnit *
-      inputs.qaly_gain_per_escalation_avoided *
-      inputs.cost_effectiveness_threshold;
-
-    const discountFactor = getDiscountFactor(year, inputs.discount_rate);
-
-    numerator +=
-      patientsReached *
-      inputs.intervention_cost_per_patient_reached *
-      discountFactor;
-
-    denominator += (grossSavingsPerUnit + qalyValuePerUnit) * discountFactor;
-  }
-
-  return safeDivide(numerator, denominator);
-}
-
-function calculateBreakEvenCostPerPatient(inputs: Inputs) {
-  const targeting = getTargetingAdjustments(inputs);
-  const waitingListBase = targeting.adjusted_waiting_list;
-
-  let totalDiscountedPatientsReached = 0;
-  let totalDiscountedValue = 0;
-
-  for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const participationMultiplier = Math.pow(
-      1 - inputs.participation_dropoff_rate,
-      year - 1,
-    );
-    const effectMultiplier = Math.pow(1 - inputs.effect_decay_rate, year - 1);
-    const effectiveReach = targeting.adjusted_reach_rate * participationMultiplier;
-
-    const patientsReached = waitingListBase * effectiveReach;
-
-    const blendedEffect =
-      (inputs.demand_reduction_effect +
-        inputs.throughput_increase_effect +
-        inputs.escalation_reduction_effect) /
-      3;
-
-    const escalationsAvoided =
-      waitingListBase *
-      targeting.adjusted_escalation_rate *
-      12 *
-      blendedEffect *
-      effectMultiplier *
-      effectiveReach;
-
-    const admissionsAvoided =
-      escalationsAvoided * inputs.admission_rate_after_escalation;
-    const bedDaysAvoided =
-      admissionsAvoided * inputs.average_length_of_stay;
-
-    const grossSavings = calculateGrossSavings(
-      escalationsAvoided,
-      admissionsAvoided,
-      bedDaysAvoided,
-      inputs,
-    );
-
-    const qalyValue =
-      escalationsAvoided *
-      inputs.qaly_gain_per_escalation_avoided *
-      inputs.cost_effectiveness_threshold;
-
-    const discountFactor = getDiscountFactor(year, inputs.discount_rate);
-
-    totalDiscountedPatientsReached += patientsReached * discountFactor;
-    totalDiscountedValue += (grossSavings + qalyValue) * discountFactor;
-  }
-
-  return safeDivide(totalDiscountedValue, totalDiscountedPatientsReached);
-}
-
-function calculateBreakEvenHorizon(inputs: Inputs, maxYears = 10) {
-  for (let horizon = 1; horizon <= maxYears; horizon += 1) {
-    const testInputs = { ...inputs, time_horizon_years: horizon as 1 | 3 | 5 };
-    const result = runModelCore(testInputs);
-
-    if (
-      result.discounted_cost_per_qaly > 0 &&
-      result.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
-    ) {
-      return `${horizon} year${horizon === 1 ? "" : "s"}`;
-    }
-
-    if (result.discounted_net_cost_total < 0) {
-      return `${horizon} year${horizon === 1 ? "" : "s"}`;
-    }
-  }
-
-  return `>${maxYears} years`;
-}
-
-function runModel(inputs: Inputs): ModelResults {
-  const core = runModelCore(inputs);
-
-  return {
-    ...core,
-    break_even_effect_required: clampRate(calculateBreakEvenEffect(inputs)),
-    break_even_cost_per_patient: calculateBreakEvenCostPerPatient(inputs),
-    break_even_horizon: calculateBreakEvenHorizon(inputs, 10),
-  };
-}
-
-function getDecisionStatus(results: ModelResults, threshold: number) {
-  if (results.discounted_net_cost_total < 0) return "Appears cost-saving";
-  if (
-    results.discounted_cost_per_qaly > 0 &&
-    results.discounted_cost_per_qaly <= threshold
-  ) {
-    return "Appears cost-effective";
-  }
-  return "Above current threshold";
-}
-
-function getNetCostLabel(results: ModelResults) {
-  return results.discounted_net_cost_total < 0
-    ? "Discounted net saving"
-    : "Discounted net cost";
-}
-
-function getMainDriverText(inputs: Inputs) {
-  if (inputs.targeting_mode !== "Broad waiting list") {
-    return "targeting and concentration of escalation risk";
-  }
-  if (inputs.costing_method === "Combined illustrative view") {
-    return "the chosen costing method and the blend of intervention effects";
-  }
-  if (inputs.intervention_cost_per_patient_reached >= 250) {
-    return "delivery cost per patient reached";
-  }
-  if (
-    inputs.throughput_increase_effect >= inputs.demand_reduction_effect &&
-    inputs.throughput_increase_effect >= inputs.escalation_reduction_effect
-  ) {
-    return "throughput improvement";
-  }
-  if (
-    inputs.demand_reduction_effect >= inputs.throughput_increase_effect &&
-    inputs.demand_reduction_effect >= inputs.escalation_reduction_effect
-  ) {
-    return "demand reduction";
-  }
-  if (inputs.participation_dropoff_rate >= 0.15) {
-    return "participation persistence over time";
-  }
-  return "escalation reduction while waiting";
-}
-
-function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
-  const cases = [
-    {
-      case: "Low",
-      overrides: {
-        demand_reduction_effect: clampRate(inputs.demand_reduction_effect * 0.8),
-        throughput_increase_effect: clampRate(
-          inputs.throughput_increase_effect * 0.8,
-        ),
-        escalation_reduction_effect: clampRate(
-          inputs.escalation_reduction_effect * 0.8,
-        ),
-        intervention_cost_per_patient_reached:
-          inputs.intervention_cost_per_patient_reached * 1.2,
-        qaly_gain_per_escalation_avoided:
-          inputs.qaly_gain_per_escalation_avoided * 0.8,
-        participation_dropoff_rate: clampRate(
-          inputs.participation_dropoff_rate * 1.2,
-        ),
-      },
-      dominant_domain: "Delivery assumptions",
-    },
-    {
-      case: "Base",
-      overrides: {},
-      dominant_domain: "Base case",
-    },
-    {
-      case: "High",
-      overrides: {
-        demand_reduction_effect: clampRate(inputs.demand_reduction_effect * 1.2),
-        throughput_increase_effect: clampRate(
-          inputs.throughput_increase_effect * 1.2,
-        ),
-        escalation_reduction_effect: clampRate(
-          inputs.escalation_reduction_effect * 1.2,
-        ),
-        intervention_cost_per_patient_reached:
-          inputs.intervention_cost_per_patient_reached * 0.8,
-        qaly_gain_per_escalation_avoided:
-          inputs.qaly_gain_per_escalation_avoided * 1.2,
-        participation_dropoff_rate: clampRate(
-          inputs.participation_dropoff_rate * 0.8,
-        ),
-      },
-      dominant_domain: "Clinical and delivery assumptions",
-    },
-  ] as const;
-
-  return cases.map((scenario) => {
-    const caseInputs: Inputs = {
-      ...inputs,
-      ...scenario.overrides,
-    };
-
-    const result = runModelCore(caseInputs);
-
-    const decision_status =
-      result.discounted_net_cost_total < 0
-        ? "Appears cost-saving"
-        : result.discounted_cost_per_qaly > 0 &&
-            result.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
-          ? "Appears cost-effective"
-          : "Above current threshold";
-
-    return {
-      case: scenario.case,
-      waiting_list_reduction_total: result.waiting_list_reduction_total,
-      discounted_net_cost_total: result.discounted_net_cost_total,
-      discounted_cost_per_qaly: result.discounted_cost_per_qaly,
-      dominant_domain: scenario.dominant_domain,
-      decision_status,
-    };
-  });
-}
-
-function assessUncertaintyRobustness(
-  uncertaintyRows: UncertaintyRow[],
-  threshold: number,
-) {
-  const allBelow = uncertaintyRows.every(
-    (row) => row.discounted_cost_per_qaly <= threshold,
-  );
-  const allCostSaving = uncertaintyRows.every(
-    (row) => row.discounted_net_cost_total < 0,
-  );
-  const anyBelow = uncertaintyRows.some(
-    (row) => row.discounted_cost_per_qaly <= threshold,
-  );
-
-  if (allCostSaving) {
-    return "The case appears robustly cost-saving across bounded low, base, and high cases.";
-  }
-  if (allBelow) {
-    return "The case appears fairly robust across bounded low, base, and high cases.";
-  }
-  if (anyBelow) {
-    return "The case looks fragile: some bounded cases are below threshold, while others are not.";
-  }
-  return "The case remains above threshold across the bounded cases.";
-}
-
-function generateInterpretation(
-  results: ModelResults,
-  inputs: Inputs,
-  uncertaintyRows: UncertaintyRow[],
-) {
-  const threshold = inputs.cost_effectiveness_threshold;
-  const horizon = inputs.time_horizon_years;
-  const breakEvenHorizon = results.break_even_horizon;
-  const uncertaintyText = assessUncertaintyRobustness(
-    uncertaintyRows,
-    threshold,
-  );
-  const dependency = getMainDriverText(inputs);
-
-  const whatModelSuggests =
-    results.discounted_net_cost_total < 0
-      ? `WaitWise suggests the intervention could reduce waiting list pressure and generate a discounted net saving over ${horizon} year${horizon === 1 ? "" : "s"}.`
-      : results.discounted_cost_per_qaly > 0 &&
-          results.discounted_cost_per_qaly <= threshold
-        ? `WaitWise suggests the intervention delivers operational benefit and appears cost-effective over ${horizon} year${horizon === 1 ? "" : "s"}, although it does not appear cost-saving.`
-        : `WaitWise suggests the intervention delivers measurable operational benefit over ${horizon} year${horizon === 1 ? "" : "s"}, but the economic case remains above the current threshold.`;
-
-  const whatDrivesResult = `The current result depends most strongly on ${dependency}, alongside targeting, reach, and whether effect persists over time.`;
-
-  const whatLooksFragile =
-    inputs.costing_method === "Combined illustrative view"
-      ? "The economic signal may be fragile because the combined costing approach is illustrative and may overstate value if cost components overlap."
-      : inputs.targeting_mode === "Broad waiting list"
-        ? "The case may be fragile because broad implementation can dilute value if the highest-opportunity patients are only a subset of the waiting list."
-        : uncertaintyText;
-
-  const whatToValidateNext =
-    `Validate the local cost inputs, real escalation risk, and whether the intervention would still look worthwhile over around ${breakEvenHorizon} under credible local assumptions.`;
-
-  return {
-    what_model_suggests: whatModelSuggests,
-    what_drives_result: whatDrivesResult,
-    what_looks_fragile: whatLooksFragile,
-    what_to_validate_next: whatToValidateNext,
-  };
 }
 
 function CurrencyTooltip({
@@ -827,10 +139,7 @@ function WaitingListReductionChart({
 }: {
   yearlyResults: YearlyResultRow[];
 }) {
-  const data = yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
-    waitingListReduction: row.waiting_list_reduction,
-  }));
+  const data = buildBacklogReductionChartData(yearlyResults);
 
   return (
     <div className={SUBCARD}>
@@ -849,6 +158,7 @@ function WaitingListReductionChart({
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
+              dataKey="waitingListReduction"
               tickFormatter={(value) => formatNumber(Number(value))}
               tickLine={false}
               axisLine={false}
@@ -873,11 +183,7 @@ function CostVsSavingsChart({
 }: {
   yearlyResults: YearlyResultRow[];
 }) {
-  const data = yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
-    cumulativeProgrammeCost: row.cumulative_programme_cost,
-    cumulativeGrossSavings: row.cumulative_gross_savings,
-  }));
+  const data = buildCumulativeCostChartData(yearlyResults);
 
   return (
     <div className={SUBCARD}>
@@ -896,16 +202,7 @@ function CostVsSavingsChart({
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
-              tickFormatter={(value) => {
-                const numeric = Number(value);
-                if (Math.abs(numeric) >= 1000000) {
-                  return `£${(numeric / 1000000).toFixed(1)}m`;
-                }
-                if (Math.abs(numeric) >= 1000) {
-                  return `£${(numeric / 1000).toFixed(0)}k`;
-                }
-                return formatCurrency(numeric);
-              }}
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
               axisLine={false}
               fontSize={12}
@@ -915,14 +212,14 @@ function CostVsSavingsChart({
             <Legend wrapperStyle={{ fontSize: "12px" }} />
             <Line
               type="monotone"
-              dataKey="cumulativeProgrammeCost"
+              dataKey="programmeCost"
               name="Programme cost"
               strokeWidth={2}
               dot={false}
             />
             <Line
               type="monotone"
-              dataKey="cumulativeGrossSavings"
+              dataKey="grossSavings"
               name="Gross savings"
               strokeWidth={2}
               dot={false}
@@ -939,24 +236,7 @@ function PathwayImpactChart({
 }: {
   results: ModelResults;
 }) {
-  const data = [
-    {
-      label: "Waiting list",
-      value: results.waiting_list_reduction_total,
-    },
-    {
-      label: "Escalations",
-      value: results.escalations_avoided_total,
-    },
-    {
-      label: "Admissions",
-      value: results.admissions_avoided_total,
-    },
-    {
-      label: "Bed days",
-      value: results.bed_days_avoided_total,
-    },
-  ];
+  const data = buildImpactBarChartData(results);
 
   return (
     <div className={SUBCARD}>
@@ -971,10 +251,7 @@ function PathwayImpactChart({
 
       <div className="h-56 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={data}
-            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-          >
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
@@ -1000,10 +277,7 @@ function BoundedUncertaintyChart({
   uncertaintyRows: UncertaintyRow[];
   threshold: number;
 }) {
-  const data = uncertaintyRows.map((row) => ({
-    case: row.case,
-    discountedCostPerQaly: row.discounted_cost_per_qaly,
-  }));
+  const data = buildUncertaintyChartData(uncertaintyRows);
 
   return (
     <div className={SUBCARD}>
@@ -1022,13 +296,7 @@ function BoundedUncertaintyChart({
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
-              tickFormatter={(value) => {
-                const numeric = Number(value);
-                if (Math.abs(numeric) >= 1000) {
-                  return `£${(numeric / 1000).toFixed(0)}k`;
-                }
-                return formatCurrency(numeric);
-              }}
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
               axisLine={false}
               fontSize={12}
@@ -1091,7 +359,7 @@ function MobileAccordion({
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
         aria-expanded={open}
       >
@@ -1248,7 +516,11 @@ function NumberInput({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
       />
-      {help ? <span className="mt-1.5 block text-xs leading-5 text-slate-500">{help}</span> : null}
+      {help ? (
+        <span className="mt-1.5 block text-xs leading-5 text-slate-500">
+          {help}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -1321,7 +593,11 @@ function SelectInput<T extends string>({
           </option>
         ))}
       </select>
-      {help ? <span className="mt-1.5 block text-xs leading-5 text-slate-500">{help}</span> : null}
+      {help ? (
+        <span className="mt-1.5 block text-xs leading-5 text-slate-500">
+          {help}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -1462,6 +738,11 @@ export default function WaitWiseApp() {
     [results, inputs, uncertainty],
   );
 
+  const uncertaintyReadout = useMemo(
+    () => assessUncertaintyRobustness(uncertainty, inputs.cost_effectiveness_threshold),
+    [uncertainty, inputs.cost_effectiveness_threshold],
+  );
+
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
@@ -1542,7 +823,7 @@ export default function WaitWiseApp() {
 
   const assumptionsQuick = (
     <div className="grid gap-4 lg:gap-3 xl:grid-cols-2">
-      <SelectInput
+      <SelectInput<TargetingMode>
         label="Targeting mode"
         value={inputs.targeting_mode}
         options={TARGETING_MODE_OPTIONS}
@@ -1550,7 +831,7 @@ export default function WaitWiseApp() {
         help="Primary lever for where value is concentrated."
       />
 
-      <SelectInput
+      <SelectInput<CostingMethod>
         label="Costing method"
         value={inputs.costing_method}
         options={COSTING_METHOD_OPTIONS}
@@ -1636,7 +917,7 @@ export default function WaitWiseApp() {
         help="Main delivery cost lever."
       />
 
-      <SelectInput
+      <SelectInput<"1" | "3" | "5">
         label="Time horizon"
         value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
         options={["1", "3", "5"]}
@@ -1689,6 +970,7 @@ export default function WaitWiseApp() {
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.effect_decay_rate)}
+                help="Annual weakening of intervention effect."
               />
               <SliderInput
                 label="Annual participation drop-off"
@@ -1700,6 +982,7 @@ export default function WaitWiseApp() {
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.participation_dropoff_rate)}
+                help="Annual loss of effective reach."
               />
             </div>
           </div>
@@ -1727,6 +1010,13 @@ export default function WaitWiseApp() {
         {openSections["advanced-pathway"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
+              <NumberInput
+                label="Average wait duration proxy"
+                value={inputs.average_wait_duration_months}
+                onChange={(value) => updateInput("average_wait_duration_months", value)}
+                step={0.5}
+                help="Contextual input for pathway framing."
+              />
               <SliderInput
                 label="Monthly escalation rate"
                 value={inputs.monthly_escalation_rate}
@@ -1735,6 +1025,7 @@ export default function WaitWiseApp() {
                 max={0.2}
                 step={0.005}
                 display={formatPercent(inputs.monthly_escalation_rate)}
+                help="Share of the list escalating each month."
               />
               <SliderInput
                 label="Admission rate after escalation"
@@ -1746,21 +1037,26 @@ export default function WaitWiseApp() {
                 max={1}
                 step={0.01}
                 display={formatPercent(inputs.admission_rate_after_escalation)}
+                help="Share of escalations leading to admission."
               />
               <NumberInput
                 label="Average length of stay"
                 value={inputs.average_length_of_stay}
                 onChange={(value) => updateInput("average_length_of_stay", value)}
                 step={0.5}
+                help="Average days per admission."
               />
-              <NumberInput
-                label="QALY gain per escalation avoided"
-                value={inputs.qaly_gain_per_escalation_avoided}
-                onChange={(value) =>
-                  updateInput("qaly_gain_per_escalation_avoided", value)
-                }
-                step={0.01}
-              />
+              <div className="xl:col-span-2">
+                <NumberInput
+                  label="QALY gain per escalation avoided"
+                  value={inputs.qaly_gain_per_escalation_avoided}
+                  onChange={(value) =>
+                    updateInput("qaly_gain_per_escalation_avoided", value)
+                  }
+                  step={0.01}
+                  help="Health gain used in the economic case."
+                />
+              </div>
             </div>
           </div>
         ) : null}
@@ -2022,7 +1318,7 @@ export default function WaitWiseApp() {
               <div className={SUBCARD}>
                 <button
                   type="button"
-                  onClick={() => setShowAdvancedMobile((v) => !v)}
+                  onClick={() => setShowAdvancedMobile((value) => !value)}
                   className="flex w-full items-center justify-between gap-4 text-left"
                   aria-expanded={showAdvancedMobile}
                 >
@@ -2161,6 +1457,7 @@ export default function WaitWiseApp() {
                   <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
                     <p>{interpretation.what_model_suggests}</p>
                     <p>{interpretation.what_drives_result}</p>
+                    <p>{uncertaintyReadout}</p>
                   </div>
                 </div>
 
