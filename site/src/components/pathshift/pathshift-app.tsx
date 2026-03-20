@@ -1186,7 +1186,7 @@ export default function PathShiftApp() {
     </div>
   );
 
-  const comparatorSummary = (
+    const comparatorSummary = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <AssumptionReviewCard
         label="Comparator"
