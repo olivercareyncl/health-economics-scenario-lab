@@ -1,0 +1,25 @@
+import type { Inputs } from "@/lib/clearpath/types";
+
+export const DEFAULT_INPUTS: Inputs = {
+  annual_incident_cases: 1000,
+  current_late_diagnosis_rate: 0.35,
+  achievable_reduction_in_late_diagnosis: 0.1,
+  intervention_reach_rate: 0.8,
+  time_horizon_years: 3,
+  discount_rate: 0.035,
+  cost_effectiveness_threshold: 20000,
+  late_emergency_presentation_rate: 0.25,
+  early_emergency_presentation_rate: 0.08,
+  admissions_per_emergency_presentation: 1,
+  average_length_of_stay: 6,
+  intervention_cost_per_case_reached: 400,
+  treatment_cost_early: 12000,
+  treatment_cost_late: 20000,
+  cost_per_emergency_admission: 4000,
+  cost_per_bed_day: 450,
+  costing_method: "Treatment cost difference only",
+  qaly_gain_per_case_shifted: 0.25,
+  effect_decay_rate: 0.1,
+  participation_dropoff_rate: 0.05,
+  targeting_mode: "Broad population",
+};
