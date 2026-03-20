@@ -94,15 +94,6 @@ const PRESET_OPTIONS: readonly PresetKey[] = [
   "Custom",
 ] as const;
 
-const WORKSHOP_PRESET_OPTIONS: readonly Exclude<PresetKey, "Custom">[] = [
-  "Base case",
-  "Conservative case",
-  "Optimistic case",
-  "Secondary prevention focus",
-  "Lower-cost delivery",
-  "Higher-risk population",
-] as const;
-
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
