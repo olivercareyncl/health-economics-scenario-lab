@@ -1,5 +1,4 @@
 import type {
-  ComparatorDeltaRow,
   ModelResults,
   ScenarioComparisonRow,
   SensitivityRow,
@@ -46,6 +45,12 @@ export type WaitwiseTornadoRow = {
   highDelta: number;
 };
 
+export type WaitwiseComparatorDeltaChartRow = {
+  label: string;
+  delta: number;
+  isCurrency: boolean;
+};
+
 export function compactCurrencyAxis(value: number): string {
   const numeric = Number(value);
 
@@ -87,7 +92,9 @@ export function buildImpactBarChartData(
   ];
 }
 
-export function buildWaterfallChartData(results: ModelResults): WaitwiseBarChartRow[] {
+export function buildWaterfallChartData(
+  results: ModelResults,
+): WaitwiseBarChartRow[] {
   return [
     {
       label: "Programme cost",
@@ -148,10 +155,10 @@ export function buildScenarioNetCostChartData(
   scenarioRows: ScenarioComparisonRow[],
 ): WaitwiseScenarioNetCostRow[] {
   return scenarioRows.map((row) => ({
-    scenario: row.Scenario,
-    discountedNetCost: row["Discounted net cost"],
-    discountedCostPerQaly: row["Discounted cost per QALY"],
-    decisionStatus: row["Decision status"],
+    scenario: row.scenario,
+    discountedNetCost: row.discounted_net_cost,
+    discountedCostPerQaly: row.discounted_cost_per_qaly,
+    decisionStatus: row.decision_status,
   }));
 }
 
@@ -159,9 +166,9 @@ export function buildScenarioOutcomeChartData(
   scenarioRows: ScenarioComparisonRow[],
 ): WaitwiseScenarioOutcomeRow[] {
   return scenarioRows.map((row) => ({
-    scenario: row.Scenario,
-    waitingListReduction: row["Waiting list reduction"],
-    escalationsAvoided: row["Escalations avoided"],
+    scenario: row.scenario,
+    waitingListReduction: row.waiting_list_reduction,
+    escalationsAvoided: row.escalations_avoided,
   }));
 }
 
@@ -180,7 +187,7 @@ export function buildTornadoChartData(
 export function buildComparatorDeltaChartData(
   baseResults: ModelResults,
   comparatorResults: ModelResults,
-): ComparatorDeltaRow[] {
+): WaitwiseComparatorDeltaChartRow[] {
   return [
     {
       label: "Waiting list reduction",
