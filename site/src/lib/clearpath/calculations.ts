@@ -463,8 +463,7 @@ export function buildComparatorCase(
   const comparatorInputs: Inputs = { ...defaults };
 
   if (comparatorMode in SCENARIO_MAP) {
-    comparatorInputs &&
-      Object.assign(comparatorInputs, SCENARIO_MAP[comparatorMode](defaults));
+    Object.assign(comparatorInputs, SCENARIO_MAP[comparatorMode](defaults));
   } else {
     Object.assign(comparatorInputs, baseInputs);
   }
