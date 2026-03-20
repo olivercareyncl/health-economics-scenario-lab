@@ -183,7 +183,6 @@ const SUBCARD_DENSE =
   "rounded-2xl border border-slate-200 bg-white p-3.5 lg:p-4";
 const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
-const SECTION_BODY = "text-sm leading-6 text-slate-700";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -554,8 +553,7 @@ function calculateBreakEvenHorizon(inputs: Inputs, maxYears = 10) {
   for (let horizon = 1; horizon <= maxYears; horizon += 1) {
     const testInputs = {
       ...inputs,
-      time_horizon_years:
-        horizon <= 1 ? 1 : horizon <= 3 ? 3 : 5,
+      time_horizon_years: horizon <= 1 ? 1 : horizon <= 3 ? 3 : 5,
     } as Inputs;
     const result = runModelCore(testInputs);
 
@@ -797,7 +795,7 @@ function CurrencyTooltip({
       <p className="text-sm font-medium text-slate-900">{label}</p>
       <div className="mt-2 space-y-1">
         {payload.map((item, index) => (
-          <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
+          <p key={`${item.name ?? "value"}-${index}`} className="text-sm text-slate-600">
             <span className="font-medium text-slate-800">{item.name}:</span>{" "}
             {formatCurrency(item.value ?? 0)}
           </p>
@@ -823,7 +821,7 @@ function NumberTooltip({
       <p className="text-sm font-medium text-slate-900">{label}</p>
       <div className="mt-2 space-y-1">
         {payload.map((item, index) => (
-          <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
+          <p key={`${item.name ?? "value"}-${index}`} className="text-sm text-slate-600">
             <span className="font-medium text-slate-800">{item.name}:</span>{" "}
             {formatNumber(item.value ?? 0)}
           </p>
@@ -860,7 +858,6 @@ function MobileAccordion({
           )}
         />
       </button>
-
       {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
     </div>
   );
@@ -1283,7 +1280,7 @@ function PathwayImpactChart({
               width={52}
             />
             <Tooltip
-              formatter={(value: number, _name, entry) => [
+              formatter={(value: number, _name, entry: { payload?: { fullLabel?: string } }) => [
                 formatNumber(value),
                 entry?.payload?.fullLabel ?? "Impact",
               ]}
