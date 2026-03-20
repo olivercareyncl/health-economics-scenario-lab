@@ -183,8 +183,6 @@ const SUBCARD_DENSE =
   "rounded-2xl border border-slate-200 bg-white p-3.5 lg:p-4";
 const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
-const SECTION_TITLE =
-  "mt-1 text-lg font-semibold tracking-tight text-slate-950 lg:text-[1.1rem]";
 const SECTION_BODY = "text-sm leading-6 text-slate-700";
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -554,7 +552,11 @@ function calculateBreakEvenCostPerPatient(inputs: Inputs) {
 
 function calculateBreakEvenHorizon(inputs: Inputs, maxYears = 10) {
   for (let horizon = 1; horizon <= maxYears; horizon += 1) {
-    const testInputs = { ...inputs, time_horizon_years: horizon as 1 | 3 | 5 };
+    const testInputs = {
+      ...inputs,
+      time_horizon_years:
+        horizon <= 1 ? 1 : horizon <= 3 ? 3 : 5,
+    } as Inputs;
     const result = runModelCore(testInputs);
 
     if (
@@ -777,58 +779,6 @@ function generateInterpretation(
     what_looks_fragile: whatLooksFragile,
     what_to_validate_next: whatToValidateNext,
   };
-}
-
-function CurrencyTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ name?: string; value?: number }>;
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-sm font-medium text-slate-900">{label}</p>
-      <div className="mt-2 space-y-1">
-        {payload.map((item, index) => (
-          <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
-            <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-            {formatCurrency(item.value ?? 0)}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function NumberTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ name?: string; value?: number }>;
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-sm font-medium text-slate-900">{label}</p>
-      <div className="mt-2 space-y-1">
-        {payload.map((item, index) => (
-          <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
-            <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-            {formatNumber(item.value ?? 0)}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function WaitingListReductionChart({
@@ -1091,366 +1041,6 @@ function BoundedUncertaintyChart({
   );
 }
 
-function MobileAccordion({
-  title,
-  defaultOpen = false,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
-        aria-expanded={open}
-      >
-        <span className="text-sm font-medium text-slate-900">{title}</span>
-        <ChevronDown
-          className={cx(
-            "h-4 w-4 text-slate-500 transition-transform",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-
-      {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
-    </div>
-  );
-}
-
-function SectionCard({
-  title,
-  description,
-  action,
-  children,
-  dense = false,
-}: {
-  title: string;
-  description?: string;
-  action?: ReactNode;
-  children: ReactNode;
-  dense?: boolean;
-}) {
-  return (
-    <section
-      className={cx(
-        PANEL_SHELL,
-        dense ? "p-4 lg:p-5" : "p-4 sm:p-5 lg:p-5 xl:p-6",
-      )}
-    >
-      <div className="mb-4 flex flex-col gap-3 lg:mb-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold tracking-tight text-slate-950 lg:text-lg">
-            {title}
-          </h2>
-          {description ? (
-            <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {action ? <div className="shrink-0 self-start">{action}</div> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "strong";
-}) {
-  return (
-    <div className={SUBCARD_DENSE}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        {label}
-      </p>
-      <p
-        className={cx(
-          "mt-1.5 tracking-tight text-slate-950",
-          tone === "strong"
-            ? "text-2xl font-semibold lg:text-[1.7rem]"
-            : "text-lg font-semibold lg:text-xl",
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function MiniInsight({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className={SUBCARD_DENSE}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
-    </div>
-  );
-}
-
-function MobileTabButton({
-  active,
-  onClick,
-  icon,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition",
-        active
-          ? "bg-slate-900 text-white"
-          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
-      )}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
-
-function NumberInput({
-  label,
-  value,
-  onChange,
-  min = 0,
-  step = 1,
-  help,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  step?: number;
-  help?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">
-        {label}
-      </span>
-      <input
-        type="number"
-        min={min}
-        step={step}
-        value={Number.isFinite(value) ? value : 0}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
-      />
-      {help ? (
-        <span className="mt-1.5 block text-xs leading-5 text-slate-500">
-          {help}
-        </span>
-      ) : null}
-    </label>
-  );
-}
-
-function SliderInput({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  display,
-  help,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min: number;
-  max: number;
-  step: number;
-  display: string;
-  help?: string;
-}) {
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between gap-4">
-        <label className="text-sm font-medium text-slate-700">{label}</label>
-        <span className="text-sm font-semibold text-slate-900">{display}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full"
-      />
-      {help ? <p className="mt-1.5 text-xs leading-5 text-slate-500">{help}</p> : null}
-    </div>
-  );
-}
-
-function SelectInput<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  help,
-}: {
-  label: string;
-  value: T;
-  options: readonly T[];
-  onChange: (value: T) => void;
-  help?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">
-        {label}
-      </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-      {help ? (
-        <span className="mt-1.5 block text-xs leading-5 text-slate-500">
-          {help}
-        </span>
-      ) : null}
-    </label>
-  );
-}
-
-function AssumptionReviewCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note?: string;
-}) {
-  return (
-    <div className={SUBCARD_DENSE}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-1.5 text-sm font-semibold text-slate-900">{value}</p>
-      {note ? <p className="mt-1.5 text-sm leading-6 text-slate-600">{note}</p> : null}
-    </div>
-  );
-}
-
-function DesktopDecisionRail({
-  decisionStatus,
-  netCostLabel,
-  netCostValue,
-  costPerQaly,
-  waitingListReduction,
-  escalationsAvoided,
-  mainDriver,
-  interpretation,
-}: {
-  decisionStatus: string;
-  netCostLabel: string;
-  netCostValue: string;
-  costPerQaly: string;
-  waitingListReduction: string;
-  escalationsAvoided: string;
-  mainDriver: string;
-  interpretation: {
-    what_model_suggests: string;
-    what_drives_result: string;
-    what_looks_fragile: string;
-    what_to_validate_next: string;
-  };
-}) {
-  return (
-    <div className="sticky top-6 space-y-4">
-      <div className={PANEL_SHELL}>
-        <p className={SECTION_KICKER}>Live result</p>
-        <h2 className={SECTION_TITLE}>Current decision signal</h2>
-
-        <div className="mt-3">
-          <div
-            className={cx(
-              "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
-              decisionStatus === "Appears cost-saving" &&
-                "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-              decisionStatus === "Appears cost-effective" &&
-                "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-              decisionStatus === "Above current threshold" &&
-                "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-            )}
-          >
-            {decisionStatus}
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3">
-          <MetricCard label={netCostLabel} value={netCostValue} />
-          <MetricCard
-            label="Discounted cost per QALY"
-            value={costPerQaly}
-            tone="strong"
-          />
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <MetricCard label="Waiting list reduction" value={waitingListReduction} />
-          <MetricCard label="Escalations avoided" value={escalationsAvoided} />
-        </div>
-      </div>
-
-      <div className={PANEL_SHELL}>
-        <p className={SECTION_KICKER}>Analyst note</p>
-        <h2 className={SECTION_TITLE}>How to read the case</h2>
-
-        <div className="mt-4 space-y-3">
-          <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-          <MiniInsight
-            label="Main driver"
-            value={`The result is currently most shaped by ${mainDriver}.`}
-          />
-          <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
-          <MiniInsight
-            label="Validate next"
-            value={interpretation.what_to_validate_next}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function WaitWiseApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
@@ -1515,27 +1105,6 @@ export default function WaitWiseApp() {
         label="Discounted cost per QALY"
         value={formatCurrency(results.discounted_cost_per_qaly)}
         tone="strong"
-      />
-    </div>
-  );
-
-  const desktopSecondaryMetrics = (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <MetricCard
-        label="Admissions avoided"
-        value={formatNumber(results.admissions_avoided_total)}
-      />
-      <MetricCard
-        label="Bed days avoided"
-        value={formatNumber(results.bed_days_avoided_total)}
-      />
-      <MetricCard
-        label="Programme cost"
-        value={formatCurrency(results.programme_cost_total)}
-      />
-      <MetricCard
-        label="Gross savings"
-        value={formatCurrency(results.gross_savings_total)}
       />
     </div>
   );
@@ -1940,6 +1509,18 @@ export default function WaitWiseApp() {
     </div>
   );
 
+  const desktopCharts = (
+    <div className="space-y-4">
+      <WaitingListReductionChart yearlyResults={results.yearly_results} />
+      <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <PathwayImpactChart results={results} />
+      <BoundedUncertaintyChart
+        uncertaintyRows={uncertainty}
+        threshold={inputs.cost_effectiveness_threshold}
+      />
+    </div>
+  );
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
       <div className="mb-5 lg:mb-6">
@@ -1982,7 +1563,58 @@ export default function WaitWiseApp() {
         </div>
       </div>
 
+      <div className="sticky top-[72px] z-20 mb-4 hidden rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:block">
+        <div className="grid grid-cols-3 items-start gap-2.5">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Signal
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
+              {getMobileDecisionStatus(decisionStatus)}
+            </p>
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="text-[11px] text-slate-500">
+              {getMobileNetCostLabel(results)}
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-950">
+              {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+            </p>
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="text-[11px] text-slate-500">Cost/QALY</p>
+            <p className="mt-1 text-sm font-semibold text-slate-950">
+              {formatCurrency(results.discounted_cost_per_qaly)}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+        <MobileTabButton
+          active={mobileTab === "summary"}
+          onClick={() => setMobileTab("summary")}
+          icon={<BarChart3 className="h-4 w-4" />}
+        >
+          Summary
+        </MobileTabButton>
+        <MobileTabButton
+          active={mobileTab === "assumptions"}
+          onClick={() => setMobileTab("assumptions")}
+          icon={<SlidersHorizontal className="h-4 w-4" />}
+        >
+          Assumptions
+        </MobileTabButton>
+        <MobileTabButton
+          active={mobileTab === "analysis"}
+          onClick={() => setMobileTab("analysis")}
+          icon={<FileSearch className="h-4 w-4" />}
+        >
+          Analysis
+        </MobileTabButton>
+      </div>
+
+      <div className="mb-4 hidden gap-2 overflow-x-auto pb-1 lg:flex">
         <MobileTabButton
           active={mobileTab === "summary"}
           onClick={() => setMobileTab("summary")}
@@ -2139,15 +1771,34 @@ export default function WaitWiseApp() {
         </div>
       </div>
 
-      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.18fr)_392px] lg:gap-6 xl:grid-cols-[minmax(0,1.24fr)_408px]">
-        <main className="min-w-0 space-y-5">
+      <div className="hidden lg:block">
+        <div className={cx(mobileTab !== "summary" && "hidden")}>
           <SectionCard
-            title="Output workspace"
-            description="Review the current conclusion, compare the main economic and operational outputs, then move down into trajectory and uncertainty."
+            title="Headline view"
+            description="Start with the current signal and the main outputs."
             dense
           >
             {summaryMetrics}
-            <div className="mt-3">{desktopSecondaryMetrics}</div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <MetricCard
+                label="Admissions avoided"
+                value={formatNumber(results.admissions_avoided_total)}
+              />
+              <MetricCard
+                label="Bed days avoided"
+                value={formatNumber(results.bed_days_avoided_total)}
+              />
+              <MetricCard
+                label="Programme cost"
+                value={formatCurrency(results.programme_cost_total)}
+              />
+              <MetricCard
+                label="Gross savings"
+                value={formatCurrency(results.gross_savings_total)}
+              />
+            </div>
+
             <div className="mt-4">{interpretationPanel}</div>
 
             <div className="mt-4 grid gap-3 xl:grid-cols-3">
@@ -2166,39 +1817,80 @@ export default function WaitWiseApp() {
             </div>
           </SectionCard>
 
+          <div className="mt-4">
+            <SectionCard
+              title="Charts"
+              description="Primary chart first, with supporting views below."
+              dense
+            >
+              {desktopCharts}
+            </SectionCard>
+          </div>
+        </div>
+
+        <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
-            title="Charts"
-            description="Use the first row for trajectory and economics. Use the second row for operational impact and bounded sensitivity."
+            title="Assumptions"
+            description="Quick assumptions first. Advanced settings stay below."
+            action={
+              <button
+                type="button"
+                onClick={resetToBaseCase}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset to base case
+              </button>
+            }
             dense
           >
-            <div className="grid gap-4 xl:grid-cols-2">
-              <WaitingListReductionChart yearlyResults={results.yearly_results} />
-              <CostVsSavingsChart yearlyResults={results.yearly_results} />
-            </div>
+            <div className="space-y-4">
+              <div className={SUBCARD}>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Quick assumptions
+                </p>
+                {quickAssumptionNotice}
+                <div className="mt-4">{assumptionsQuick}</div>
+              </div>
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-2">
-              <PathwayImpactChart results={results} />
-              <BoundedUncertaintyChart
-                uncertaintyRows={uncertainty}
-                threshold={inputs.cost_effectiveness_threshold}
-              />
+              <div className={SUBCARD}>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Advanced assumptions
+                </p>
+                {advancedSections}
+              </div>
             </div>
           </SectionCard>
+        </div>
 
+        <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="A compact analyst-style readout of the current assumption set, the bounded cases, and what should be validated next."
+            description="Review the current case, bounded uncertainty, and the next checks."
             dense
           >
             <div className="space-y-5">
-              <div>
-                <h3 className={SECTION_KICKER}>Assumption review</h3>
-                <div className="mt-3">{assumptionsReview}</div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+                <MetricCard label="Break-even horizon" value={results.break_even_horizon} />
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Interpretation</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
+                  <MiniInsight
+                    label="Main driver"
+                    value={`The result is currently most shaped by ${mainDriver}.`}
+                  />
+                  <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
+                  <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
+                </div>
               </div>
 
               <div>
                 <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
-                <div className="mt-3 grid gap-3 xl:grid-cols-3">
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
                   {uncertainty.map((row) => (
                     <AssumptionReviewCard
                       key={row.case}
@@ -2210,82 +1902,31 @@ export default function WaitWiseApp() {
                 </div>
               </div>
 
-              <div className="grid gap-3 xl:grid-cols-2">
-                <div className={SUBCARD}>
-                  <p className={SECTION_KICKER}>Decision narrative</p>
-                  <div className="mt-3 space-y-2.5">
-                    <p className={SECTION_BODY}>{interpretation.what_model_suggests}</p>
-                    <p className={SECTION_BODY}>{interpretation.what_drives_result}</p>
-                  </div>
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Threshold readout</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <AssumptionReviewCard
+                    label="Break-even cost"
+                    value={formatCurrency(results.break_even_cost_per_patient)}
+                  />
+                  <AssumptionReviewCard
+                    label="Required effect"
+                    value={formatPercent(results.break_even_effect_required)}
+                  />
+                  <AssumptionReviewCard
+                    label="Break-even horizon"
+                    value={results.break_even_horizon}
+                  />
                 </div>
+              </div>
 
-                <div className={SUBCARD}>
-                  <p className={SECTION_KICKER}>Validation note</p>
-                  <div className="mt-3 space-y-2.5">
-                    <p className={SECTION_BODY}>{interpretation.what_looks_fragile}</p>
-                    <p className={SECTION_BODY}>{interpretation.what_to_validate_next}</p>
-                    <p className={SECTION_BODY}>
-                      Break-even horizon:{" "}
-                      <span className="font-semibold text-slate-900">
-                        {results.break_even_horizon}
-                      </span>
-                    </p>
-                  </div>
-                </div>
+              <div>
+                <h3 className={SECTION_KICKER}>Review current assumptions</h3>
+                <div className="mt-3">{assumptionsReview}</div>
               </div>
             </div>
           </SectionCard>
-        </main>
-
-        <aside className="min-w-0">
-          <DesktopDecisionRail
-            decisionStatus={decisionStatus}
-            netCostLabel={netCostLabel}
-            netCostValue={formatCurrency(Math.abs(results.discounted_net_cost_total))}
-            costPerQaly={formatCurrency(results.discounted_cost_per_qaly)}
-            waitingListReduction={formatNumber(results.waiting_list_reduction_total)}
-            escalationsAvoided={formatNumber(results.escalations_avoided_total)}
-            mainDriver={mainDriver}
-            interpretation={interpretation}
-          />
-
-          <div className="mt-4 sticky top-[430px]">
-            <SectionCard
-              title="Control panel"
-              description="Adjust the assumptions while keeping the current decision signal in view."
-              action={
-                <button
-                  type="button"
-                  onClick={resetToBaseCase}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Reset to base case
-                </button>
-              }
-              dense
-            >
-              <div className="space-y-4">
-                <div className={SUBCARD}>
-                  <p className={SECTION_KICKER}>Quick assumptions</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Start with the main levers most likely to change the result.
-                  </p>
-                  <div className="mt-3">{quickAssumptionNotice}</div>
-                  <div className="mt-4">{assumptionsQuick}</div>
-                </div>
-
-                <div className={SUBCARD}>
-                  <p className={SECTION_KICKER}>Advanced assumptions</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Use these for deeper stress-testing once the main case is stable.
-                  </p>
-                  <div className="mt-4">{advancedSections}</div>
-                </div>
-              </div>
-            </SectionCard>
-          </div>
-        </aside>
+        </div>
       </div>
     </div>
   );
