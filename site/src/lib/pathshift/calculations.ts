@@ -1,4 +1,8 @@
-import { COSTING_METHOD_MAP, SCENARIO_MAP, TARGETING_MODE_MAP } from "@/lib/pathshift/scenarios";
+import {
+  COSTING_METHOD_MAP,
+  SCENARIO_MAP,
+  TARGETING_MODE_MAP,
+} from "@/lib/pathshift/scenarios";
 import type {
   ComparatorOption,
   Inputs,
@@ -22,6 +26,7 @@ export function getDiscountFactor(year: number, discountRate: number): number {
 
 export function getTargetingAdjustments(inputs: Inputs) {
   const targeting = TARGETING_MODE_MAP[inputs.targeting_mode];
+
   const adjusted_cohort =
     inputs.annual_cohort_size * targeting.population_multiplier;
   const adjusted_reach_rate = clampRate(
@@ -61,7 +66,14 @@ export function calculateGrossSavings(
   return admissionAndFollowUpSavings + bedDayValue;
 }
 
-function runModelCore(inputs: Inputs) {
+function runModelCore(
+  inputs: Inputs,
+): Omit<
+  ModelResults,
+  | "break_even_effect_required"
+  | "break_even_cost_per_patient"
+  | "break_even_horizon"
+> {
   const targeting = getTargetingAdjustments(inputs);
   const baseReachedPatients =
     targeting.adjusted_cohort * targeting.adjusted_reach_rate;
@@ -346,10 +358,14 @@ export function calculateBreakEvenHorizon(
   maxYears = 10,
 ): string {
   for (let horizon = 1; horizon <= maxYears; horizon += 1) {
-    const testInputs = {
+    const allowedHorizon: 1 | 3 | 5 =
+      horizon <= 1 ? 1 : horizon <= 3 ? 3 : 5;
+
+    const testInputs: Inputs = {
       ...inputs,
-      time_horizon_years: horizon as 1 | 3 | 5,
+      time_horizon_years: allowedHorizon,
     };
+
     const result = runModelCore(testInputs);
 
     if (
@@ -468,32 +484,33 @@ export function buildComparatorCase(
   baseInputs: Inputs,
   comparatorMode: ComparatorOption,
 ): Inputs {
-  const comparatorInputs: Inputs = { ...defaults };
+  let comparatorInputs: Inputs = { ...defaults };
 
   if (comparatorMode in SCENARIO_MAP) {
-    comparatorInputs = Object.assign(
-      comparatorInputs,
-      SCENARIO_MAP[comparatorMode](defaults),
-    );
+    comparatorInputs = {
+      ...comparatorInputs,
+      ...SCENARIO_MAP[comparatorMode](defaults),
+    };
   } else {
-    Object.assign(comparatorInputs, baseInputs);
+    comparatorInputs = {
+      ...baseInputs,
+    };
   }
 
-  comparatorInputs.time_horizon_years = baseInputs.time_horizon_years;
-  comparatorInputs.discount_rate = baseInputs.discount_rate;
-  comparatorInputs.costing_method = baseInputs.costing_method;
-  comparatorInputs.cost_effectiveness_threshold =
-    baseInputs.cost_effectiveness_threshold;
-  comparatorInputs.cost_per_acute_managed_patient =
-    baseInputs.cost_per_acute_managed_patient;
-  comparatorInputs.cost_per_community_managed_patient =
-    baseInputs.cost_per_community_managed_patient;
-  comparatorInputs.cost_per_follow_up_contact =
-    baseInputs.cost_per_follow_up_contact;
-  comparatorInputs.cost_per_admission = baseInputs.cost_per_admission;
-  comparatorInputs.cost_per_bed_day = baseInputs.cost_per_bed_day;
-  comparatorInputs.qaly_gain_per_patient_improved =
-    baseInputs.qaly_gain_per_patient_improved;
+  comparatorInputs = {
+    ...comparatorInputs,
+    time_horizon_years: baseInputs.time_horizon_years,
+    discount_rate: baseInputs.discount_rate,
+    costing_method: baseInputs.costing_method,
+    cost_effectiveness_threshold: baseInputs.cost_effectiveness_threshold,
+    cost_per_acute_managed_patient: baseInputs.cost_per_acute_managed_patient,
+    cost_per_community_managed_patient:
+      baseInputs.cost_per_community_managed_patient,
+    cost_per_follow_up_contact: baseInputs.cost_per_follow_up_contact,
+    cost_per_admission: baseInputs.cost_per_admission,
+    cost_per_bed_day: baseInputs.cost_per_bed_day,
+    qaly_gain_per_patient_improved: baseInputs.qaly_gain_per_patient_improved,
+  };
 
   return comparatorInputs;
 }
