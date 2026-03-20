@@ -2179,7 +2179,7 @@ export default function WaitWiseApp() {
                   <div className="mt-3 space-y-2.5">
                     <p className={SECTION_BODY}>{interpretation.what_looks_fragile}</p>
                     <p className={SECTION_BODY}>{interpretation.what_to_validate_next}</p>
-                    <p className={SECTION_COPY}>
+                    <p className={SECTION_BODY}>
                       Break-even horizon:{" "}
                       <span className="font-semibold text-slate-900">
                         {results.break_even_horizon}
