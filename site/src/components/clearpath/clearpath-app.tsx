@@ -233,12 +233,15 @@ function getCaseTypeLabel(
 ): string {
   if (preset === "Conservative case") return "Conservative delivery case";
   if (preset === "Optimistic case") return "Optimistic earlier-diagnosis case";
-  if (preset === "High late-diagnosis burden")
+  if (preset === "High late-diagnosis burden") {
     return "High late-diagnosis burden case";
-  if (preset === "High-reach case-finding")
+  }
+  if (preset === "High-reach case-finding") {
     return "High-reach case-finding case";
-  if (preset === "Emergency-pressure reduction focus")
+  }
+  if (preset === "Emergency-pressure reduction focus") {
     return "Emergency-pressure reduction case";
+  }
 
   if (inputs.current_late_diagnosis_rate >= 0.45) {
     return "High late-diagnosis burden case";
