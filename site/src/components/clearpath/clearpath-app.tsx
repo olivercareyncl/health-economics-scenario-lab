@@ -895,12 +895,7 @@ function ComparatorDeltaChart({
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
-              tickFormatter={(value) => {
-                const row = data.find((d) => d.delta === Number(value));
-                return row?.isCurrency
-                  ? compactCurrencyAxis(Number(value))
-                  : formatNumber(Number(value));
-              }}
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
               axisLine={false}
               fontSize={12}
@@ -1203,8 +1198,7 @@ export default function ClearPathApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Start with the biggest decision levers: population size, late diagnosis rate,
-      achievable shift, reach, intervention cost, and time horizon.
+      These are the main levers most likely to change the decision signal.
     </div>
   );
 
@@ -1583,19 +1577,12 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "summary" && "hidden")}>
           <SectionCard
             title="Headline view"
-            description="Start with the decision signal and the main economic outputs."
+            description="Start with the current decision signal and the main economic outputs."
             dense
           >
             {summaryMetrics}
             <div className="mt-3">{thresholdMetrics}</div>
             <div className="mt-4">{interpretationPanel}</div>
-
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-              <p className={SECTION_KICKER}>Strategic summary</p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">
-                {overviewSummary}
-              </p>
-            </div>
           </SectionCard>
 
           <div className="mt-4">
@@ -1667,6 +1654,13 @@ export default function ClearPathApp() {
             dense
           >
             <div className="space-y-5">
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Strategic summary</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {overviewSummary}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 gap-3">
                 <MetricCard
                   label="Admissions avoided"
@@ -1746,7 +1740,7 @@ export default function ClearPathApp() {
         </div>
       </div>
 
-      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.2fr)_408px] lg:gap-6">
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.18fr)_392px] lg:gap-6 xl:grid-cols-[minmax(0,1.24fr)_408px]">
         <main className="min-w-0 space-y-5">
           <SectionCard
             title="Output workspace"
