@@ -948,10 +948,26 @@ function PathwayImpactChart({
   results: ModelResults;
 }) {
   const data = [
-    { label: "Waiting list", value: results.waiting_list_reduction_total },
-    { label: "Escalations", value: results.escalations_avoided_total },
-    { label: "Admissions", value: results.admissions_avoided_total },
-    { label: "Bed days", value: results.bed_days_avoided_total },
+    {
+      label: "Waiting",
+      fullLabel: "Waiting list reduction",
+      value: results.waiting_list_reduction_total,
+    },
+    {
+      label: "Escal.",
+      fullLabel: "Escalations avoided",
+      value: results.escalations_avoided_total,
+    },
+    {
+      label: "Adm.",
+      fullLabel: "Admissions avoided",
+      value: results.admissions_avoided_total,
+    },
+    {
+      label: "Bed days",
+      fullLabel: "Bed days avoided",
+      value: results.bed_days_avoided_total,
+    },
   ];
 
   return (
@@ -972,7 +988,13 @@ function PathwayImpactChart({
             margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
           >
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={11}
+              interval={0}
+            />
             <YAxis
               tickFormatter={(value) => formatNumber(Number(value))}
               tickLine={false}
@@ -980,7 +1002,12 @@ function PathwayImpactChart({
               fontSize={12}
               width={52}
             />
-            <Tooltip content={<NumberTooltip />} />
+            <Tooltip
+              formatter={(value: number, _name, entry) => [
+                formatNumber(value),
+                entry?.payload?.fullLabel ?? "Impact",
+              ]}
+            />
             <Bar dataKey="value" name="Impact" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
