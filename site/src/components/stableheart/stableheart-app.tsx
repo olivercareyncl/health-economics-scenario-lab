@@ -197,8 +197,20 @@ function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[
             />
             <Tooltip content={<CurrencyTooltip />} />
             <Legend wrapperStyle={{ fontSize: "12px" }} />
-            <Line type="monotone" dataKey="programmeCost" name="Programme cost" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="grossSavings" name="Gross savings" strokeWidth={2} dot={false} />
+            <Line
+              type="monotone"
+              dataKey="programmeCost"
+              name="Programme cost"
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="grossSavings"
+              name="Gross savings"
+              strokeWidth={2}
+              dot={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -225,7 +237,13 @@ function ImpactChart({ results }: { results: ModelResults }) {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 16 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} interval={0} />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                fontSize={12}
+                interval={0}
+              />
               <YAxis
                 tickFormatter={(value) => formatNumber(Number(value))}
                 tickLine={false}
@@ -283,7 +301,11 @@ function BoundedUncertaintyChart({
               strokeDasharray="4 4"
               ifOverflow="extendDomain"
             />
-            <Bar dataKey="discountedCostPerQaly" name="Discounted cost per QALY" radius={[8, 8, 0, 0]}>
+            <Bar
+              dataKey="discountedCostPerQaly"
+              name="Discounted cost per QALY"
+              radius={[8, 8, 0, 0]}
+            >
               {data.map((entry) => {
                 const belowThreshold = entry.discountedCostPerQaly <= threshold;
                 return (
@@ -333,7 +355,9 @@ function MobileAccordion({
         aria-expanded={open}
       >
         <span className="text-sm font-medium text-slate-900">{title}</span>
-        <ChevronDown className={cx("h-4 w-4 text-slate-500 transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          className={cx("h-4 w-4 text-slate-500 transition-transform", open && "rotate-180")}
+        />
       </button>
 
       {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
@@ -561,80 +585,6 @@ function AssumptionReviewCard({
   );
 }
 
-function DesktopDecisionRail({
-  decisionStatus,
-  netCostLabel,
-  netCostValue,
-  costPerQaly,
-  eventsAvoided,
-  admissionsAvoided,
-  mainDriver,
-  interpretation,
-}: {
-  decisionStatus: string;
-  netCostLabel: string;
-  netCostValue: string;
-  costPerQaly: string;
-  eventsAvoided: string;
-  admissionsAvoided: string;
-  mainDriver: string;
-  interpretation: {
-    what_model_suggests: string;
-    what_drives_result: string;
-    where_value_is_coming_from: string;
-    what_looks_fragile: string;
-    what_to_validate_next: string;
-  };
-}) {
-  return (
-    <div className="sticky top-6 space-y-4">
-      <div className={PANEL_SHELL}>
-        <p className={SECTION_KICKER}>Live result</p>
-        <h2 className={SECTION_TITLE}>Current decision signal</h2>
-
-        <div className="mt-3">
-          <div
-            className={cx(
-              "inline-flex rounded-full px-3 py-1 text-xs font-semibold",
-              decisionStatus === "Appears cost-saving" &&
-                "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
-              decisionStatus === "Appears cost-effective" &&
-                "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
-              decisionStatus === "Above current threshold" &&
-                "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
-            )}
-          >
-            {decisionStatus}
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3">
-          <MetricCard label={netCostLabel} value={netCostValue} />
-          <MetricCard label="Discounted cost per QALY" value={costPerQaly} tone="strong" />
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <MetricCard label="Events avoided" value={eventsAvoided} />
-          <MetricCard label="Admissions avoided" value={admissionsAvoided} />
-        </div>
-      </div>
-
-      <div className={PANEL_SHELL}>
-        <p className={SECTION_KICKER}>Analyst note</p>
-        <h2 className={SECTION_TITLE}>How to read the case</h2>
-
-        <div className="mt-4 space-y-3">
-          <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-          <MiniInsight label="Main driver" value={`The result is currently most shaped by ${mainDriver}.`} />
-          <MiniInsight label="Value mechanism" value={interpretation.where_value_is_coming_from} />
-          <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
-          <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function StableHeartApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
@@ -699,15 +649,6 @@ export default function StableHeartApp() {
         value={formatCurrency(results.discounted_cost_per_qaly)}
         tone="strong"
       />
-    </div>
-  );
-
-  const desktopSecondaryMetrics = (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <MetricCard label="Bed days avoided" value={formatNumber(results.bed_days_avoided_total)} />
-      <MetricCard label="Patients reached" value={formatNumber(results.patients_reached_total)} />
-      <MetricCard label="Programme cost" value={formatCurrency(results.programme_cost_total)} />
-      <MetricCard label="Gross savings" value={formatCurrency(results.gross_savings_total)} />
     </div>
   );
 
@@ -806,7 +747,12 @@ export default function StableHeartApp() {
           aria-expanded={openSections["advanced-baseline"]}
         >
           <span className="text-sm font-medium text-slate-900">Baseline risk and pathway</span>
-          <ChevronDown className={cx("h-4 w-4 text-slate-500 transition-transform", openSections["advanced-baseline"] && "rotate-180")} />
+          <ChevronDown
+            className={cx(
+              "h-4 w-4 text-slate-500 transition-transform",
+              openSections["advanced-baseline"] && "rotate-180",
+            )}
+          />
         </button>
 
         {openSections["advanced-baseline"] ? (
@@ -849,7 +795,12 @@ export default function StableHeartApp() {
           aria-expanded={openSections["advanced-costs"]}
         >
           <span className="text-sm font-medium text-slate-900">Cost inputs and threshold</span>
-          <ChevronDown className={cx("h-4 w-4 text-slate-500 transition-transform", openSections["advanced-costs"] && "rotate-180")} />
+          <ChevronDown
+            className={cx(
+              "h-4 w-4 text-slate-500 transition-transform",
+              openSections["advanced-costs"] && "rotate-180",
+            )}
+          />
         </button>
 
         {openSections["advanced-costs"] ? (
@@ -904,7 +855,12 @@ export default function StableHeartApp() {
           aria-expanded={openSections["advanced-outcomes"]}
         >
           <span className="text-sm font-medium text-slate-900">Persistence and outcomes</span>
-          <ChevronDown className={cx("h-4 w-4 text-slate-500 transition-transform", openSections["advanced-outcomes"] && "rotate-180")} />
+          <ChevronDown
+            className={cx(
+              "h-4 w-4 text-slate-500 transition-transform",
+              openSections["advanced-outcomes"] && "rotate-180",
+            )}
+          />
         </button>
 
         {openSections["advanced-outcomes"] ? (
@@ -985,6 +941,18 @@ export default function StableHeartApp() {
     </div>
   );
 
+  const desktopCharts = (
+    <div className="space-y-4">
+      <EventsByYearChart yearlyResults={results.yearly_results} />
+      <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <ImpactChart results={results} />
+      <BoundedUncertaintyChart
+        uncertaintyRows={uncertainty}
+        threshold={inputs.cost_effectiveness_threshold}
+      />
+    </div>
+  );
+
   const comparatorSummary = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <AssumptionReviewCard label="Comparator" value={comparatorMode} />
@@ -1045,7 +1013,56 @@ export default function StableHeartApp() {
         </div>
       </div>
 
+      <div className="sticky top-[72px] z-20 mb-5 hidden rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:block">
+        <div className="grid grid-cols-3 items-start gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Signal
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
+              {decisionStatus}
+            </p>
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="text-[11px] text-slate-500">{netCostLabel}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-950">
+              {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+            </p>
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="text-[11px] text-slate-500">Cost/QALY</p>
+            <p className="mt-1 text-sm font-semibold text-slate-950">
+              {formatCurrency(results.discounted_cost_per_qaly)}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+        <MobileTabButton
+          active={mobileTab === "summary"}
+          onClick={() => setMobileTab("summary")}
+          icon={<BarChart3 className="h-4 w-4" />}
+        >
+          Summary
+        </MobileTabButton>
+        <MobileTabButton
+          active={mobileTab === "assumptions"}
+          onClick={() => setMobileTab("assumptions")}
+          icon={<SlidersHorizontal className="h-4 w-4" />}
+        >
+          Assumptions
+        </MobileTabButton>
+        <MobileTabButton
+          active={mobileTab === "analysis"}
+          onClick={() => setMobileTab("analysis")}
+          icon={<FileSearch className="h-4 w-4" />}
+        >
+          Analysis
+        </MobileTabButton>
+      </div>
+
+      <div className="mb-5 hidden gap-2 overflow-x-auto pb-1 lg:flex">
         <MobileTabButton
           active={mobileTab === "summary"}
           onClick={() => setMobileTab("summary")}
@@ -1206,15 +1223,22 @@ export default function StableHeartApp() {
         </div>
       </div>
 
-      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.18fr)_392px] lg:gap-6 xl:grid-cols-[minmax(0,1.24fr)_408px]">
-        <main className="min-w-0 space-y-5">
+      <div className="hidden lg:block">
+        <div className={cx(mobileTab !== "summary" && "hidden")}>
           <SectionCard
-            title="Output workspace"
-            description="Review the current conclusion, compare the main economic and clinical outputs, then move down into trajectory and uncertainty."
+            title="Headline view"
+            description="Start with the current decision signal and the main economic outputs."
             dense
           >
             {summaryMetrics}
-            <div className="mt-3">{desktopSecondaryMetrics}</div>
+
+            <div className="mt-3 grid gap-3 lg:grid-cols-4">
+              <MetricCard label="Bed days avoided" value={formatNumber(results.bed_days_avoided_total)} />
+              <MetricCard label="Patients reached" value={formatNumber(results.patients_reached_total)} />
+              <MetricCard label="Programme cost" value={formatCurrency(results.programme_cost_total)} />
+              <MetricCard label="Gross savings" value={formatCurrency(results.gross_savings_total)} />
+            </div>
+
             <div className="mt-4">{interpretationPanel}</div>
 
             <div className="mt-4 grid gap-3 xl:grid-cols-4">
@@ -1234,39 +1258,86 @@ export default function StableHeartApp() {
             </div>
           </SectionCard>
 
+          <div className="mt-4">
+            <SectionCard
+              title="Charts"
+              description="Primary chart first, with supporting views below."
+              dense
+            >
+              {desktopCharts}
+            </SectionCard>
+          </div>
+        </div>
+
+        <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
-            title="Charts"
-            description="Use the first row for trajectory and economics. Use the second row for clinical impact and bounded sensitivity."
+            title="Assumptions"
+            description="Quick assumptions first. Advanced settings stay below."
+            action={
+              <button
+                type="button"
+                onClick={resetToBaseCase}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset
+              </button>
+            }
             dense
           >
-            <div className="grid gap-4 xl:grid-cols-2">
-              <EventsByYearChart yearlyResults={results.yearly_results} />
-              <CostVsSavingsChart yearlyResults={results.yearly_results} />
-            </div>
+            <div className="space-y-4">
+              <div className={SUBCARD}>
+                <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
+                {quickAssumptionNotice}
+                <div className="mt-4">{assumptionsQuick}</div>
+              </div>
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-2">
-              <ImpactChart results={results} />
-              <BoundedUncertaintyChart
-                uncertaintyRows={uncertainty}
-                threshold={inputs.cost_effectiveness_threshold}
-              />
+              <div className={SUBCARD}>
+                <p className="mb-3 text-sm font-semibold text-slate-900">Advanced assumptions</p>
+                {advancedSections}
+              </div>
             </div>
           </SectionCard>
+        </div>
 
+        <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="A compact analyst-style readout of the current assumption set, the bounded cases, and what should be validated next."
+            description="Review the current case, bounded uncertainty, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
-              <div>
-                <h3 className={SECTION_KICKER}>Assumption review</h3>
-                <div className="mt-3">{assumptionsReview}</div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <MetricCard label="Bed days avoided" value={formatNumber(results.bed_days_avoided_total)} />
+                <MetricCard label="Patients reached" value={formatNumber(results.patients_reached_total)} />
+                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Threshold readout</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-4">
+                  <AssumptionReviewCard
+                    label="Break-even cost per patient"
+                    value={formatCurrency(results.break_even_cost_per_patient)}
+                  />
+                  <AssumptionReviewCard
+                    label="Required risk reduction"
+                    value={formatPercent(results.break_even_risk_reduction_required)}
+                  />
+                  <AssumptionReviewCard
+                    label="Break-even horizon"
+                    value={results.break_even_horizon}
+                  />
+                  <AssumptionReviewCard
+                    label="Required baseline event rate"
+                    value={formatPercent(results.break_even_baseline_event_rate_required)}
+                  />
+                </div>
               </div>
 
               <div>
                 <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
-                <div className="mt-3 grid gap-3 xl:grid-cols-3">
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
                   {uncertainty.map((row) => (
                     <AssumptionReviewCard
                       key={row.case}
@@ -1278,88 +1349,29 @@ export default function StableHeartApp() {
                 </div>
               </div>
 
-              <div>
-                <h3 className={SECTION_KICKER}>Comparator readout</h3>
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
                 <div className="mt-3">{comparatorSummary}</div>
               </div>
 
-              <div className="grid gap-3 xl:grid-cols-2">
-                <div className={SUBCARD}>
-                  <p className={SECTION_KICKER}>Decision narrative</p>
-                  <div className="mt-3 space-y-2.5">
-                    <p className={SECTION_BODY}>{interpretation.what_model_suggests}</p>
-                    <p className={SECTION_BODY}>{interpretation.what_drives_result}</p>
-                    <p className={SECTION_BODY}>{interpretation.where_value_is_coming_from}</p>
-                  </div>
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Interpretation</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
+                  <MiniInsight label="Main driver" value={`The result is currently most shaped by ${mainDriver}.`} />
+                  <MiniInsight label="Value mechanism" value={interpretation.where_value_is_coming_from} />
+                  <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
+                  <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
                 </div>
+              </div>
 
-                <div className={SUBCARD}>
-                  <p className={SECTION_KICKER}>Validation note</p>
-                  <div className="mt-3 space-y-2.5">
-                    <p className={SECTION_BODY}>{interpretation.what_looks_fragile}</p>
-                    <p className={SECTION_BODY}>{interpretation.what_to_validate_next}</p>
-                    <p className={SECTION_BODY}>
-                      Break-even horizon:{" "}
-                      <span className="font-semibold text-slate-900">
-                        {results.break_even_horizon}
-                      </span>
-                    </p>
-                  </div>
-                </div>
+              <div>
+                <h3 className={SECTION_KICKER}>Assumption review</h3>
+                <div className="mt-3">{assumptionsReview}</div>
               </div>
             </div>
           </SectionCard>
-        </main>
-
-        <aside className="min-w-0">
-          <DesktopDecisionRail
-            decisionStatus={decisionStatus}
-            netCostLabel={netCostLabel}
-            netCostValue={formatCurrency(Math.abs(results.discounted_net_cost_total))}
-            costPerQaly={formatCurrency(results.discounted_cost_per_qaly)}
-            eventsAvoided={formatNumber(results.events_avoided_total)}
-            admissionsAvoided={formatNumber(results.admissions_avoided_total)}
-            mainDriver={mainDriver}
-            interpretation={interpretation}
-          />
-
-          <div className="mt-4 sticky top-[430px]">
-            <SectionCard
-              title="Control panel"
-              description="Adjust the assumptions while keeping the current decision signal in view."
-              action={
-                <button
-                  type="button"
-                  onClick={resetToBaseCase}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Reset
-                </button>
-              }
-              dense
-            >
-              <div className="space-y-4">
-                <div className={SUBCARD}>
-                  <p className={SECTION_KICKER}>Quick assumptions</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Start with the main levers most likely to change the result.
-                  </p>
-                  <div className="mt-3">{quickAssumptionNotice}</div>
-                  <div className="mt-4">{assumptionsQuick}</div>
-                </div>
-
-                <div className={SUBCARD}>
-                  <p className={SECTION_KICKER}>Advanced assumptions</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Use these for deeper stress-testing once the main case is stable.
-                  </p>
-                  <div className="mt-4">{advancedSections}</div>
-                </div>
-              </div>
-            </SectionCard>
-          </div>
-        </aside>
+        </div>
       </div>
     </div>
   );
