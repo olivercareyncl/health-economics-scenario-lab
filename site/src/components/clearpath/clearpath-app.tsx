@@ -889,7 +889,7 @@ function ComparatorDeltaChart({
         </p>
       </div>
 
-      <div className="h-56 w-full lg:h-64 xl:h-72">
+      <div className="h-56 w-full lg:h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -1015,6 +1015,7 @@ export default function ClearPathApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
+  const [showComparatorDesktop, setShowComparatorDesktop] = useState(false);
   const [openSections, setOpenSections] = useState<
     Record<AssumptionSectionKey, boolean>
   >({
@@ -1101,6 +1102,11 @@ export default function ClearPathApp() {
     return runModel(comparatorInputs);
   }, [inputs, comparatorMode]);
 
+  const comparatorDeltas = useMemo(
+    () => buildComparatorDeltaChartData(results, comparatorResults),
+    [results, comparatorResults],
+  );
+
   const confidenceSummary = useMemo(
     () => getAssumptionConfidenceSummary(),
     [],
@@ -1114,6 +1120,7 @@ export default function ClearPathApp() {
     setInputs({ ...DEFAULT_INPUTS });
     setComparatorMode(COMPARATOR_OPTIONS[0]);
     setShowAdvancedMobile(false);
+    setShowComparatorDesktop(false);
     setOpenSections({
       "advanced-pathway": false,
       "advanced-costs": false,
@@ -1650,7 +1657,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, uncertainty, scenario comparison, and validation prompts."
+            description="Review the current case, uncertainty, sensitivity, and validation prompts."
             dense
           >
             <div className="space-y-5">
@@ -1781,7 +1788,7 @@ export default function ClearPathApp() {
 
           <SectionCard
             title="Analysis"
-            description="A compact analyst-style readout of the current assumption set, scenario choices, sensitivity, and what should be validated next."
+            description="A compact analyst-style readout of scenarios, sensitivity, validation priorities, and how the current case should be interpreted."
             dense
           >
             <div className="space-y-5">
@@ -1799,17 +1806,6 @@ export default function ClearPathApp() {
               </div>
 
               <div>
-                <h3 className={SECTION_KICKER}>Comparator view</h3>
-                <div className="mt-3">
-                  <ComparatorDeltaChart
-                    baseResults={results}
-                    comparatorResults={comparatorResults}
-                    comparatorLabel={comparatorMode}
-                  />
-                </div>
-              </div>
-
-              <div>
                 <h3 className={SECTION_KICKER}>Sensitivity</h3>
                 <div className="mt-3">
                   <SensitivityChart sensitivityRows={sensitivityRows} />
@@ -1820,25 +1816,6 @@ export default function ClearPathApp() {
                       key={takeaway}
                       label="Takeaway"
                       value={takeaway}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className={SECTION_KICKER}>Assumption review</h3>
-                <div className="mt-3">{assumptionsReview}</div>
-              </div>
-
-              <div>
-                <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
-                <div className="mt-3 grid gap-3 xl:grid-cols-3">
-                  {uncertainty.map((row) => (
-                    <AssumptionReviewCard
-                      key={row.case}
-                      label={row.case}
-                      value={formatCurrency(row.discounted_cost_per_qaly)}
-                      note={`${formatNumber(row.cases_shifted_total)} cases shifted earlier · ${row.decision_status}`}
                     />
                   ))}
                 </div>
@@ -1868,6 +1845,25 @@ export default function ClearPathApp() {
                       </span>
                     </p>
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className={SECTION_KICKER}>Assumption review</h3>
+                <div className="mt-3">{assumptionsReview}</div>
+              </div>
+
+              <div>
+                <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
+                <div className="mt-3 grid gap-3 xl:grid-cols-3">
+                  {uncertainty.map((row) => (
+                    <AssumptionReviewCard
+                      key={row.case}
+                      label={row.case}
+                      value={formatCurrency(row.discounted_cost_per_qaly)}
+                      note={`${formatNumber(row.cases_shifted_total)} cases shifted earlier · ${row.decision_status}`}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -1916,6 +1912,10 @@ export default function ClearPathApp() {
 
                 <div className={SUBCARD}>
                   <p className={SECTION_KICKER}>Comparator</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Use a lighter comparison view without interrupting the main workspace.
+                  </p>
+
                   <div className="mt-4">
                     <SelectInput
                       label="Compare current selection with"
@@ -1924,6 +1924,47 @@ export default function ClearPathApp() {
                       onChange={(value) => setComparatorMode(value)}
                     />
                   </div>
+
+                  <div className="mt-4 grid gap-3">
+                    {comparatorDeltas.slice(0, 3).map((row) => (
+                      <MetricCard
+                        key={row.label}
+                        label={`${row.label} delta`}
+                        value={
+                          row.isCurrency
+                            ? formatCurrency(row.delta)
+                            : formatNumber(row.delta)
+                        }
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowComparatorDesktop((v) => !v)}
+                    className="mt-4 flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left"
+                    aria-expanded={showComparatorDesktop}
+                  >
+                    <span className="text-sm font-medium text-slate-900">
+                      Show comparator chart
+                    </span>
+                    <ChevronDown
+                      className={cx(
+                        "h-4 w-4 text-slate-500 transition-transform",
+                        showComparatorDesktop && "rotate-180",
+                      )}
+                    />
+                  </button>
+
+                  {showComparatorDesktop ? (
+                    <div className="mt-4">
+                      <ComparatorDeltaChart
+                        baseResults={results}
+                        comparatorResults={comparatorResults}
+                        comparatorLabel={comparatorMode}
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className={SUBCARD}>
