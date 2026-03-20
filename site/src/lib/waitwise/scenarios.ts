@@ -1,26 +1,29 @@
-import type { Inputs, CostingMethod, TargetingMode } from "@/lib/waitwise/types";
+import type {
+  ComparatorOption,
+  CostingMethod,
+  Inputs,
+  TargetingMode,
+} from "@/lib/waitwise/types";
 
-export const TARGETING_MODE_OPTIONS: TargetingMode[] = [
+export const TARGETING_MODE_OPTIONS: readonly TargetingMode[] = [
   "Broad waiting list",
   "Higher-risk targeting",
   "Long-wait targeting",
 ];
 
-export const COSTING_METHOD_OPTIONS: CostingMethod[] = [
+export const COSTING_METHOD_OPTIONS: readonly CostingMethod[] = [
   "Escalation and admission savings only",
   "Bed-day value only",
   "Combined illustrative view",
 ];
 
-export const COMPARATOR_OPTIONS = [
+export const COMPARATOR_OPTIONS: readonly ComparatorOption[] = [
   "Demand reduction focus",
   "Throughput boost",
   "Long-wait targeting",
   "Lower-cost delivery",
   "Targeted and stronger effect",
-] as const;
-
-export type ComparatorOption = (typeof COMPARATOR_OPTIONS)[number];
+];
 
 export type TargetingModeAdjustment = {
   population_multiplier: number;
