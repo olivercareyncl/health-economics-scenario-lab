@@ -1,5 +1,3 @@
-// src/components/pdf/clearpath-report.tsx
-import React from "react";
 import {
   Document,
   Page,
