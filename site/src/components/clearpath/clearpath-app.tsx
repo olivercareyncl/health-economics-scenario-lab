@@ -84,6 +84,99 @@ import type {
   YearlyResultRow,
 } from "@/lib/clearpath/types";
 
+type PresetOption =
+  | "Base case"
+  | "Conservative case"
+  | "Optimistic case"
+  | "High late-diagnosis burden"
+  | "High-reach case-finding"
+  | "Emergency-pressure reduction focus";
+
+type PresetDefinition = {
+  description: string;
+  apply: (defaults: Inputs) => Partial<Inputs>;
+};
+
+const PRESET_OPTIONS: readonly PresetOption[] = [
+  "Base case",
+  "Conservative case",
+  "Optimistic case",
+  "High late-diagnosis burden",
+  "High-reach case-finding",
+  "Emergency-pressure reduction focus",
+];
+
+const CLEARPATH_PRESETS: Record<PresetOption, PresetDefinition> = {
+  "Base case": {
+    description: "Restores the standard earlier-diagnosis starting point.",
+    apply: () => ({}),
+  },
+  "Conservative case": {
+    description:
+      "Lower reach and smaller diagnosis shift with slightly higher delivery friction.",
+    apply: () => ({
+      intervention_reach_rate: 0.5,
+      achievable_reduction_in_late_diagnosis: 0.08,
+      intervention_cost_per_case_reached:
+        DEFAULT_INPUTS.intervention_cost_per_case_reached * 1.15,
+      effect_decay_rate: 0.12,
+      participation_dropoff_rate: 0.1,
+    }),
+  },
+  "Optimistic case": {
+    description:
+      "Higher reach and stronger pathway shift with more persistent performance.",
+    apply: () => ({
+      intervention_reach_rate: 0.78,
+      achievable_reduction_in_late_diagnosis: 0.18,
+      intervention_cost_per_case_reached:
+        DEFAULT_INPUTS.intervention_cost_per_case_reached * 0.92,
+      effect_decay_rate: 0.05,
+      participation_dropoff_rate: 0.04,
+    }),
+  },
+  "High late-diagnosis burden": {
+    description:
+      "Represents a service where later diagnosis is common and the opportunity is concentrated.",
+    apply: () => ({
+      targeting_mode: TARGETING_MODE_OPTIONS.includes("Higher-risk targeting")
+        ? "Higher-risk targeting"
+        : DEFAULT_INPUTS.targeting_mode,
+      current_late_diagnosis_rate: 0.52,
+      achievable_reduction_in_late_diagnosis: 0.14,
+      late_emergency_presentation_rate: 0.42,
+      early_emergency_presentation_rate: 0.16,
+      intervention_reach_rate: 0.65,
+    }),
+  },
+  "High-reach case-finding": {
+    description:
+      "Emphasises wider operational reach and stronger programme penetration.",
+    apply: () => ({
+      targeting_mode: TARGETING_MODE_OPTIONS.includes("Broad")
+        ? "Broad"
+        : DEFAULT_INPUTS.targeting_mode,
+      intervention_reach_rate: 0.82,
+      achievable_reduction_in_late_diagnosis: 0.13,
+      participation_dropoff_rate: 0.04,
+      effect_decay_rate: 0.05,
+    }),
+  },
+  "Emergency-pressure reduction focus": {
+    description:
+      "Pushes value toward avoided emergency presentations and acute pressure.",
+    apply: () => ({
+      achievable_reduction_in_late_diagnosis: 0.13,
+      late_emergency_presentation_rate: 0.45,
+      early_emergency_presentation_rate: 0.14,
+      admissions_per_emergency_presentation: 1.2,
+      cost_per_emergency_admission:
+        DEFAULT_INPUTS.cost_per_emergency_admission * 1.1,
+      intervention_reach_rate: 0.68,
+    }),
+  },
+};
+
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
 const SUBCARD =
@@ -92,9 +185,6 @@ const SUBCARD_DENSE =
   "rounded-2xl border border-slate-200 bg-white p-3.5 lg:p-4";
 const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
-const SECTION_TITLE =
-  "mt-1 text-lg font-semibold tracking-tight text-slate-950 lg:text-[1.1rem]";
-const SECTION_BODY = "text-sm leading-6 text-slate-700";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -138,6 +228,38 @@ function buildScenarioComparison(
       ),
     };
   });
+}
+
+function getCaseTypeLabel(
+  preset: PresetOption,
+  inputs: Inputs,
+  mainDriver: string,
+): string {
+  if (preset === "Conservative case") return "Conservative delivery case";
+  if (preset === "Optimistic case") return "Optimistic earlier-diagnosis case";
+  if (preset === "High late-diagnosis burden")
+    return "High late-diagnosis burden case";
+  if (preset === "High-reach case-finding")
+    return "High-reach case-finding case";
+  if (preset === "Emergency-pressure reduction focus")
+    return "Emergency-pressure reduction case";
+
+  if (inputs.current_late_diagnosis_rate >= 0.45) {
+    return "High late-diagnosis burden case";
+  }
+  if (inputs.intervention_reach_rate >= 0.75) {
+    return "High-reach case-finding case";
+  }
+  if (mainDriver.toLowerCase().includes("emergency")) {
+    return "Emergency-pressure reduction case";
+  }
+  if (
+    inputs.targeting_mode.toLowerCase().includes("risk") ||
+    inputs.targeting_mode.toLowerCase().includes("target")
+  ) {
+    return "Targeted earlier-diagnosis case";
+  }
+  return "Broad earlier-diagnosis improvement case";
 }
 
 function CurrencyTooltip({
@@ -941,6 +1063,7 @@ export default function ClearPathApp() {
   const [comparatorMode, setComparatorMode] = useState<ComparatorOption>(
     COMPARATOR_OPTIONS[0],
   );
+  const [presetMode, setPresetMode] = useState<PresetOption>("Base case");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
@@ -1022,17 +1145,28 @@ export default function ClearPathApp() {
     [results, comparatorResults],
   );
 
-  const confidenceSummary = useMemo(
-    () => getAssumptionConfidenceSummary(),
-    [],
+  const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
+
+  const caseTypeLabel = useMemo(
+    () => getCaseTypeLabel(presetMode, inputs, mainDriver),
+    [presetMode, inputs, mainDriver],
   );
+
+  const presetDescription = CLEARPATH_PRESETS[presetMode].description;
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
 
+  const applyPreset = (preset: PresetOption) => {
+    setPresetMode(preset);
+    const updates = CLEARPATH_PRESETS[preset].apply(DEFAULT_INPUTS);
+    setInputs((prev) => ({ ...prev, ...updates }));
+  };
+
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
+    setPresetMode("Base case");
     setComparatorMode(COMPARATOR_OPTIONS[0]);
     setShowAdvancedMobile(false);
     setShowComparatorDesktop(false);
@@ -1084,8 +1218,9 @@ export default function ClearPathApp() {
   );
 
   const interpretationPanel = (
-    <div className="grid gap-3 lg:grid-cols-3">
+    <div className="grid gap-3 lg:grid-cols-4">
       <MiniInsight label="Overall signal" value={overallSignal} />
+      <MiniInsight label="Current case type" value={caseTypeLabel} />
       <MiniInsight
         label="Main dependency"
         value={structuredRecommendation.main_dependency}
@@ -1097,9 +1232,53 @@ export default function ClearPathApp() {
     </div>
   );
 
+  const recommendationPanel = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <MiniInsight
+        label="What this suggests"
+        value={structuredRecommendation.what_this_suggests}
+      />
+      <MiniInsight
+        label="What is driving it"
+        value={structuredRecommendation.main_dependency}
+      />
+      <MiniInsight
+        label="What looks fragile"
+        value={structuredRecommendation.main_fragility}
+      />
+      <MiniInsight
+        label="What to validate next"
+        value={structuredRecommendation.next_validation_priority}
+      />
+    </div>
+  );
+
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
       These are the main levers most likely to change the decision signal.
+    </div>
+  );
+
+  const presetControl = (
+    <div className={SUBCARD}>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,320px)_1fr] xl:items-end">
+        <SelectInput
+          label="Scenario preset"
+          value={presetMode}
+          options={PRESET_OPTIONS}
+          onChange={(value) => applyPreset(value)}
+          help="Applies a coherent scenario without removing your ability to edit assumptions manually."
+        />
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Preset summary
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            <span className="font-medium text-slate-900">{presetMode}:</span>{" "}
+            {presetDescription}
+          </p>
+        </div>
+      </div>
     </div>
   );
 
@@ -1561,7 +1740,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Preset first, then core assumptions and advanced settings."
             action={
               <button
                 type="button"
@@ -1575,6 +1754,8 @@ export default function ClearPathApp() {
             dense
           >
             <div className="space-y-4">
+              {presetControl}
+
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1612,7 +1793,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, uncertainty, sensitivity, and validation prompts."
+            description="Review the current case, uncertainty, sensitivity, and practical next checks."
             dense
           >
             <div className="space-y-5">
@@ -1623,7 +1804,10 @@ export default function ClearPathApp() {
                 </p>
               </div>
 
+              {recommendationPanel}
+
               <div className="grid grid-cols-1 gap-3">
+                <MetricCard label="Current case type" value={caseTypeLabel} />
                 <MetricCard
                   label="Admissions avoided"
                   value={formatNumber(results.admissions_avoided_total)}
@@ -1679,15 +1863,7 @@ export default function ClearPathApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                  <p>{interpretation.what_model_suggests}</p>
-                  <p>{interpretation.what_to_validate_next}</p>
-                </div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Assumption confidence summary</h3>
+                <h3 className={SECTION_KICKER}>Confidence summary</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-700">
                   {confidenceSummary.summary_text}
                 </p>
@@ -1727,7 +1903,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Preset first, then core assumptions and advanced settings."
             action={
               <button
                 type="button"
@@ -1741,6 +1917,8 @@ export default function ClearPathApp() {
             dense
           >
             <div className="space-y-4">
+              {presetControl}
+
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1773,7 +1951,10 @@ export default function ClearPathApp() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {recommendationPanel}
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                <MetricCard label="Current case type" value={caseTypeLabel} />
                 <MetricCard
                   label="Admissions avoided"
                   value={formatNumber(results.admissions_avoided_total)}
@@ -1898,14 +2079,21 @@ export default function ClearPathApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-                  <MiniInsight label="What drives result" value={interpretation.what_drives_result} />
-                  <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
-                  <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
-                  <MiniInsight label="Uncertainty readout" value={uncertaintyRobustness} />
-                  <MiniInsight label="Confidence summary" value={confidenceSummary.summary_text} />
+                  <MiniInsight label="Current case type" value={caseTypeLabel} />
+                  <MiniInsight
+                    label="Uncertainty readout"
+                    value={uncertaintyRobustness}
+                  />
+                  <MiniInsight
+                    label="Interpretation summary"
+                    value={interpretation.what_model_suggests}
+                  />
+                  <MiniInsight
+                    label="Confidence summary"
+                    value={confidenceSummary.summary_text}
+                  />
                 </div>
               </div>
 
