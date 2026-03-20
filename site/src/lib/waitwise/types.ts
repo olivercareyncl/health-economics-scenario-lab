@@ -122,3 +122,62 @@ export type Interpretation = {
   what_to_validate_next: string;
   limitations: string;
 };
+
+export type ScenarioComparisonRow = {
+  scenario: string;
+  targeting: string;
+  waiting_list_reduction: number;
+  escalations_avoided: number;
+  programme_cost: number;
+  discounted_net_cost: number;
+  discounted_cost_per_qaly: number;
+  decision_status: string;
+};
+
+export type ComparatorDeltaRow = {
+  metric: string;
+  current_selection: string;
+  comparator: string;
+  delta: string;
+};
+
+export type SensitivityRow = {
+  variable: string;
+  label: string;
+  base_input: number;
+  low_input: number;
+  high_input: number;
+  base_outcome: number;
+  low_outcome: number;
+  high_outcome: number;
+  low_delta: number;
+  high_delta: number;
+  swing: number;
+};
+
+export type StructuredRecommendation = {
+  main_dependency: string;
+  main_fragility: string;
+  best_next_step: string;
+};
+
+export type DecisionReadiness = {
+  validate_next: string[];
+  readiness_note: string;
+};
+
+export type AssumptionMeta = {
+  label: string;
+  unit: string;
+  formatter: (value: number | string) => string;
+  description: string;
+  source_type: string;
+  confidence: "High confidence" | "Medium confidence" | "Low confidence";
+};
+
+export type AssumptionConfidenceSummary = {
+  "High confidence": number;
+  "Medium confidence": number;
+  "Low confidence": number;
+  summary_text: string;
+};
