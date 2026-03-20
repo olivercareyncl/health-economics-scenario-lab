@@ -124,7 +124,6 @@ const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 const SECTION_TITLE =
   "mt-1 text-lg font-semibold tracking-tight text-slate-950 lg:text-[1.1rem]";
-const SECTION_COPY = "mt-1.5 text-sm leading-6 text-slate-600";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
