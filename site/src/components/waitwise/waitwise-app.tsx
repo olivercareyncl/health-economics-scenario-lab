@@ -1536,92 +1536,109 @@ export default function WaitWiseApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      These are the levers most likely to change the decision signal.
+      Start with reach, delivery cost, and the three intervention effects.
     </div>
   );
 
   const assumptionsQuick = (
-    <div className="grid gap-4 lg:gap-3 xl:grid-cols-2">
-      <SelectInput
-        label="Targeting mode"
-        value={inputs.targeting_mode}
-        options={TARGETING_MODE_OPTIONS}
-        onChange={(value) => updateInput("targeting_mode", value)}
-        help="Changes where value is concentrated."
-      />
+    <div className="space-y-5">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Core setup
+        </p>
+        <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-2">
+          <SelectInput
+            label="Targeting mode"
+            value={inputs.targeting_mode}
+            options={TARGETING_MODE_OPTIONS}
+            onChange={(value) => updateInput("targeting_mode", value)}
+            help="Changes where value is concentrated."
+          />
 
-      <NumberInput
-        label="Starting waiting list"
-        value={inputs.starting_waiting_list_size}
-        onChange={(value) => updateInput("starting_waiting_list_size", value)}
-        step={100}
-        help="Baseline backlog size."
-      />
+          <NumberInput
+            label="Starting waiting list"
+            value={inputs.starting_waiting_list_size}
+            onChange={(value) => updateInput("starting_waiting_list_size", value)}
+            step={100}
+            help="Baseline backlog size."
+          />
 
-      <SliderInput
-        label="Intervention reach"
-        value={inputs.intervention_reach_rate}
-        onChange={(value) => updateInput("intervention_reach_rate", value)}
-        min={0}
-        max={1}
-        step={0.01}
-        display={formatPercent(inputs.intervention_reach_rate)}
-        help="Share of the list effectively reached."
-      />
+          <SliderInput
+            label="Intervention reach"
+            value={inputs.intervention_reach_rate}
+            onChange={(value) => updateInput("intervention_reach_rate", value)}
+            min={0}
+            max={1}
+            step={0.01}
+            display={formatPercent(inputs.intervention_reach_rate)}
+            help="Share of the list effectively reached."
+          />
 
-      <NumberInput
-        label="Cost per patient"
-        value={inputs.intervention_cost_per_patient_reached}
-        onChange={(value) =>
-          updateInput("intervention_cost_per_patient_reached", value)
-        }
-        step={10}
-        help="Main delivery cost lever."
-      />
+          <NumberInput
+            label="Cost per patient"
+            value={inputs.intervention_cost_per_patient_reached}
+            onChange={(value) =>
+              updateInput("intervention_cost_per_patient_reached", value)
+            }
+            step={10}
+            help="Main delivery cost lever."
+          />
 
-      <SliderInput
-        label="Demand reduction"
-        value={inputs.demand_reduction_effect}
-        onChange={(value) => updateInput("demand_reduction_effect", value)}
-        min={0}
-        max={0.5}
-        step={0.01}
-        display={formatPercent(inputs.demand_reduction_effect)}
-        help="Reduces incoming demand."
-      />
+          <div className="xl:col-span-2">
+            <SelectInput
+              label="Time horizon"
+              value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
+              options={["1", "3", "5"]}
+              onChange={(value) =>
+                updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
+              }
+              help="Longer horizons can improve the case."
+            />
+          </div>
+        </div>
+      </div>
 
-      <SliderInput
-        label="Throughput increase"
-        value={inputs.throughput_increase_effect}
-        onChange={(value) => updateInput("throughput_increase_effect", value)}
-        min={0}
-        max={0.5}
-        step={0.01}
-        display={formatPercent(inputs.throughput_increase_effect)}
-        help="Improves processing capacity."
-      />
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Intervention effects
+        </p>
+        <p className="mt-1.5 text-xs leading-5 text-slate-600">
+          These sliders shape where the value comes from.
+        </p>
+        <div className="mt-3 grid gap-4">
+          <SliderInput
+            label="Demand reduction"
+            value={inputs.demand_reduction_effect}
+            onChange={(value) => updateInput("demand_reduction_effect", value)}
+            min={0}
+            max={0.5}
+            step={0.01}
+            display={formatPercent(inputs.demand_reduction_effect)}
+            help="Lowers new demand entering the list."
+          />
 
-      <SliderInput
-        label="Escalation reduction"
-        value={inputs.escalation_reduction_effect}
-        onChange={(value) => updateInput("escalation_reduction_effect", value)}
-        min={0}
-        max={0.5}
-        step={0.01}
-        display={formatPercent(inputs.escalation_reduction_effect)}
-        help="Reduces deterioration while waiting."
-      />
+          <SliderInput
+            label="Throughput increase"
+            value={inputs.throughput_increase_effect}
+            onChange={(value) => updateInput("throughput_increase_effect", value)}
+            min={0}
+            max={0.5}
+            step={0.01}
+            display={formatPercent(inputs.throughput_increase_effect)}
+            help="Raises the number of patients processed."
+          />
 
-      <div className="xl:col-span-2">
-        <SelectInput
-          label="Time horizon"
-          value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
-          options={["1", "3", "5"]}
-          onChange={(value) =>
-            updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
-          }
-          help="Longer horizons can improve the case."
-        />
+          <SliderInput
+            label="Escalation reduction"
+            value={inputs.escalation_reduction_effect}
+            onChange={(value) => updateInput("escalation_reduction_effect", value)}
+            min={0}
+            max={0.5}
+            step={0.01}
+            display={formatPercent(inputs.escalation_reduction_effect)}
+            help="Reduces deterioration while patients wait."
+          />
+        </div>
       </div>
     </div>
   );
@@ -1636,7 +1653,7 @@ export default function WaitWiseApp() {
           aria-expanded={openSections["advanced-delivery"]}
         >
           <span className="text-sm font-medium text-slate-900">
-            Delivery persistence
+            Flow and persistence
           </span>
           <ChevronDown
             className={cx(
@@ -1648,6 +1665,9 @@ export default function WaitWiseApp() {
 
         {openSections["advanced-delivery"] ? (
           <div className="border-t border-slate-200 p-4">
+            <p className="mb-4 text-xs leading-5 text-slate-600">
+              Use these to adjust flow pressure and how effects hold over time.
+            </p>
             <div className="grid gap-4 xl:grid-cols-2">
               <NumberInput
                 label="Monthly inflow"
@@ -1710,6 +1730,9 @@ export default function WaitWiseApp() {
 
         {openSections["advanced-pathway"] ? (
           <div className="border-t border-slate-200 p-4">
+            <p className="mb-4 text-xs leading-5 text-slate-600">
+              Use these to change deterioration risk, admissions, and health gain.
+            </p>
             <div className="grid gap-4 xl:grid-cols-2">
               <SliderInput
                 label="Monthly escalation rate"
@@ -1774,6 +1797,9 @@ export default function WaitWiseApp() {
 
         {openSections["advanced-economics"] ? (
           <div className="border-t border-slate-200 p-4">
+            <p className="mb-4 text-xs leading-5 text-slate-600">
+              Use these to change how value is counted and interpreted.
+            </p>
             <div className="grid gap-4 xl:grid-cols-2">
               <SelectInput
                 label="Costing method"
@@ -1993,7 +2019,7 @@ export default function WaitWiseApp() {
               <button
                 type="button"
                 onClick={resetToBaseCase}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
               >
                 <RotateCcw className="h-4 w-4" />
                 Reset to base case
