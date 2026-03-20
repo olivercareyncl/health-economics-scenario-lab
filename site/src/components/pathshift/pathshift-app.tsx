@@ -81,7 +81,17 @@ const PRESET_OPTIONS: readonly ScenarioPreset[] = [
   "Lower-cost setting shift",
   "Follow-up reduction focus",
   "Admission reduction focus",
-];
+] as const;
+
+const baseTargetingMode = TARGETING_MODE_OPTIONS[0] as TargetingMode;
+const secondaryTargetingMode =
+  (TARGETING_MODE_OPTIONS[1] ?? TARGETING_MODE_OPTIONS[0]) as TargetingMode;
+const tertiaryTargetingMode =
+  (TARGETING_MODE_OPTIONS[2] ??
+    TARGETING_MODE_OPTIONS[1] ??
+    TARGETING_MODE_OPTIONS[0]) as TargetingMode;
+
+const baseCostingMethod = COSTING_METHOD_OPTIONS[0] as CostingMethod;
 
 const PRESET_PATCHES: Record<ScenarioPreset, Partial<Inputs>> = {
   "Base case": {
@@ -119,6 +129,7 @@ const PRESET_PATCHES: Record<ScenarioPreset, Partial<Inputs>> = {
       DEFAULT_INPUTS.qaly_gain_per_patient_improved,
   },
   "Conservative case": {
+    targeting_mode: baseTargetingMode,
     implementation_reach_rate: 0.42,
     redesign_cost_per_patient: 260,
     proportion_shifted_to_lower_cost_setting: 0.12,
@@ -128,8 +139,10 @@ const PRESET_PATCHES: Record<ScenarioPreset, Partial<Inputs>> = {
     participation_dropoff_rate: 0.12,
     effect_decay_rate: 0.12,
     qaly_gain_per_patient_improved: 0.03,
+    costing_method: baseCostingMethod,
   },
   "Optimistic case": {
+    targeting_mode: baseTargetingMode,
     implementation_reach_rate: 0.72,
     redesign_cost_per_patient: 160,
     proportion_shifted_to_lower_cost_setting: 0.32,
@@ -141,7 +154,7 @@ const PRESET_PATCHES: Record<ScenarioPreset, Partial<Inputs>> = {
     qaly_gain_per_patient_improved: 0.08,
   },
   "Lower-cost setting shift": {
-    targeting_mode: "Broad redesign",
+    targeting_mode: baseTargetingMode,
     implementation_reach_rate: 0.62,
     redesign_cost_per_patient: 190,
     proportion_shifted_to_lower_cost_setting: 0.42,
@@ -151,7 +164,7 @@ const PRESET_PATCHES: Record<ScenarioPreset, Partial<Inputs>> = {
     qaly_gain_per_patient_improved: 0.05,
   },
   "Follow-up reduction focus": {
-    targeting_mode: "Broad redesign",
+    targeting_mode: secondaryTargetingMode,
     implementation_reach_rate: 0.58,
     redesign_cost_per_patient: 170,
     proportion_shifted_to_lower_cost_setting: 0.18,
@@ -161,7 +174,7 @@ const PRESET_PATCHES: Record<ScenarioPreset, Partial<Inputs>> = {
     qaly_gain_per_patient_improved: 0.04,
   },
   "Admission reduction focus": {
-    targeting_mode: "Higher-opportunity subgroup",
+    targeting_mode: tertiaryTargetingMode,
     implementation_reach_rate: 0.54,
     redesign_cost_per_patient: 210,
     proportion_shifted_to_lower_cost_setting: 0.2,
@@ -223,7 +236,7 @@ function getCaseTypeLabel(
     return "Follow-up reduction case";
   }
 
-  if (inputs.targeting_mode === "Higher-opportunity subgroup") {
+  if (inputs.targeting_mode === tertiaryTargetingMode) {
     return "Higher-opportunity subgroup case";
   }
 
