@@ -14,7 +14,6 @@ import {
   getMainDriverText,
   getNetCostLabel,
 } from "@/lib/clearpath/summaries";
-import { buildSensitivityTakeaways } from "@/lib/clearpath/sensitivity";
 import type {
   Inputs,
   ModelResults,
@@ -29,24 +28,16 @@ type BuildReportArgs = {
 };
 
 export type ClearPathReportData = {
-  meta: {
-    title: string;
-    module: string;
-    exportedAt: string;
-    decisionStatus: string;
-  };
-  executiveSummary: {
-    overview: string;
-    overallSignal: string;
-    whatModelSuggests: string;
-    mainDependency: string;
-    mainFragility: string;
-    bestNextStep: string;
-  };
+  title: string;
+  subtitle?: string;
+  generatedAt?: string;
+  decisionStatus?: string;
   headlineMetrics: Array<{ label: string; value: string }>;
-  assumptions: Array<{ label: string; value: string }>;
-  uncertainty: Array<{ label: string; value: string; note: string }>;
-  caveat: string;
+  summary: string;
+  assumptions: Array<{ label: string; value: string; note?: string }>;
+  uncertainty: Array<{ label: string; value: string; note?: string }>;
+  recommendations: Array<{ label: string; value: string }>;
+  caveat?: string;
 };
 
 export function buildClearPathReportData({
@@ -73,20 +64,11 @@ export function buildClearPathReportData({
   );
 
   return {
-    meta: {
-      title: "ClearPath Report",
-      module: "Health Economics Scenario Lab",
-      exportedAt,
-      decisionStatus,
-    },
-    executiveSummary: {
-      overview,
-      overallSignal,
-      whatModelSuggests: interpretation.what_model_suggests,
-      mainDependency: `${structured.main_dependency} Main driver: ${mainDriver}.`,
-      mainFragility: structured.main_fragility,
-      bestNextStep: structured.best_next_step,
-    },
+    title: "ClearPath scenario report",
+    subtitle: "Health Economics Scenario Lab",
+    generatedAt: exportedAt,
+    decisionStatus,
+    summary: overview,
     headlineMetrics: [
       {
         label: "Cases shifted earlier",
@@ -122,7 +104,11 @@ export function buildClearPathReportData({
       },
     ],
     assumptions: [
-      { label: "Targeting mode", value: inputs.targeting_mode },
+      {
+        label: "Targeting mode",
+        value: inputs.targeting_mode,
+        note: "How concentrated the opportunity is within the target population.",
+      },
       {
         label: "Annual incident cases",
         value: formatNumber(inputs.annual_incident_cases),
@@ -157,7 +143,28 @@ export function buildClearPathReportData({
       value: formatCurrency(row.discounted_cost_per_qaly),
       note: `${formatNumber(row.cases_shifted_total)} cases shifted earlier · ${row.decision_status}`,
     })),
-    caveat:
-      `This report is exploratory and illustrative. It supports early-stage decision thinking, not formal evaluation or local validation. ${uncertaintyReadout}`,
+    recommendations: [
+      {
+        label: "Overall signal",
+        value: overallSignal,
+      },
+      {
+        label: "What the model suggests",
+        value: interpretation.what_model_suggests,
+      },
+      {
+        label: "Main dependency",
+        value: `${structured.main_dependency} Main driver: ${mainDriver}.`,
+      },
+      {
+        label: "Main fragility",
+        value: structured.main_fragility,
+      },
+      {
+        label: "Best next step",
+        value: structured.best_next_step,
+      },
+    ],
+    caveat: `This report is exploratory and illustrative. It supports early-stage decision thinking, not formal evaluation or local validation. ${uncertaintyReadout}`,
   };
 }
