@@ -32,6 +32,14 @@ type CostingMethod =
   | "Bed-day value only"
   | "Combined illustrative view";
 
+type ScenarioPreset =
+  | "Base case"
+  | "Conservative case"
+  | "Optimistic case"
+  | "High-risk targeted"
+  | "Throughput-led improvement"
+  | "Escalation-led improvement";
+
 type Inputs = {
   starting_waiting_list_size: number;
   monthly_inflow: number;
@@ -117,6 +125,13 @@ type UncertaintyRow = {
   decision_status: string;
 };
 
+type RecommendationSummary = {
+  what_current_case_suggests: string;
+  what_is_driving_result: string;
+  what_looks_fragile: string;
+  what_should_be_validated_next: string;
+};
+
 const DEFAULT_INPUTS: Inputs = {
   starting_waiting_list_size: 8000,
   monthly_inflow: 900,
@@ -154,6 +169,15 @@ const COSTING_METHOD_OPTIONS: readonly CostingMethod[] = [
   "Combined illustrative view",
 ];
 
+const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
+  "Base case",
+  "Conservative case",
+  "Optimistic case",
+  "High-risk targeted",
+  "Throughput-led improvement",
+  "Escalation-led improvement",
+];
+
 const TARGETING_MODE_MAP: Record<
   TargetingMode,
   { population_multiplier: number; reach_multiplier: number; risk_multiplier: number }
@@ -172,6 +196,53 @@ const TARGETING_MODE_MAP: Record<
     population_multiplier: 0.45,
     reach_multiplier: 1.1,
     risk_multiplier: 1.45,
+  },
+};
+
+const SCENARIO_PRESETS: Record<ScenarioPreset, Partial<Inputs>> = {
+  "Base case": { ...DEFAULT_INPUTS },
+  "Conservative case": {
+    intervention_reach_rate: 0.3,
+    demand_reduction_effect: 0.05,
+    throughput_increase_effect: 0.06,
+    escalation_reduction_effect: 0.08,
+    intervention_cost_per_patient_reached: 210,
+    effect_decay_rate: 0.14,
+    participation_dropoff_rate: 0.08,
+  },
+  "Optimistic case": {
+    intervention_reach_rate: 0.5,
+    demand_reduction_effect: 0.1,
+    throughput_increase_effect: 0.14,
+    escalation_reduction_effect: 0.18,
+    intervention_cost_per_patient_reached: 165,
+    effect_decay_rate: 0.07,
+    participation_dropoff_rate: 0.03,
+  },
+  "High-risk targeted": {
+    targeting_mode: "Long-wait targeting",
+    intervention_reach_rate: 0.48,
+    escalation_reduction_effect: 0.18,
+    monthly_escalation_rate: 0.04,
+    qaly_gain_per_escalation_avoided: 0.09,
+    intervention_cost_per_patient_reached: 195,
+  },
+  "Throughput-led improvement": {
+    targeting_mode: "Broad waiting list",
+    demand_reduction_effect: 0.05,
+    throughput_increase_effect: 0.18,
+    escalation_reduction_effect: 0.09,
+    intervention_reach_rate: 0.42,
+    intervention_cost_per_patient_reached: 185,
+  },
+  "Escalation-led improvement": {
+    targeting_mode: "Higher-risk targeting",
+    demand_reduction_effect: 0.04,
+    throughput_increase_effect: 0.08,
+    escalation_reduction_effect: 0.22,
+    monthly_escalation_rate: 0.035,
+    intervention_reach_rate: 0.38,
+    qaly_gain_per_escalation_avoided: 0.1,
   },
 };
 
@@ -608,6 +679,46 @@ function getMobileNetCostLabel(results: ModelResults) {
   return results.discounted_net_cost_total < 0 ? "Saving" : "Net cost";
 }
 
+function deriveCaseLabel(inputs: Inputs, selectedPreset: ScenarioPreset) {
+  if (selectedPreset === "High-risk targeted") {
+    return "Targeted high-risk case";
+  }
+  if (selectedPreset === "Throughput-led improvement") {
+    return "Throughput-led case";
+  }
+  if (selectedPreset === "Escalation-led improvement") {
+    return "Escalation-led case";
+  }
+  if (inputs.targeting_mode !== "Broad waiting list") {
+    return "Targeted operational improvement case";
+  }
+  if (
+    inputs.throughput_increase_effect >
+      inputs.demand_reduction_effect + 0.03 &&
+    inputs.throughput_increase_effect >
+      inputs.escalation_reduction_effect + 0.03
+  ) {
+    return "Throughput-led case";
+  }
+  if (
+    inputs.escalation_reduction_effect >
+      inputs.demand_reduction_effect + 0.03 &&
+    inputs.escalation_reduction_effect >
+      inputs.throughput_increase_effect + 0.03
+  ) {
+    return "Escalation-led case";
+  }
+  if (
+    inputs.demand_reduction_effect >
+      inputs.throughput_increase_effect + 0.03 &&
+    inputs.demand_reduction_effect >
+      inputs.escalation_reduction_effect + 0.03
+  ) {
+    return "Demand-led case";
+  }
+  return "Broad operational improvement case";
+}
+
 function getMainDriverText(inputs: Inputs) {
   if (inputs.targeting_mode !== "Broad waiting list") {
     return "targeting and concentration of escalation risk";
@@ -776,6 +887,21 @@ function generateInterpretation(
     what_drives_result: whatDrivesResult,
     what_looks_fragile: whatLooksFragile,
     what_to_validate_next: whatToValidateNext,
+  };
+}
+
+function generateRecommendationSummary(
+  results: ModelResults,
+  inputs: Inputs,
+  uncertaintyRows: UncertaintyRow[],
+): RecommendationSummary {
+  const interpretation = generateInterpretation(results, inputs, uncertaintyRows);
+
+  return {
+    what_current_case_suggests: interpretation.what_model_suggests,
+    what_is_driving_result: interpretation.what_drives_result,
+    what_looks_fragile: interpretation.what_looks_fragile,
+    what_should_be_validated_next: interpretation.what_to_validate_next,
   };
 }
 
@@ -1370,6 +1496,7 @@ function BoundedUncertaintyChart({
 
 export default function WaitWiseApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
+  const [selectedPreset, setSelectedPreset] = useState<ScenarioPreset>("Base case");
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
   const [openSections, setOpenSections] = useState<
@@ -1390,9 +1517,18 @@ export default function WaitWiseApp() {
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
   const mainDriver = useMemo(() => getMainDriverText(inputs), [inputs]);
+  const caseLabel = useMemo(
+    () => deriveCaseLabel(inputs, selectedPreset),
+    [inputs, selectedPreset],
+  );
 
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty),
+    [results, inputs, uncertainty],
+  );
+
+  const recommendation = useMemo(
+    () => generateRecommendationSummary(results, inputs, uncertainty),
     [results, inputs, uncertainty],
   );
 
@@ -1400,8 +1536,18 @@ export default function WaitWiseApp() {
     setInputs((prev) => ({ ...prev, [key]: value }));
   };
 
+  const applyPreset = (preset: ScenarioPreset) => {
+    setSelectedPreset(preset);
+    const presetValues = SCENARIO_PRESETS[preset];
+    setInputs((prev) => ({
+      ...prev,
+      ...presetValues,
+    }));
+  };
+
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
+    setSelectedPreset("Base case");
     setShowAdvancedMobile(false);
     setOpenSections({
       "advanced-delivery": false,
@@ -1438,7 +1584,7 @@ export default function WaitWiseApp() {
 
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-3">
-      <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
+      <MiniInsight label="Case type" value={caseLabel} />
       <MiniInsight
         label="Main driver"
         value={`The result is currently most shaped by ${mainDriver}.`}
@@ -1447,14 +1593,55 @@ export default function WaitWiseApp() {
     </div>
   );
 
+  const recommendationPanel = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <MiniInsight
+        label="What current case suggests"
+        value={recommendation.what_current_case_suggests}
+      />
+      <MiniInsight
+        label="What is driving result"
+        value={recommendation.what_is_driving_result}
+      />
+      <MiniInsight
+        label="What looks fragile"
+        value={recommendation.what_looks_fragile}
+      />
+      <MiniInsight
+        label="What should be validated next"
+        value={recommendation.what_should_be_validated_next}
+      />
+    </div>
+  );
+
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Start with reach, delivery cost, and the three intervention effects.
+      Start with a preset, then refine reach, delivery cost, and the three intervention effects.
     </div>
   );
 
   const assumptionsQuick = (
     <div className="space-y-5">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Scenario preset
+        </p>
+        <div className="mt-3 grid gap-4 xl:grid-cols-2">
+          <SelectInput
+            label="Preset"
+            value={selectedPreset}
+            options={SCENARIO_PRESET_OPTIONS}
+            onChange={(value) => applyPreset(value)}
+            help="Applies a coherent workshop-ready scenario. You can still edit assumptions afterward."
+          />
+          <AssumptionReviewCard
+            label="Current case type"
+            value={caseLabel}
+            note="Used to make the analysis read more like a decision support view."
+          />
+        </div>
+      </div>
+
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
           Core setup
@@ -1764,6 +1951,15 @@ export default function WaitWiseApp() {
   const assumptionsReview = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       <AssumptionReviewCard
+        label="Preset"
+        value={selectedPreset}
+        note="Last applied preset. Manual edits may move the case away from the starting scenario."
+      />
+      <AssumptionReviewCard
+        label="Case type"
+        value={caseLabel}
+      />
+      <AssumptionReviewCard
         label="Targeting mode"
         value={inputs.targeting_mode}
         note="Defines who is reached and how concentrated risk becomes."
@@ -2046,15 +2242,30 @@ export default function WaitWiseApp() {
           >
             <div className="space-y-5">
               <div className="grid grid-cols-1 gap-3">
+                <MetricCard label="Case type" value={caseLabel} />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
                 <MetricCard label="Break-even horizon" value={results.break_even_horizon} />
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                  <p>{interpretation.what_model_suggests}</p>
-                  <p>{interpretation.what_to_validate_next}</p>
+                <h3 className={SECTION_KICKER}>Decision recommendation</h3>
+                <div className="mt-3 grid gap-3">
+                  <MiniInsight
+                    label="What current case suggests"
+                    value={recommendation.what_current_case_suggests}
+                  />
+                  <MiniInsight
+                    label="What is driving result"
+                    value={recommendation.what_is_driving_result}
+                  />
+                  <MiniInsight
+                    label="What looks fragile"
+                    value={recommendation.what_looks_fragile}
+                  />
+                  <MiniInsight
+                    label="What should be validated next"
+                    value={recommendation.what_should_be_validated_next}
+                  />
                 </div>
               </div>
 
@@ -2108,6 +2319,7 @@ export default function WaitWiseApp() {
             {summaryMetrics}
 
             <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <MetricCard label="Case type" value={caseLabel} />
               <MetricCard
                 label="Admissions avoided"
                 value={formatNumber(results.admissions_avoided_total)}
@@ -2120,15 +2332,13 @@ export default function WaitWiseApp() {
                 label="Programme cost"
                 value={formatCurrency(results.programme_cost_total)}
               />
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
               <MetricCard
                 label="Gross savings"
                 value={formatCurrency(results.gross_savings_total)}
               />
-            </div>
-
-            <div className="mt-4">{interpretationPanel}</div>
-
-            <div className="mt-4 grid gap-3 xl:grid-cols-3">
               <MetricCard
                 label="Return on spend"
                 value={formatRatio(results.roi)}
@@ -2142,6 +2352,8 @@ export default function WaitWiseApp() {
                 value={formatPercent(results.break_even_effect_required)}
               />
             </div>
+
+            <div className="mt-4">{interpretationPanel}</div>
           </SectionCard>
 
           <div className="mt-4">
@@ -2197,22 +2409,15 @@ export default function WaitWiseApp() {
             dense
           >
             <div className="space-y-5">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <MetricCard label="Case type" value={caseLabel} />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
                 <MetricCard label="Break-even horizon" value={results.break_even_horizon} />
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-                  <MiniInsight
-                    label="Main driver"
-                    value={`The result is currently most shaped by ${mainDriver}.`}
-                  />
-                  <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
-                  <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
-                </div>
+                <h3 className={SECTION_KICKER}>Decision recommendation</h3>
+                <div className="mt-3">{recommendationPanel}</div>
               </div>
 
               <div>
