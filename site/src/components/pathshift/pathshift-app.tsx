@@ -716,6 +716,7 @@ export default function PathShiftApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
+  const [showAssumptionReviewMobile, setShowAssumptionReviewMobile] = useState(false);
   const [openSections, setOpenSections] = useState<
     Record<AssumptionSectionKey, boolean>
   >({
@@ -760,6 +761,7 @@ export default function PathShiftApp() {
     setInputs({ ...DEFAULT_INPUTS });
     setComparatorMode("Follow-up reduction focus");
     setShowAdvancedMobile(false);
+    setShowAssumptionReviewMobile(false);
     setOpenSections({
       "advanced-pathway": false,
       "advanced-costs": false,
@@ -1407,9 +1409,28 @@ export default function PathShiftApp() {
                 <div className="mt-3">{comparatorSummary}</div>
               </div>
 
-              <MobileAccordion title="Assumption review">
-                {assumptionsReview}
-              </MobileAccordion>
+              <div className={SUBCARD}>
+                <button
+                  type="button"
+                  onClick={() => setShowAssumptionReviewMobile((v) => !v)}
+                  className="flex w-full items-center justify-between gap-4 text-left"
+                  aria-expanded={showAssumptionReviewMobile}
+                >
+                  <span className="text-sm font-medium text-slate-900">
+                    Assumption review
+                  </span>
+                  <ChevronDown
+                    className={cx(
+                      "h-4 w-4 text-slate-500 transition-transform",
+                      showAssumptionReviewMobile && "rotate-180",
+                    )}
+                  />
+                </button>
+
+                {showAssumptionReviewMobile ? (
+                  <div className="mt-4">{assumptionsReview}</div>
+                ) : null}
+              </div>
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Interpretation</h3>
