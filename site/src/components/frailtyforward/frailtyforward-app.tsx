@@ -77,12 +77,148 @@ const SUBCARD_DENSE =
   "rounded-2xl border border-slate-200 bg-white p-3.5 lg:p-4";
 const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
-const SECTION_TITLE =
-  "mt-1 text-lg font-semibold tracking-tight text-slate-950 lg:text-[1.1rem]";
-const SECTION_BODY = "text-sm leading-6 text-slate-700";
+
+type PresetOption =
+  | "Base case"
+  | "Conservative case"
+  | "Optimistic case"
+  | "Crisis prevention focus"
+  | "Lower-cost delivery"
+  | "Higher-risk frailty cohort";
+
+type PresetDefinition = {
+  patch: Partial<Inputs>;
+  comparatorMode?: ComparatorOption;
+  description: string;
+  caseType: string;
+};
+
+const PRESET_OPTIONS: readonly PresetOption[] = [
+  "Base case",
+  "Conservative case",
+  "Optimistic case",
+  "Crisis prevention focus",
+  "Lower-cost delivery",
+  "Higher-risk frailty cohort",
+] as const;
+
+const PRESET_DEFINITIONS: Record<PresetOption, PresetDefinition> = {
+  "Base case": {
+    patch: {},
+    comparatorMode: "Crisis prevention focus",
+    description: "Restores the default central case.",
+    caseType: "Broad frailty support case",
+  },
+  "Conservative case": {
+    patch: {
+      implementation_reach_rate: 0.32,
+      support_cost_per_patient: 215,
+      reduction_in_crisis_event_rate: 0.08,
+      reduction_in_admission_rate: 0.06,
+      reduction_in_length_of_stay: 0.04,
+      effect_decay_rate: 0.14,
+      participation_dropoff_rate: 0.12,
+      qaly_gain_per_patient_stabilised: 0.025,
+    },
+    comparatorMode: "Crisis prevention focus",
+    description: "Lower reach, lower effect, and less persistence.",
+    caseType: "Conservative frailty support case",
+  },
+  "Optimistic case": {
+    patch: {
+      implementation_reach_rate: 0.58,
+      support_cost_per_patient: 145,
+      reduction_in_crisis_event_rate: 0.18,
+      reduction_in_admission_rate: 0.14,
+      reduction_in_length_of_stay: 0.12,
+      effect_decay_rate: 0.04,
+      participation_dropoff_rate: 0.04,
+      qaly_gain_per_patient_stabilised: 0.05,
+    },
+    comparatorMode: "Lower-cost delivery",
+    description: "Stronger reach, better persistence, and lower delivery cost.",
+    caseType: "High-performing frailty support case",
+  },
+  "Crisis prevention focus": {
+    patch: {
+      baseline_crisis_event_rate: 0.42,
+      reduction_in_crisis_event_rate: 0.2,
+      reduction_in_admission_rate: 0.09,
+      reduction_in_length_of_stay: 0.05,
+      qaly_gain_per_patient_stabilised: 0.045,
+    },
+    comparatorMode: "Crisis prevention focus",
+    description: "Shifts emphasis toward preventing deterioration and crisis.",
+    caseType: "Crisis prevention case",
+  },
+  "Lower-cost delivery": {
+    patch: {
+      support_cost_per_patient: 120,
+      implementation_reach_rate: 0.48,
+      reduction_in_crisis_event_rate: 0.12,
+      reduction_in_admission_rate: 0.1,
+      reduction_in_length_of_stay: 0.08,
+      effect_decay_rate: 0.07,
+    },
+    comparatorMode: "Lower-cost delivery",
+    description: "Tests whether a leaner model improves value for money.",
+    caseType: "Lower-cost delivery case",
+  },
+  "Higher-risk frailty cohort": {
+    patch: {
+      annual_frailty_cohort_size: 4200,
+      baseline_crisis_event_rate: 0.46,
+      baseline_non_elective_admission_rate: 0.34,
+      current_average_length_of_stay: 8.5,
+      implementation_reach_rate: 0.44,
+      reduction_in_crisis_event_rate: 0.15,
+      reduction_in_admission_rate: 0.12,
+      qaly_gain_per_patient_stabilised: 0.05,
+    },
+    comparatorMode: "Crisis prevention focus",
+    description: "Concentrates value in a smaller but higher-risk cohort.",
+    caseType: "Higher-risk frailty cohort case",
+  },
+};
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function getCaseType(
+  inputs: Inputs,
+  selectedPreset: PresetOption,
+  mainDriver: string,
+) {
+  if (selectedPreset !== "Base case") {
+    return PRESET_DEFINITIONS[selectedPreset].caseType;
+  }
+
+  if (inputs.support_cost_per_patient <= DEFAULT_INPUTS.support_cost_per_patient * 0.8) {
+    return "Lower-cost delivery case";
+  }
+
+  if (
+    inputs.baseline_crisis_event_rate >=
+      DEFAULT_INPUTS.baseline_crisis_event_rate * 1.15 ||
+    inputs.baseline_non_elective_admission_rate >=
+      DEFAULT_INPUTS.baseline_non_elective_admission_rate * 1.15
+  ) {
+    return "Higher-risk frailty cohort case";
+  }
+
+  if (
+    inputs.reduction_in_crisis_event_rate >= inputs.reduction_in_admission_rate &&
+    inputs.reduction_in_crisis_event_rate >= inputs.reduction_in_length_of_stay
+  ) {
+    return "Crisis prevention case";
+  }
+
+  if (mainDriver.includes("cost")) {
+    return "Cost-sensitive frailty support case";
+  }
+
+  return "Broad frailty support case";
 }
 
 function CurrencyTooltip({
@@ -647,6 +783,7 @@ export default function FrailtyForwardApp() {
   const [comparatorMode, setComparatorMode] = useState<ComparatorOption>(
     "Crisis prevention focus",
   );
+  const [selectedPreset, setSelectedPreset] = useState<PresetOption>("Base case");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
@@ -673,13 +810,39 @@ export default function FrailtyForwardApp() {
     [results, inputs, uncertainty],
   );
 
+  const currentCaseType = useMemo(
+    () => getCaseType(inputs, selectedPreset, mainDriver),
+    [inputs, selectedPreset, mainDriver],
+  );
+
+  const recommendationPanel = useMemo(() => {
+    const presetDescription = PRESET_DEFINITIONS[selectedPreset].description;
+    return {
+      currentCaseType,
+      whatModelSuggests: interpretation.what_model_suggests,
+      whatDrivesResult: `The current result is mainly driven by ${mainDriver}.`,
+      whatLooksFragile: interpretation.what_looks_fragile,
+      whatToValidateNext: `${interpretation.what_to_validate_next} Current preset: ${selectedPreset}. ${presetDescription}`,
+    };
+  }, [currentCaseType, interpretation, mainDriver, selectedPreset]);
+
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const applyPreset = (preset: PresetOption) => {
+    const definition = PRESET_DEFINITIONS[preset];
+    setSelectedPreset(preset);
+    setInputs((prev) => ({ ...prev, ...definition.patch }));
+    if (definition.comparatorMode) {
+      setComparatorMode(definition.comparatorMode);
+    }
   };
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
     setComparatorMode("Crisis prevention focus");
+    setSelectedPreset("Base case");
     setShowAdvancedMobile(false);
     setOpenSections({
       "advanced-baseline": false,
@@ -716,18 +879,74 @@ export default function FrailtyForwardApp() {
 
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-3">
-      <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
+      <MiniInsight
+        label="Conclusion"
+        value={recommendationPanel.whatModelSuggests}
+      />
       <MiniInsight
         label="Main driver"
-        value={`The result is currently most shaped by ${mainDriver}.`}
+        value={recommendationPanel.whatDrivesResult}
       />
-      <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
+      <MiniInsight
+        label="Fragility"
+        value={recommendationPanel.whatLooksFragile}
+      />
+    </div>
+  );
+
+  const recommendationSummary = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <MiniInsight
+        label="Current case"
+        value={recommendationPanel.currentCaseType}
+      />
+      <MiniInsight
+        label="What this suggests"
+        value={recommendationPanel.whatModelSuggests}
+      />
+      <MiniInsight
+        label="What is driving it"
+        value={recommendationPanel.whatDrivesResult}
+      />
+      <MiniInsight
+        label="What looks fragile"
+        value={recommendationPanel.whatLooksFragile}
+      />
+      <MiniInsight
+        label="Validate next"
+        value={recommendationPanel.whatToValidateNext}
+      />
     </div>
   );
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
       These are the levers most likely to change the decision signal.
+    </div>
+  );
+
+  const presetControl = (
+    <div className={SUBCARD}>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-end">
+        <SelectInput
+          label="Scenario preset"
+          value={selectedPreset}
+          options={PRESET_OPTIONS}
+          onChange={applyPreset}
+          help="Applies a coherent scenario while keeping manual edits available."
+        />
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Preset readout
+          </p>
+          <p className="mt-1.5 text-sm font-semibold text-slate-900">
+            {selectedPreset}
+          </p>
+          <p className="mt-1.5 text-sm leading-6 text-slate-600">
+            {PRESET_DEFINITIONS[selectedPreset].description}
+          </p>
+        </div>
+      </div>
     </div>
   );
 
@@ -1226,7 +1445,7 @@ export default function FrailtyForwardApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Scenario preset first, then quick assumptions and advanced settings."
             action={
               <button
                 type="button"
@@ -1240,6 +1459,8 @@ export default function FrailtyForwardApp() {
             dense
           >
             <div className="space-y-4">
+              {presetControl}
+
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1277,7 +1498,7 @@ export default function FrailtyForwardApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, and the next checks."
+            description="Review the current case, recommendation readout, uncertainty, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -1291,6 +1512,11 @@ export default function FrailtyForwardApp() {
                   value={formatNumber(results.bed_days_avoided_total)}
                 />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Recommendation readout</h3>
+                <div className="mt-3">{recommendationSummary}</div>
               </div>
 
               <div className={SUBCARD}>
@@ -1333,14 +1559,6 @@ export default function FrailtyForwardApp() {
               <MobileAccordion title="Assumption review">
                 {assumptionsReview}
               </MobileAccordion>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                  <p>{interpretation.what_model_suggests}</p>
-                  <p>{interpretation.what_to_validate_next}</p>
-                </div>
-              </div>
             </div>
           </SectionCard>
         </div>
@@ -1403,7 +1621,7 @@ export default function FrailtyForwardApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Scenario preset first, then quick assumptions and advanced settings."
             action={
               <button
                 type="button"
@@ -1417,6 +1635,8 @@ export default function FrailtyForwardApp() {
             dense
           >
             <div className="space-y-4">
+              {presetControl}
+
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1438,7 +1658,7 @@ export default function FrailtyForwardApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, comparator snapshot, and the next checks."
+            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -1452,6 +1672,11 @@ export default function FrailtyForwardApp() {
                   value={formatNumber(results.bed_days_avoided_total)}
                 />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Recommendation readout</h3>
+                <div className="mt-3">{recommendationSummary}</div>
               </div>
 
               <div className={SUBCARD}>
@@ -1489,19 +1714,6 @@ export default function FrailtyForwardApp() {
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
                 <div className="mt-3">{comparatorSummary}</div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-                  <MiniInsight
-                    label="Main driver"
-                    value={`The result is currently most shaped by ${mainDriver}.`}
-                  />
-                  <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
-                  <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
-                </div>
               </div>
 
               <div>
