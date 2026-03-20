@@ -595,8 +595,18 @@ function getDecisionStatus(results: ModelResults, threshold: number) {
   return "Above current threshold";
 }
 
+function getMobileDecisionStatus(status: string) {
+  if (status === "Appears cost-saving") return "Cost-saving";
+  if (status === "Appears cost-effective") return "Cost-effective";
+  return "Above threshold";
+}
+
 function getNetCostLabel(results: ModelResults) {
   return results.discounted_net_cost_total < 0 ? "Net saving" : "Net cost";
+}
+
+function getMobileNetCostLabel(results: ModelResults) {
+  return results.discounted_net_cost_total < 0 ? "Saving" : "Net cost";
 }
 
 function getMainDriverText(inputs: Inputs) {
@@ -1549,14 +1559,6 @@ export default function WaitWiseApp() {
       />
 
       <NumberInput
-        label="Monthly inflow"
-        value={inputs.monthly_inflow}
-        onChange={(value) => updateInput("monthly_inflow", value)}
-        step={25}
-        help="New demand entering the list each month."
-      />
-
-      <NumberInput
         label="Baseline throughput"
         value={inputs.baseline_monthly_throughput}
         onChange={(value) => updateInput("baseline_monthly_throughput", value)}
@@ -1655,6 +1657,13 @@ export default function WaitWiseApp() {
         {openSections["advanced-delivery"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
+              <NumberInput
+                label="Monthly inflow"
+                value={inputs.monthly_inflow}
+                onChange={(value) => updateInput("monthly_inflow", value)}
+                step={25}
+                help="New demand entering the list each month."
+              />
               <SliderInput
                 label="Annual effect decay"
                 value={inputs.effect_decay_rate}
@@ -1904,18 +1913,20 @@ export default function WaitWiseApp() {
         </p>
       </div>
 
-      <div className="sticky top-[72px] z-20 mb-5 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
-        <div className="grid grid-cols-3 items-start gap-3">
+      <div className="sticky top-[72px] z-20 mb-4 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
+        <div className="grid grid-cols-3 items-start gap-2.5">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               Signal
             </p>
             <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
-              {decisionStatus}
+              {getMobileDecisionStatus(decisionStatus)}
             </p>
           </div>
           <div className="min-w-0 text-right">
-            <p className="text-[11px] text-slate-500">{netCostLabel}</p>
+            <p className="text-[11px] text-slate-500">
+              {getMobileNetCostLabel(results)}
+            </p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
               {formatCurrency(Math.abs(results.discounted_net_cost_total))}
             </p>
@@ -1929,7 +1940,7 @@ export default function WaitWiseApp() {
         </div>
       </div>
 
-      <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
         <MobileTabButton
           active={mobileTab === "summary"}
           onClick={() => setMobileTab("summary")}
@@ -1957,7 +1968,7 @@ export default function WaitWiseApp() {
         <div className={cx(mobileTab !== "summary" && "hidden")}>
           <SectionCard
             title="Headline view"
-            description="Start with the current decision signal and the main economic outputs."
+            description="Start with the current signal and the main outputs."
             dense
           >
             {summaryMetrics}
@@ -1986,7 +1997,7 @@ export default function WaitWiseApp() {
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 <RotateCcw className="h-4 w-4" />
-                Reset
+                Reset to base case
               </button>
             }
             dense
@@ -2046,20 +2057,10 @@ export default function WaitWiseApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Threshold readout</h3>
-                <div className="mt-3 grid gap-3">
-                  <AssumptionReviewCard
-                    label="Break-even cost per patient"
-                    value={formatCurrency(results.break_even_cost_per_patient)}
-                  />
-                  <AssumptionReviewCard
-                    label="Required intervention effect"
-                    value={formatPercent(results.break_even_effect_required)}
-                  />
-                  <AssumptionReviewCard
-                    label="Break-even horizon"
-                    value={results.break_even_horizon}
-                  />
+                <h3 className={SECTION_KICKER}>Interpretation</h3>
+                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
+                  <p>{interpretation.what_model_suggests}</p>
+                  <p>{interpretation.what_to_validate_next}</p>
                 </div>
               </div>
 
@@ -2078,10 +2079,20 @@ export default function WaitWiseApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                  <p>{interpretation.what_model_suggests}</p>
-                  <p>{interpretation.what_to_validate_next}</p>
+                <h3 className={SECTION_KICKER}>Threshold readout</h3>
+                <div className="mt-3 grid gap-3">
+                  <AssumptionReviewCard
+                    label="Break-even cost per patient"
+                    value={formatCurrency(results.break_even_cost_per_patient)}
+                  />
+                  <AssumptionReviewCard
+                    label="Required intervention effect"
+                    value={formatPercent(results.break_even_effect_required)}
+                  />
+                  <AssumptionReviewCard
+                    label="Break-even horizon"
+                    value={results.break_even_horizon}
+                  />
                 </div>
               </div>
 
@@ -2215,7 +2226,7 @@ export default function WaitWiseApp() {
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Reset
+                  Reset to base case
                 </button>
               }
               dense
