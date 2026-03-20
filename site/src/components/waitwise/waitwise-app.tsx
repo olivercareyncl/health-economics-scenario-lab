@@ -187,7 +187,6 @@ const SECTION_KICKER =
 const SECTION_TITLE =
   "mt-1 text-lg font-semibold tracking-tight text-slate-950 lg:text-[1.1rem]";
 const SECTION_BODY = "text-sm leading-6 text-slate-700";
-const SECTION_COPY = "text-sm leading-6 text-slate-600";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
