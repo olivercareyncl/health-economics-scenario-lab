@@ -43,7 +43,7 @@ export const apps: AppItem[] = [
       "threshold position",
       "bounded uncertainty",
     ],
-    liveUrl: "https://safestep-mnjcyn8idt5rrddqsmnncd.streamlit.app/",
+    liveUrl: "/safestep",
     githubUrl: GITHUB_URL,
     image: "/images/safestep.png",
   },
@@ -69,8 +69,7 @@ export const apps: AppItem[] = [
       "threshold position",
       "scenario comparison",
     ],
-    liveUrl:
-      "https://health-economics-scenario-lab-fzfkngiwwyynydcjpfuwii.streamlit.app/",
+    liveUrl: "/clearpath",
     githubUrl: GITHUB_URL,
     image: "/images/clearpath.png",
   },
@@ -96,8 +95,7 @@ export const apps: AppItem[] = [
       "QALYs",
       "threshold position",
     ],
-    liveUrl:
-      "https://health-economics-scenario-lab-7nhwymodtxwru3ftvwhdoc.streamlit.app/",
+    liveUrl: "/waitwise",
     githubUrl: GITHUB_URL,
     image: "/images/waitwise.png",
   },
@@ -123,8 +121,7 @@ export const apps: AppItem[] = [
       "programme cost",
       "cost per QALY",
     ],
-    liveUrl:
-      "https://health-economics-scenario-lab-dyynjvgfplkuvsxkzrjgwc.streamlit.app/",
+    liveUrl: "/pathshift",
     githubUrl: GITHUB_URL,
     image: "/images/pathshift.png",
   },
@@ -150,8 +147,7 @@ export const apps: AppItem[] = [
       "programme cost",
       "cost per QALY",
     ],
-    liveUrl:
-      "https://health-economics-scenario-lab-gp9ar7jzr8kcpnckcwgyuf.streamlit.app/",
+    liveUrl: "/frailtyforward",
     githubUrl: GITHUB_URL,
     image: "/images/frailtyforward.png",
   },
@@ -177,8 +173,7 @@ export const apps: AppItem[] = [
       "programme cost",
       "threshold position",
     ],
-    liveUrl:
-      "https://health-economics-scenario-lab-jvqybhvadqymamynbwmhov.streamlit.app/",
+    liveUrl: "/stableheart",
     githubUrl: GITHUB_URL,
     image: "/images/stableheart.png",
   },
