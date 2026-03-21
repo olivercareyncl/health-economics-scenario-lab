@@ -1,5 +1,6 @@
 import {
   Document,
+  Font,
   Page,
   Text,
   View,
@@ -10,6 +11,8 @@ import type { ClearPathReportData } from "@/lib/clearpath/report";
 type ClearPathReportDocumentProps = {
   data: ClearPathReportData;
 };
+
+Font.registerHyphenationCallback((word) => [word]);
 
 function formatGeneratedAt(value: string) {
   const date = new Date(value);
@@ -23,6 +26,21 @@ function formatGeneratedAt(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function normaliseCurrencyString(value: string) {
+  return value.replace(/^£-/, "-£");
+}
+
+function cleanText(value: string) {
+  return value
+    .replace(/\bis appears\b/gi, "appears")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanValue(value: string) {
+  return cleanText(normaliseCurrencyString(value));
 }
 
 const styles = StyleSheet.create({
@@ -324,9 +342,9 @@ function renderInfoRows(
 
     return (
       <View key={item.label} style={rowStyle}>
-        <Text style={styles.rowLabel}>{item.label}</Text>
-        <Text style={styles.rowValue}>{item.value}</Text>
-        {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
+        <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
+        <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
+        {item.note ? <Text style={styles.rowNote}>{cleanText(item.note)}</Text> : null}
       </View>
     );
   });
@@ -344,14 +362,14 @@ function renderMetricCards(items: Array<{ label: string; value: string }>) {
       {rows.map((row, rowIndex) => (
         <View key={`metric-row-${rowIndex}`} style={styles.metricRow}>
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>{row[0].label}</Text>
-            <Text style={styles.metricValue}>{row[0].value}</Text>
+            <Text style={styles.metricLabel}>{cleanText(row[0].label)}</Text>
+            <Text style={styles.metricValue}>{cleanValue(row[0].value)}</Text>
           </View>
 
           {row[1] ? (
             <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>{row[1].label}</Text>
-              <Text style={styles.metricValue}>{row[1].value}</Text>
+              <Text style={styles.metricLabel}>{cleanText(row[1].label)}</Text>
+              <Text style={styles.metricValue}>{cleanValue(row[1].value)}</Text>
             </View>
           ) : (
             <View style={styles.metricCard} />
@@ -371,7 +389,7 @@ function renderBulletBlocks(items: Array<string> | Array<{ body: string }>) {
         return (
           <View key={`${body}-${index}`} style={styles.bulletRow}>
             <Text style={styles.bulletDot}>•</Text>
-            <Text style={styles.bulletText}>{body}</Text>
+            <Text style={styles.bulletText}>{cleanText(body)}</Text>
           </View>
         );
       })}
@@ -407,13 +425,15 @@ function renderAssumptionTable(
         return (
           <View key={`${row.assumption}-${index}`} style={rowStyle}>
             <View style={styles.colAssumption}>
-              <Text style={styles.tableCellLabel}>{row.assumption}</Text>
+              <Text style={styles.tableCellLabel}>{cleanText(row.assumption)}</Text>
             </View>
             <View style={styles.colValue}>
-              <Text style={styles.tableCellValue}>{row.value}</Text>
+              <Text style={styles.tableCellValue}>{cleanValue(row.value)}</Text>
             </View>
             <View style={styles.colRationale}>
-              <Text style={styles.tableCellRationale}>{row.rationale}</Text>
+              <Text style={styles.tableCellRationale}>
+                {cleanText(row.rationale)}
+              </Text>
             </View>
           </View>
         );
@@ -428,7 +448,7 @@ function RepeatingHeader({ module }: { module: string }) {
       <View style={styles.headerSpacer} />
       <View style={styles.headerRight}>
         <Text style={styles.moduleLabel}>ClearPath</Text>
-        <Text style={styles.moduleName}>{module}</Text>
+        <Text style={styles.moduleName}>{cleanText(module)}</Text>
       </View>
     </View>
   );
@@ -470,14 +490,14 @@ export function ClearPathReportDocument({
 
         <View style={styles.caveatBox}>
           <Text style={styles.caveatTitle}>Scope and use note</Text>
-          <Text style={styles.caveatText}>{data.caveats.useNote}</Text>
+          <Text style={styles.caveatText}>{cleanText(data.caveats.useNote)}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Executive summary</Text>
           <View style={styles.executiveSummaryBox}>
             <Text style={styles.executiveSummaryLead}>
-              {data.executiveSummary.overview}
+              {cleanText(data.executiveSummary.overview)}
             </Text>
             {renderInfoRows([
               {
@@ -512,9 +532,9 @@ export function ClearPathReportDocument({
 
         <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Question explored</Text>
-          <Text style={styles.paragraph}>{data.purpose.question}</Text>
+          <Text style={styles.paragraph}>{cleanText(data.purpose.question)}</Text>
           <Text style={[styles.paragraph, { marginTop: 8 }]}>
-            {data.purpose.context}
+            {cleanText(data.purpose.context)}
           </Text>
         </View>
 
@@ -549,7 +569,7 @@ export function ClearPathReportDocument({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
           <Text style={styles.paragraph}>
-            {data.uncertaintyAndSensitivity.robustnessSummary}
+            {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
           </Text>
 
           <View style={[styles.sectionTight, { marginTop: 10 }]}>
@@ -644,7 +664,7 @@ export function ClearPathReportDocument({
               key={section.title}
               break={section.title === "Cost assumptions"}
             >
-              <Text style={styles.subSectionTitle}>{section.title}</Text>
+              <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
             </View>
           ))}
