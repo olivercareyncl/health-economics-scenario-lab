@@ -7,6 +7,7 @@ import {
   SlidersHorizontal,
   BarChart3,
   FileSearch,
+  FileDown,
 } from "lucide-react";
 import {
   Bar,
@@ -851,6 +852,34 @@ export default function StableHeartApp() {
     [inputs, results, uncertainty, selectedPreset, currentCaseType],
   );
 
+  const handleExportReport = async () => {
+    try {
+      const response = await fetch("/api/export/stableheart", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ inputs }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to export report");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "stableheart-report.pdf";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("StableHeart export failed:", error);
+    }
+  };
+
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
     setSelectedPreset("Custom");
@@ -1301,8 +1330,19 @@ export default function StableHeartApp() {
         </div>
       </div>
 
+      <div className="mb-4 lg:hidden">
+        <button
+          type="button"
+          onClick={handleExportReport}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          <FileDown className="h-4 w-4" />
+          Export report
+        </button>
+      </div>
+
       <div className="sticky top-[72px] z-20 mb-5 hidden rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:block">
-        <div className="grid grid-cols-3 items-start gap-3">
+        <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-start gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               Signal
@@ -1323,6 +1363,14 @@ export default function StableHeartApp() {
               {formatCurrency(results.discounted_cost_per_qaly)}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={handleExportReport}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          >
+            <FileDown className="h-4 w-4" />
+            Export report
+          </button>
         </div>
       </div>
 
@@ -1452,6 +1500,25 @@ export default function StableHeartApp() {
             dense
           >
             <div className="space-y-5">
+              <div className={SUBCARD}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className={SECTION_KICKER}>Report export</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">
+                      Export a structured summary of the current assumptions, results, and interpretation.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleExportReport}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Export report
+                  </button>
+                </div>
+              </div>
+
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
                 <div className="mt-3">{recommendationPanel}</div>
@@ -1607,6 +1674,25 @@ export default function StableHeartApp() {
             dense
           >
             <div className="space-y-5">
+              <div className={SUBCARD}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className={SECTION_KICKER}>Report export</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">
+                      Export a structured summary of the current assumptions, results, and interpretation.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleExportReport}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Export report
+                  </button>
+                </div>
+              </div>
+
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
                 <div className="mt-3">{recommendationPanel}</div>
