@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderToStream } from "@react-pdf/renderer";
 
+
 import { WaitWiseReportDocument } from "@/components/pdf/waitwise-report";
 import { buildWaitWiseReportData } from "@/lib/waitwise/report";
 import { DEFAULT_INPUTS } from "@/lib/waitwise/defaults";
