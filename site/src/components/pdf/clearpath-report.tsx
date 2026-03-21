@@ -4,7 +4,7 @@ import {
   Text,
   View,
   StyleSheet,
-  Image,
+  Image as PdfImage,
 } from "@react-pdf/renderer";
 import type { ClearPathReportData } from "@/lib/clearpath/report";
 
@@ -13,9 +13,9 @@ type ClearPathReportDocumentProps = {
 };
 
 /**
- * Replace this with the exact logo/image you are already using on the website.
+ * Replace with your actual site cover/logo asset path if available.
  * Example:
- * const LOGO_SRC = "/images/hesl-cover-logo.png";
+ * const LOGO_SRC = "/images/hesl-logo.png";
  */
 const LOGO_SRC: string | null = null;
 
@@ -184,6 +184,11 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     borderBottom: "1 solid #e2e8f0",
   },
+  infoRowLast: {
+    paddingBottom: 0,
+    marginBottom: 0,
+    borderBottom: "0 solid #ffffff",
+  },
   rowLabel: {
     fontSize: 9.5,
     fontWeight: 700,
@@ -255,6 +260,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderBottom: "1 solid #e2e8f0",
   },
+  tableRowLast: {
+    flexDirection: "row",
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderBottom: "0 solid #ffffff",
+  },
   colAssumption: {
     width: "26%",
     paddingRight: 8,
@@ -311,17 +322,11 @@ function renderInfoRows(
   items: Array<{ label: string; value: string; note?: string }>,
 ) {
   return items.map((item, index) => {
-    const rowStyles: Array<object> = [styles.infoRow];
-    if (index === items.length - 1) {
-      rowStyles.push({
-        paddingBottom: 0,
-        marginBottom: 0,
-        borderBottom: "0 solid #ffffff",
-      });
-    }
+    const rowStyle =
+      index === items.length - 1 ? styles.infoRowLast : styles.infoRow;
 
     return (
-      <View key={item.label} style={rowStyles}>
+      <View key={item.label} style={rowStyle}>
         <Text style={styles.rowLabel}>{item.label}</Text>
         <Text style={styles.rowValue}>{item.value}</Text>
         {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
@@ -362,13 +367,11 @@ function renderAssumptionTable(
       </View>
 
       {rows.map((row, index) => {
-        const rowStyles: Array<object> = [styles.tableRow];
-        if (index === rows.length - 1) {
-          rowStyles.push({ borderBottom: "0 solid #ffffff" });
-        }
+        const rowStyle =
+          index === rows.length - 1 ? styles.tableRowLast : styles.tableRow;
 
         return (
-          <View key={`${row.assumption}-${index}`} style={rowStyles}>
+          <View key={`${row.assumption}-${index}`} style={rowStyle}>
             <View style={styles.colAssumption}>
               <Text style={styles.tableTextStrong}>{row.assumption}</Text>
             </View>
@@ -411,7 +414,10 @@ export function ClearPathReportDocument({
             <Text style={styles.moduleLabel}>Module</Text>
             <Text style={styles.moduleName}>{data.cover.module}</Text>
             <Text style={styles.appName}>ClearPath</Text>
-            {LOGO_SRC ? <Image src={LOGO_SRC} style={styles.logo} /> : null}
+            {LOGO_SRC ? (
+              // eslint-disable-next-line jsx-a11y/alt-text
+              <PdfImage src={LOGO_SRC} style={styles.logo} alt="" />
+            ) : null}
           </View>
         </View>
 
