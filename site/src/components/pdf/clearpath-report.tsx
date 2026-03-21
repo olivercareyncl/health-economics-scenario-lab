@@ -11,55 +11,68 @@ type ClearPathReportDocumentProps = {
   data: ClearPathReportData;
 };
 
+function formatExportedAt(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 34,
     paddingBottom: 30,
-    paddingHorizontal: 34,
+    paddingHorizontal: 32,
     fontSize: 10,
     color: "#0f172a",
     lineHeight: 1.45,
-    backgroundColor: "#ffffff",
   },
 
-  coverBlock: {
+  header: {
     marginBottom: 18,
     paddingBottom: 14,
-    borderBottom: "1 solid #cbd5e1",
+    borderBottom: "1 solid #e2e8f0",
   },
   title: {
-    fontSize: 22,
+    fontSize: 25,
     fontWeight: 700,
-    marginBottom: 6,
     color: "#0f172a",
+    marginBottom: 4,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: 500,
     color: "#475569",
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  metaRow: {
-    marginTop: 2,
-  },
-  metaText: {
+  metaLine: {
     fontSize: 9,
     color: "#64748b",
-    marginBottom: 2,
   },
 
   useNoteBox: {
-    marginTop: 14,
-    padding: 12,
+    marginBottom: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     border: "1 solid #e2e8f0",
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: "#f8fafc",
   },
   useNoteTitle: {
     fontSize: 9,
     fontWeight: 700,
-    marginBottom: 5,
     color: "#334155",
+    marginBottom: 4,
     textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   useNoteText: {
     fontSize: 9,
@@ -68,22 +81,19 @@ const styles = StyleSheet.create({
   },
 
   section: {
-    marginTop: 18,
-  },
-  sectionCompact: {
     marginTop: 14,
   },
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: 700,
+    fontSize: 12,
     marginBottom: 8,
+    fontWeight: 700,
     color: "#0f172a",
   },
   subSectionTitle: {
     fontSize: 10,
     fontWeight: 700,
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 10,
+    marginBottom: 6,
     color: "#0f172a",
   },
   paragraph: {
@@ -91,45 +101,29 @@ const styles = StyleSheet.create({
     lineHeight: 1.55,
     color: "#334155",
   },
-
-  summaryGrid: {
-    marginTop: 4,
+  paragraphTight: {
+    fontSize: 9,
+    lineHeight: 1.5,
+    color: "#475569",
   },
+
   summaryCard: {
-    border: "1 solid #dbe4ee",
-    borderRadius: 8,
+    border: "1 solid #cbd5e1",
+    borderRadius: 6,
     padding: 10,
     marginBottom: 8,
     backgroundColor: "#ffffff",
   },
   summaryCardLabel: {
     fontSize: 9,
-    fontWeight: 700,
     color: "#64748b",
     marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   summaryCardValue: {
     fontSize: 10,
-    color: "#1e293b",
-    lineHeight: 1.5,
-  },
-
-  scenarioBlock: {
-    border: "1 solid #e2e8f0",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-    backgroundColor: "#ffffff",
-  },
-  scenarioLabel: {
-    fontSize: 9,
-    fontWeight: 700,
-    color: "#64748b",
-    marginBottom: 4,
-  },
-  scenarioText: {
-    fontSize: 10,
-    color: "#334155",
+    color: "#0f172a",
     lineHeight: 1.5,
   },
 
@@ -141,14 +135,13 @@ const styles = StyleSheet.create({
   metricCard: {
     width: "48%",
     border: "1 solid #cbd5e1",
-    borderRadius: 8,
-    padding: 10,
-    marginRight: "4%",
+    borderRadius: 6,
+    padding: 8,
     marginBottom: 8,
     backgroundColor: "#ffffff",
   },
-  metricCardAlt: {
-    marginRight: 0,
+  metricCardRight: {
+    marginLeft: "4%",
   },
   metricLabel: {
     fontSize: 9,
@@ -161,29 +154,9 @@ const styles = StyleSheet.create({
     color: "#0f172a",
   },
 
-  bulletBlock: {
-    marginTop: 2,
-  },
-  bulletRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 7,
-  },
-  bulletMark: {
-    width: 10,
-    fontSize: 10,
-    color: "#334155",
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 10,
-    color: "#334155",
-    lineHeight: 1.5,
-  },
-
   infoRow: {
-    paddingBottom: 7,
-    marginBottom: 7,
+    paddingBottom: 6,
+    marginBottom: 6,
     borderBottom: "1 solid #e2e8f0",
   },
   infoRowLast: {
@@ -192,10 +165,10 @@ const styles = StyleSheet.create({
     borderBottom: "0 solid #ffffff",
   },
   rowLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 700,
-    color: "#64748b",
-    marginBottom: 3,
+    marginBottom: 2,
+    color: "#0f172a",
   },
   rowValue: {
     fontSize: 10,
@@ -205,20 +178,47 @@ const styles = StyleSheet.create({
   rowNote: {
     fontSize: 9,
     color: "#64748b",
+    marginTop: 2,
     lineHeight: 1.45,
-    marginTop: 3,
   },
 
-  table: {
+  bulletRow: {
+    flexDirection: "row",
+    marginBottom: 6,
+  },
+  bulletDot: {
+    width: 10,
+    fontSize: 10,
+    color: "#475569",
+  },
+  bulletText: {
+    flex: 1,
+    fontSize: 10,
+    color: "#334155",
+    lineHeight: 1.5,
+  },
+
+  assumptionsPage: {
+    paddingTop: 34,
+    paddingBottom: 30,
+    paddingHorizontal: 32,
+    fontSize: 10,
+    color: "#0f172a",
+    lineHeight: 1.45,
+  },
+  assumptionsIntro: {
+    marginBottom: 12,
+  },
+
+  tableWrap: {
+    marginTop: 6,
     border: "1 solid #cbd5e1",
-    borderRadius: 8,
+    borderRadius: 6,
     overflow: "hidden",
-    backgroundColor: "#ffffff",
-    marginBottom: 10,
   },
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#f8fafc",
     borderBottom: "1 solid #cbd5e1",
     paddingVertical: 7,
     paddingHorizontal: 8,
@@ -227,10 +227,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: 700,
     color: "#334155",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 8,
+    paddingVertical: 7,
     paddingHorizontal: 8,
     borderBottom: "1 solid #e2e8f0",
   },
@@ -242,134 +244,83 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   colValue: {
-    width: "20%",
+    width: "18%",
     paddingRight: 8,
   },
   colRationale: {
-    width: "52%",
+    width: "54%",
   },
-  tableCellLabel: {
+  tableCellPrimary: {
     fontSize: 9,
     fontWeight: 700,
-    color: "#334155",
-    lineHeight: 1.4,
-  },
-  tableCellValue: {
-    fontSize: 9,
     color: "#0f172a",
     lineHeight: 1.4,
   },
-  tableCellRationale: {
+  tableCell: {
     fontSize: 9,
-    color: "#475569",
+    color: "#334155",
     lineHeight: 1.45,
-  },
-
-  footer: {
-    position: "absolute",
-    bottom: 14,
-    left: 34,
-    right: 34,
-    paddingTop: 6,
-    borderTop: "1 solid #e2e8f0",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  footerText: {
-    fontSize: 8,
-    color: "#94a3b8",
   },
 });
 
-function renderMetricCards(
-  metrics: Array<{ label: string; value: string }>,
-) {
+function InfoRows({
+  items,
+}: {
+  items: Array<{ label: string; value: string }>;
+}) {
   return (
-    <View style={styles.metricsGrid}>
-      {metrics.map((item, index) => (
-        <View
-          key={item.label}
-          style={
-            index % 2 === 1
-              ? [styles.metricCard, styles.metricCardAlt]
-              : styles.metricCard
-          }
-        >
-          <Text style={styles.metricLabel}>{item.label}</Text>
-          <Text style={styles.metricValue}>{item.value}</Text>
-        </View>
-      ))}
+    <View>
+      {items.map((item, index) => {
+        const infoRowStyles: Array<Record<string, string | number>> = [
+          styles.infoRow,
+        ];
+
+        if (index === items.length - 1) {
+          infoRowStyles.push(styles.infoRowLast);
+        }
+
+        return (
+          <View key={item.label} style={infoRowStyles}>
+            <Text style={styles.rowLabel}>{item.label}</Text>
+            <Text style={styles.rowValue}>{item.value}</Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
 
-function renderBulletList(items: string[]) {
-  return (
-    <View style={styles.bulletBlock}>
-      {items.map((item, index) => (
-        <View key={`${item}-${index}`} style={styles.bulletRow}>
-          <Text style={styles.bulletMark}>•</Text>
-          <Text style={styles.bulletText}>{item}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function renderInfoRows(
-  items: Array<{ label: string; value: string }>,
-) {
+function NarrativeBullets({
+  items,
+}: {
+  items: Array<{ body: string; title?: string }>;
+}) {
   return (
     <View>
       {items.map((item, index) => (
-        <View
-          key={`${item.label}-${index}`}
-          style={
-            index === items.length - 1
-              ? [styles.infoRow, styles.infoRowLast]
-              : styles.infoRow
-          }
-        >
-          <Text style={styles.rowLabel}>{item.label}</Text>
-          <Text style={styles.rowValue}>{item.value}</Text>
+        <View key={`${item.title ?? "item"}-${index}`} style={styles.bulletRow}>
+          <Text style={styles.bulletDot}>•</Text>
+          <Text style={styles.bulletText}>
+            {item.title ? `${item.title}: ` : ""}
+            {item.body}
+          </Text>
         </View>
       ))}
     </View>
   );
 }
 
-function renderUncertaintyRows(
-  items: Array<{ label: string; value: string; note: string }>,
-) {
-  return (
-    <View>
-      {items.map((item, index) => (
-        <View
-          key={`${item.label}-${index}`}
-          style={
-            index === items.length - 1
-              ? [styles.infoRow, styles.infoRowLast]
-              : styles.infoRow
-          }
-        >
-          <Text style={styles.rowLabel}>{item.label}</Text>
-          <Text style={styles.rowValue}>{item.value}</Text>
-          <Text style={styles.rowNote}>{item.note}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function renderAssumptionTable(
+function AssumptionTable({
+  rows,
+}: {
   rows: Array<{
     assumption: string;
     value: string;
     rationale: string;
-  }>,
-) {
+  }>;
+}) {
   return (
-    <View style={styles.table}>
+    <View style={styles.tableWrap}>
       <View style={styles.tableHeader}>
         <View style={styles.colAssumption}>
           <Text style={styles.tableHeaderText}>Assumption</Text>
@@ -382,26 +333,32 @@ function renderAssumptionTable(
         </View>
       </View>
 
-      {rows.map((row, index) => (
-        <View
-          key={`${row.assumption}-${index}`}
-          style={
-            index === rows.length - 1
-              ? [styles.tableRow, styles.tableRowLast]
-              : styles.tableRow
-          }
-        >
-          <View style={styles.colAssumption}>
-            <Text style={styles.tableCellLabel}>{row.assumption}</Text>
+      {rows.map((row, index) => {
+        const tableRowStyles: Array<Record<string, string | number>> = [
+          styles.tableRow,
+        ];
+
+        if (index === rows.length - 1) {
+          tableRowStyles.push(styles.tableRowLast);
+        }
+
+        return (
+          <View
+            key={`${row.assumption}-${index}`}
+            style={tableRowStyles}
+          >
+            <View style={styles.colAssumption}>
+              <Text style={styles.tableCellPrimary}>{row.assumption}</Text>
+            </View>
+            <View style={styles.colValue}>
+              <Text style={styles.tableCell}>{row.value}</Text>
+            </View>
+            <View style={styles.colRationale}>
+              <Text style={styles.tableCell}>{row.rationale}</Text>
+            </View>
           </View>
-          <View style={styles.colValue}>
-            <Text style={styles.tableCellValue}>{row.value}</Text>
-          </View>
-          <View style={styles.colRationale}>
-            <Text style={styles.tableCellRationale}>{row.rationale}</Text>
-          </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
@@ -412,25 +369,25 @@ export function ClearPathReportDocument({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <View style={styles.coverBlock}>
+        <View style={styles.header}>
           <Text style={styles.title}>{data.cover.title}</Text>
-          <Text style={styles.subtitle}>{data.cover.subtitle}</Text>
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaText}>{data.cover.module}</Text>
-            <Text style={styles.metaText}>Generated: {data.cover.generatedAt}</Text>
-          </View>
-
-          <View style={styles.useNoteBox}>
-            <Text style={styles.useNoteTitle}>Caveats and use note</Text>
-            <Text style={styles.useNoteText}>{data.caveats.useNote}</Text>
-          </View>
+          <Text style={styles.subtitle}>
+            Decision brief on the potential value of earlier diagnosis
+          </Text>
+          <Text style={styles.metaLine}>
+            {data.cover.module} · Exported {formatExportedAt(data.cover.generatedAt)}
+          </Text>
         </View>
 
-        <View style={styles.sectionCompact}>
+        <View style={styles.useNoteBox}>
+          <Text style={styles.useNoteTitle}>Caveats and use note</Text>
+          <Text style={styles.useNoteText}>{data.caveats.useNote}</Text>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Purpose of this run</Text>
           <Text style={styles.paragraph}>{data.purpose.question}</Text>
-          <Text style={[styles.paragraph, { marginTop: 7 }]}>
+          <Text style={[styles.paragraph, { marginTop: 6 }]}>
             {data.purpose.context}
           </Text>
         </View>
@@ -438,77 +395,93 @@ export function ClearPathReportDocument({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Executive summary</Text>
 
-          <View style={styles.summaryGrid}>
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardLabel}>Overall signal</Text>
-              <Text style={styles.summaryCardValue}>
-                {data.executiveSummary.overallSignal}
-              </Text>
-            </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardLabel}>Overview</Text>
+            <Text style={styles.summaryCardValue}>
+              {data.executiveSummary.overview}
+            </Text>
+          </View>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardLabel}>What the model suggests</Text>
-              <Text style={styles.summaryCardValue}>
-                {data.executiveSummary.whatModelSuggests}
-              </Text>
-            </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardLabel}>Overall signal</Text>
+            <Text style={styles.summaryCardValue}>
+              {data.executiveSummary.overallSignal}
+            </Text>
+          </View>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardLabel}>Main dependency</Text>
-              <Text style={styles.summaryCardValue}>
-                {data.executiveSummary.mainDependency}
-              </Text>
-            </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardLabel}>What the model suggests</Text>
+            <Text style={styles.summaryCardValue}>
+              {data.executiveSummary.whatModelSuggests}
+            </Text>
+          </View>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardLabel}>Main fragility</Text>
-              <Text style={styles.summaryCardValue}>
-                {data.executiveSummary.mainFragility}
-              </Text>
-            </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardLabel}>Main dependency</Text>
+            <Text style={styles.summaryCardValue}>
+              {data.executiveSummary.mainDependency}
+            </Text>
+          </View>
 
-            <View style={styles.summaryCard}>
-              <Text style={styles.summaryCardLabel}>Best next step</Text>
-              <Text style={styles.summaryCardValue}>
-                {data.executiveSummary.bestNextStep}
-              </Text>
-            </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardLabel}>Main fragility</Text>
+            <Text style={styles.summaryCardValue}>
+              {data.executiveSummary.mainFragility}
+            </Text>
+          </View>
+
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryCardLabel}>Best next step</Text>
+            <Text style={styles.summaryCardValue}>
+              {data.executiveSummary.bestNextStep}
+            </Text>
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Scenario being explored</Text>
 
-          <View style={styles.scenarioBlock}>
-            <Text style={styles.scenarioLabel}>Intervention concept</Text>
-            <Text style={styles.scenarioText}>
-              {data.scenario.interventionConcept}
-            </Text>
-          </View>
+          <Text style={styles.subSectionTitle}>Intervention concept</Text>
+          <Text style={styles.paragraph}>
+            {data.scenario.interventionConcept}
+          </Text>
 
-          <View style={styles.scenarioBlock}>
-            <Text style={styles.scenarioLabel}>Target population and pathway logic</Text>
-            <Text style={styles.scenarioText}>
-              {data.scenario.targetPopulationLogic}
-            </Text>
-          </View>
+          <Text style={styles.subSectionTitle}>Target population and pathway logic</Text>
+          <Text style={styles.paragraph}>
+            {data.scenario.targetPopulationLogic}
+          </Text>
 
-          <View style={styles.scenarioBlock}>
-            <Text style={styles.scenarioLabel}>Economic mechanism</Text>
-            <Text style={styles.scenarioText}>
-              {data.scenario.economicMechanism}
-            </Text>
-          </View>
+          <Text style={styles.subSectionTitle}>Economic mechanism</Text>
+          <Text style={styles.paragraph}>
+            {data.scenario.economicMechanism}
+          </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
-          {renderMetricCards(data.headlineMetrics)}
+          <View style={styles.metricsGrid}>
+            {data.headlineMetrics.map((item, index) => {
+              const metricCardStyles: Array<Record<string, string | number>> = [
+                styles.metricCard,
+              ];
+
+              if (index % 2 === 1) {
+                metricCardStyles.push(styles.metricCardRight);
+              }
+
+              return (
+                <View key={item.label} style={metricCardStyles}>
+                  <Text style={styles.metricLabel}>{item.label}</Text>
+                  <Text style={styles.metricValue}>{item.value}</Text>
+                </View>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Key results in plain English</Text>
-          {renderBulletList(data.plainEnglishResults.map((item) => item.body))}
+          <NarrativeBullets items={data.plainEnglishResults} />
         </View>
 
         <View style={styles.section}>
@@ -517,103 +490,94 @@ export function ClearPathReportDocument({
             {data.uncertaintyAndSensitivity.robustnessSummary}
           </Text>
 
-          <View style={[styles.sectionCompact, { marginTop: 10 }]}>
-            <Text style={styles.subSectionTitle}>Bounded uncertainty cases</Text>
-            {renderUncertaintyRows(data.uncertaintyAndSensitivity.uncertaintyRows)}
+          <View style={{ marginTop: 8 }}>
+            <InfoRows
+              items={data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
+                label: row.label,
+                value: `${row.value} — ${row.note}`,
+              }))}
+            />
           </View>
 
-          <View style={[styles.sectionCompact, { marginTop: 12 }]}>
-            <Text style={styles.subSectionTitle}>Sensitivity summary</Text>
-            {renderBulletList(data.uncertaintyAndSensitivity.sensitivitySummary)}
-          </View>
+          <Text style={styles.subSectionTitle}>Sensitivity summary</Text>
+          <NarrativeBullets
+            items={data.uncertaintyAndSensitivity.sensitivitySummary.map((body) => ({
+              body,
+            }))}
+          />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Scenario and comparator interpretation</Text>
-          {renderInfoRows([
-            {
-              label: "Scenario summary",
-              value: data.scenarioAndComparator.scenarioSummary,
-            },
-            {
-              label: "Strongest scenario pattern",
-              value: data.scenarioAndComparator.strongestScenario,
-            },
-            {
-              label: "Weakest or most fragile pattern",
-              value: data.scenarioAndComparator.weakestScenario,
-            },
-            {
-              label: "Comparator interpretation",
-              value: data.scenarioAndComparator.comparatorSummary,
-            },
-          ])}
+          <InfoRows
+            items={[
+              {
+                label: "Scenario summary",
+                value: data.scenarioAndComparator.scenarioSummary,
+              },
+              {
+                label: "Strongest scenario pattern",
+                value: data.scenarioAndComparator.strongestScenario,
+              },
+              {
+                label: "Weakest or most fragile pattern",
+                value: data.scenarioAndComparator.weakestScenario,
+              },
+              {
+                label: "Comparator interpretation",
+                value: data.scenarioAndComparator.comparatorSummary,
+              },
+            ]}
+          />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Decision implications</Text>
-          {renderInfoRows([
-            {
-              label: "What supports progression",
-              value: data.decisionImplications.progressionView,
-            },
-            {
-              label: "Main evidence gap",
-              value: data.decisionImplications.mainEvidenceGap,
-            },
-            {
-              label: "Current position",
-              value: data.decisionImplications.currentCasePosition,
-            },
-            {
-              label: "Recommended next move",
-              value: data.decisionImplications.recommendedNextMove,
-            },
-          ])}
+          <InfoRows
+            items={[
+              {
+                label: "What supports progression",
+                value: data.decisionImplications.progressionView,
+              },
+              {
+                label: "Main evidence gap",
+                value: data.decisionImplications.mainEvidenceGap,
+              },
+              {
+                label: "Current case position",
+                value: data.decisionImplications.currentCasePosition,
+              },
+              {
+                label: "Recommended next move",
+                value: data.decisionImplications.recommendedNextMove,
+              },
+            ]}
+          />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Local evidence needed next</Text>
-          {renderBulletList(data.localEvidenceNeeded.items)}
-        </View>
-
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>{data.cover.module}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          <NarrativeBullets
+            items={data.localEvidenceNeeded.items.map((body) => ({ body }))}
           />
         </View>
       </Page>
 
-      <Page size="A4" style={styles.page}>
-        <View style={styles.coverBlock}>
-          <Text style={styles.title}>Assumptions</Text>
-          <Text style={styles.subtitle}>
-            Full assumption set used for this scenario run
+      <Page size="A4" style={styles.assumptionsPage}>
+        <View style={styles.assumptionsIntro}>
+          <Text style={styles.sectionTitle}>Assumptions</Text>
+          <Text style={styles.paragraphTight}>
+            The tables below set out the assumptions used in this run, the value
+            applied, and why each assumption matters to the resulting signal.
           </Text>
-          <Text style={styles.metaText}>{data.cover.module}</Text>
         </View>
 
-        <View style={styles.sectionCompact}>
-          {data.assumptions.sections.map((section, index) => (
-            <View
-              key={section.title}
-              style={index === 0 ? undefined : styles.section}
-            >
-              <Text style={styles.subSectionTitle}>{section.title}</Text>
-              {renderAssumptionTable(section.rows)}
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>{data.cover.module}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
+        {data.assumptions.sections.map((section) => (
+          <View key={section.title} style={styles.section}>
+            <Text style={styles.subSectionTitle}>{section.title}</Text>
+            <AssumptionTable rows={section.rows} />
+          </View>
+        ))}
       </Page>
     </Document>
   );
