@@ -5,27 +5,10 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import type { ClearPathReportData } from "@/lib/clearpath/report";
 
 type ClearPathReportDocumentProps = {
-  data: {
-    title: string;
-    subtitle?: string;
-    generatedAt?: string;
-    decisionStatus?: string;
-    purpose?: string;
-    scenarioQuestion?: string;
-    scenarioContext?: Array<{ label: string; value: string }>;
-    headlineMetrics?: Array<{ label: string; value: string }>;
-    summary?: string;
-    interpretation?: Array<{ label: string; value: string }>;
-    assumptions?: Array<{
-      section: string;
-      items: Array<{ label: string; value: string; note?: string }>;
-    }>;
-    uncertainty?: Array<{ label: string; value: string; note?: string }>;
-    recommendations?: Array<{ label: string; value: string }>;
-    caveat?: string;
-  };
+  data: ClearPathReportData;
 };
 
 const styles = StyleSheet.create({
