@@ -11,11 +11,13 @@ type ClearPathReportDocumentProps = {
     title: string;
     subtitle?: string;
     generatedAt?: string;
+    decisionStatus?: string;
     headlineMetrics?: Array<{ label: string; value: string }>;
     summary?: string;
     assumptions?: Array<{ label: string; value: string; note?: string }>;
     uncertainty?: Array<{ label: string; value: string; note?: string }>;
     recommendations?: Array<{ label: string; value: string }>;
+    caveat?: string;
   };
 };
 
@@ -32,7 +34,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 11,
-    marginBottom: 12,
+    marginBottom: 8,
     color: "#475569",
   },
   section: {
@@ -97,9 +99,19 @@ export function ClearPathReportDocument({
     <Document>
       <Page size="A4" style={styles.page}>
         <Text style={styles.title}>{data.title}</Text>
-        {data.subtitle ? <Text style={styles.subtitle}>{data.subtitle}</Text> : null}
+
+        {data.subtitle ? (
+          <Text style={styles.subtitle}>{data.subtitle}</Text>
+        ) : null}
+
         {data.generatedAt ? (
           <Text style={styles.subtitle}>Generated: {data.generatedAt}</Text>
+        ) : null}
+
+        {data.decisionStatus ? (
+          <Text style={styles.subtitle}>
+            Decision status: {data.decisionStatus}
+          </Text>
         ) : null}
 
         {data.summary ? (
@@ -130,7 +142,9 @@ export function ClearPathReportDocument({
               <View key={item.label} style={styles.row}>
                 <Text style={styles.rowLabel}>{item.label}</Text>
                 <Text style={styles.rowValue}>{item.value}</Text>
-                {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
+                {item.note ? (
+                  <Text style={styles.rowNote}>{item.note}</Text>
+                ) : null}
               </View>
             ))}
           </View>
@@ -143,7 +157,9 @@ export function ClearPathReportDocument({
               <View key={item.label} style={styles.row}>
                 <Text style={styles.rowLabel}>{item.label}</Text>
                 <Text style={styles.rowValue}>{item.value}</Text>
-                {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
+                {item.note ? (
+                  <Text style={styles.rowNote}>{item.note}</Text>
+                ) : null}
               </View>
             ))}
           </View>
@@ -158,6 +174,13 @@ export function ClearPathReportDocument({
                 <Text style={styles.rowValue}>{item.value}</Text>
               </View>
             ))}
+          </View>
+        ) : null}
+
+        {data.caveat ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Caveat</Text>
+            <Text style={styles.paragraph}>{data.caveat}</Text>
           </View>
         ) : null}
       </Page>
