@@ -4,7 +4,6 @@ import RoutesGrid from "@/components/routes-grid";
 import SandboxCard from "@/components/sandbox-card";
 import { apps, GITHUB_URL } from "@/data/apps";
 
-
 export default function HomePage() {
   const liveApps = apps.filter((app) => app.status === "Live").slice(0, 2);
   const plannedApps = apps
