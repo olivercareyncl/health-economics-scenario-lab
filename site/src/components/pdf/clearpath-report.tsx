@@ -630,16 +630,11 @@ export function ClearPathReportDocument({
               value: data.decisionImplications.mainEvidenceGap,
             },
             {
-              label: "Current case position",
-              value: data.decisionImplications.currentCasePosition,
-            },
-            {
               label: "Recommended next move",
               value: data.decisionImplications.recommendedNextMove,
             },
           ])}
         </View>
-
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Local evidence needed next</Text>
           {renderBulletBlocks(data.localEvidenceNeeded.items)}
