@@ -541,7 +541,7 @@ export function ClearPathReportDocument({
           {renderMetricCards(data.headlineMetrics)}
         </View>
 
-        <View style={styles.sectionTight} break>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Key results in plain English</Text>
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
