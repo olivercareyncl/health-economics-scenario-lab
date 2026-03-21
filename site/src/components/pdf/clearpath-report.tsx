@@ -52,6 +52,9 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     paddingTop: 2,
   },
+  headerSpacer: {
+    width: "68%",
+  },
   moduleLabel: {
     fontSize: 8,
     color: "#64748b",
@@ -419,6 +422,22 @@ function renderAssumptionTable(
   );
 }
 
+function RepeatingHeader({
+  module,
+}: {
+  module: string;
+}) {
+  return (
+    <View style={styles.header} fixed>
+      <View style={styles.headerSpacer} />
+      <View style={styles.headerRight}>
+        <Text style={styles.moduleLabel}>ClearPath</Text>
+        <Text style={styles.moduleName}>{module}</Text>
+      </View>
+    </View>
+  );
+}
+
 function Footer() {
   return (
     <View style={styles.footer} fixed>
@@ -437,6 +456,8 @@ export function ClearPathReportDocument({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        <RepeatingHeader module={data.cover.module} />
+
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.title}>Earlier diagnosis scenario brief</Text>
@@ -448,11 +469,7 @@ export function ClearPathReportDocument({
             </Text>
             <Text style={styles.metaLine}>Prepared by Oliver Carey</Text>
           </View>
-
-          <View style={styles.headerRight}>
-            <Text style={styles.moduleLabel}>ClearPath</Text>
-            <Text style={styles.moduleName}>{data.cover.module}</Text>
-          </View>
+          <View style={styles.headerRight} />
         </View>
 
         <View style={styles.caveatBox}>
@@ -495,6 +512,8 @@ export function ClearPathReportDocument({
       </Page>
 
       <Page size="A4" style={styles.page}>
+        <RepeatingHeader module={data.cover.module} />
+
         <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Purpose of this run</Text>
           <Text style={styles.paragraph}>{data.purpose.question}</Text>
@@ -557,6 +576,8 @@ export function ClearPathReportDocument({
       </Page>
 
       <Page size="A4" style={styles.page}>
+        <RepeatingHeader module={data.cover.module} />
+
         <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>
             Scenario and comparator interpretation
@@ -612,6 +633,8 @@ export function ClearPathReportDocument({
       </Page>
 
       <Page size="A4" style={styles.page}>
+        <RepeatingHeader module={data.cover.module} />
+
         <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Assumptions</Text>
           <Text style={styles.assumptionsIntro}>
