@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { renderToStream } from "@react-pdf/renderer";
 
-
 import { ClearPathReportDocument } from "@/components/pdf/clearpath-report";
 import { DEFAULT_INPUTS } from "@/lib/clearpath/defaults";
 import { runBoundedUncertainty, runModel } from "@/lib/clearpath/calculations";
@@ -35,12 +34,14 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="clearpath-report.pdf"',
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("ClearPath PDF export failed:", error);
+
     return NextResponse.json(
-      { error: "Failed to generate PDF" },
+      { error: "Failed to generate ClearPath PDF report" },
       { status: 500 },
     );
   }
