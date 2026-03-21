@@ -13,32 +13,32 @@ type ClearPathReportDocumentProps = {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 30,
-    paddingBottom: 30,
-    paddingHorizontal: 32,
+    paddingTop: 28,
+    paddingBottom: 28,
+    paddingHorizontal: 30,
     fontSize: 10,
     color: "#0f172a",
-    lineHeight: 1.4,
+    lineHeight: 1.45,
   },
 
-  coverTitle: {
-    fontSize: 22,
+  title: {
+    fontSize: 20,
     marginBottom: 4,
     fontWeight: 700,
   },
-  coverSubtitle: {
+  subtitle: {
     fontSize: 11,
+    marginBottom: 3,
     color: "#475569",
-    marginBottom: 4,
   },
-  coverMeta: {
+  metaLine: {
     fontSize: 9,
     color: "#64748b",
     marginBottom: 2,
   },
 
   signalBox: {
-    marginTop: 12,
+    marginTop: 10,
     padding: 10,
     border: "1 solid #cbd5e1",
     borderRadius: 6,
@@ -47,15 +47,22 @@ const styles = StyleSheet.create({
   signalLabel: {
     fontSize: 9,
     color: "#64748b",
-    marginBottom: 3,
+    marginBottom: 4,
   },
   signalValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 700,
     marginBottom: 2,
   },
-  signalStatus: {
-    fontSize: 10,
+  signalPill: {
+    marginTop: 4,
+    alignSelf: "flex-start",
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    border: "1 solid #cbd5e1",
+    backgroundColor: "#ffffff",
+    fontSize: 9,
     color: "#334155",
   },
 
@@ -64,128 +71,134 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 12,
-    fontWeight: 700,
     marginBottom: 8,
+    fontWeight: 700,
+  },
+  subSectionTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    marginTop: 10,
+    marginBottom: 6,
+    color: "#0f172a",
   },
   paragraph: {
-    fontSize: 10,
-    color: "#334155",
     lineHeight: 1.5,
+    color: "#334155",
   },
 
-  summaryGrid: {
+  twoCol: {
+    display: "flex",
+    flexDirection: "row",
+    gap: 10,
+  },
+  twoColItem: {
+    width: "48%",
+  },
+
+  metricGrid: {
     display: "flex",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },
-  summaryCard: {
-    width: "48%",
+  metricCard: {
     border: "1 solid #cbd5e1",
     borderRadius: 6,
     padding: 8,
+    width: "48%",
     marginBottom: 8,
     backgroundColor: "#ffffff",
   },
-  summaryCardLabel: {
+  metricLabel: {
     fontSize: 9,
     color: "#64748b",
     marginBottom: 4,
   },
-  summaryCardValue: {
+  metricValue: {
     fontSize: 12,
     fontWeight: 700,
-    color: "#0f172a",
-  },
-
-  executiveBlock: {
-    borderBottom: "1 solid #e2e8f0",
-    paddingBottom: 6,
-    marginBottom: 6,
-  },
-  executiveLabel: {
-    fontSize: 10,
-    fontWeight: 700,
-    marginBottom: 2,
-  },
-  executiveValue: {
-    fontSize: 10,
-    color: "#334155",
-    lineHeight: 1.5,
   },
 
   narrativeBlock: {
     borderBottom: "1 solid #e2e8f0",
     paddingBottom: 6,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   narrativeTitle: {
     fontSize: 10,
     fontWeight: 700,
     marginBottom: 3,
   },
-  narrativeText: {
-    fontSize: 10,
-    color: "#334155",
-    lineHeight: 1.5,
-  },
 
-  tableSection: {
-    marginTop: 10,
+  infoRow: {
+    borderBottom: "1 solid #e2e8f0",
+    paddingBottom: 6,
+    marginBottom: 6,
   },
-  tableSectionTitle: {
+  infoRowLast: {
+    paddingBottom: 0,
+    marginBottom: 0,
+    borderBottom: "0 solid #ffffff",
+  },
+  rowLabel: {
     fontSize: 10,
     fontWeight: 700,
-    marginBottom: 6,
-    color: "#0f172a",
+    marginBottom: 2,
+  },
+  rowValue: {
+    fontSize: 10,
+    color: "#334155",
+  },
+  rowNote: {
+    fontSize: 9,
+    color: "#64748b",
+    marginTop: 2,
+    lineHeight: 1.4,
+  },
+
+  table: {
+    border: "1 solid #cbd5e1",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginTop: 4,
+    marginBottom: 10,
   },
   tableHeader: {
     display: "flex",
     flexDirection: "row",
-    borderTop: "1 solid #cbd5e1",
-    borderBottom: "1 solid #cbd5e1",
     backgroundColor: "#f8fafc",
-    paddingVertical: 6,
-    paddingHorizontal: 6,
+    borderBottom: "1 solid #cbd5e1",
   },
-  tableHeaderText: {
+  tableHeaderCell: {
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     fontSize: 9,
     fontWeight: 700,
-    color: "#475569",
+    color: "#334155",
   },
   tableRow: {
     display: "flex",
     flexDirection: "row",
     borderBottom: "1 solid #e2e8f0",
-    paddingVertical: 6,
-    paddingHorizontal: 6,
   },
-
-  colAssumption: {
-    width: "28%",
-    paddingRight: 8,
+  tableRowLast: {
+    borderBottom: "0 solid #ffffff",
   },
-  colValue: {
-    width: "20%",
-    paddingRight: 8,
-  },
-  colRationale: {
-    width: "52%",
-  },
-
-  tableCellLabel: {
-    fontSize: 9,
-    fontWeight: 700,
-    color: "#0f172a",
-  },
-  tableCellValue: {
+  tableCell: {
+    paddingVertical: 7,
+    paddingHorizontal: 8,
     fontSize: 9,
     color: "#334155",
+    lineHeight: 1.35,
   },
-  tableCellText: {
-    fontSize: 9,
-    color: "#475569",
-    lineHeight: 1.4,
+  colAssumption: {
+    width: "28%",
+  },
+  colValue: {
+    width: "18%",
+  },
+  colWhy: {
+    width: "54%",
   },
 
   bulletList: {
@@ -196,7 +209,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: 5,
   },
-  bullet: {
+  bulletDot: {
     width: 10,
     fontSize: 10,
   },
@@ -204,7 +217,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 10,
     color: "#334155",
-    lineHeight: 1.5,
+    lineHeight: 1.45,
   },
 
   caveatBox: {
@@ -214,11 +227,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: "#f8fafc",
   },
-  caveatTitle: {
-    fontSize: 11,
-    fontWeight: 700,
-    marginBottom: 6,
-  },
   caveatText: {
     fontSize: 9,
     color: "#475569",
@@ -227,28 +235,50 @@ const styles = StyleSheet.create({
 
   footer: {
     position: "absolute",
-    bottom: 16,
-    left: 32,
-    right: 32,
+    bottom: 14,
+    left: 30,
+    right: 30,
     fontSize: 8,
     color: "#94a3b8",
     textAlign: "center",
   },
 });
 
-function MetricCards({
+function MetricGrid({
   metrics,
 }: {
-  metrics: ClearPathReportData["headlineMetrics"];
+  metrics: Array<{ label: string; value: string }>;
 }) {
-  if (!metrics?.length) return null;
-
   return (
-    <View style={styles.summaryGrid}>
+    <View style={styles.metricGrid}>
       {metrics.map((item) => (
-        <View key={item.label} style={styles.summaryCard}>
-          <Text style={styles.summaryCardLabel}>{item.label}</Text>
-          <Text style={styles.summaryCardValue}>{item.value}</Text>
+        <View key={item.label} style={styles.metricCard}>
+          <Text style={styles.metricLabel}>{item.label}</Text>
+          <Text style={styles.metricValue}>{item.value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function InfoRows({
+  items,
+}: {
+  items: Array<{ label: string; value: string; note?: string }>;
+}) {
+  return (
+    <View>
+      {items.map((item, index) => (
+        <View
+          key={item.label}
+          style={[
+            styles.infoRow,
+            index === items.length - 1 ? styles.infoRowLast : undefined,
+          ]}
+        >
+          <Text style={styles.rowLabel}>{item.label}</Text>
+          <Text style={styles.rowValue}>{item.value}</Text>
+          {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
         </View>
       ))}
     </View>
@@ -267,41 +297,42 @@ function AssumptionTable({
   }>;
 }) {
   return (
-    <View style={styles.tableSection}>
-      <Text style={styles.tableSectionTitle}>{title}</Text>
+    <View>
+      <Text style={styles.subSectionTitle}>{title}</Text>
 
-      <View style={styles.tableHeader}>
-        <View style={styles.colAssumption}>
-          <Text style={styles.tableHeaderText}>Assumption</Text>
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <View style={[styles.tableHeaderCell, styles.colAssumption]}>
+            <Text>Assumption</Text>
+          </View>
+          <View style={[styles.tableHeaderCell, styles.colValue]}>
+            <Text>Value</Text>
+          </View>
+          <View style={[styles.tableHeaderCell, styles.colWhy]}>
+            <Text>Why it matters</Text>
+          </View>
         </View>
-        <View style={styles.colValue}>
-          <Text style={styles.tableHeaderText}>Value</Text>
-        </View>
-        <View style={styles.colRationale}>
-          <Text style={styles.tableHeaderText}>Why it matters</Text>
-        </View>
+
+        {rows.map((row, index) => (
+          <View
+            key={`${title}-${row.assumption}`}
+            style={[
+              styles.tableRow,
+              index === rows.length - 1 ? styles.tableRowLast : undefined,
+            ]}
+          >
+            <View style={[styles.tableCell, styles.colAssumption]}>
+              <Text>{row.assumption}</Text>
+            </View>
+            <View style={[styles.tableCell, styles.colValue]}>
+              <Text>{row.value}</Text>
+            </View>
+            <View style={[styles.tableCell, styles.colWhy]}>
+              <Text>{row.rationale}</Text>
+            </View>
+          </View>
+        ))}
       </View>
-
-      {rows.map((row, index) => (
-        <View
-          key={`${title}-${row.assumption}`}
-          style={
-            index === rows.length - 1
-              ? [styles.tableRow, { borderBottomWidth: 0 }]
-              : styles.tableRow
-          }
-        >
-          <View style={styles.colAssumption}>
-            <Text style={styles.tableCellLabel}>{row.assumption}</Text>
-          </View>
-          <View style={styles.colValue}>
-            <Text style={styles.tableCellValue}>{row.value}</Text>
-          </View>
-          <View style={styles.colRationale}>
-            <Text style={styles.tableCellText}>{row.rationale}</Text>
-          </View>
-        </View>
-      ))}
     </View>
   );
 }
@@ -312,17 +343,15 @@ export function ClearPathReportDocument({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.coverTitle}>{data.cover.title}</Text>
-        <Text style={styles.coverSubtitle}>{data.cover.subtitle}</Text>
-        <Text style={styles.coverMeta}>{data.cover.module}</Text>
-        <Text style={styles.coverMeta}>Generated: {data.cover.generatedAt}</Text>
+        <Text style={styles.title}>{data.cover.title}</Text>
+        <Text style={styles.subtitle}>{data.cover.subtitle}</Text>
+        <Text style={styles.metaLine}>{data.cover.module}</Text>
+        <Text style={styles.metaLine}>Generated: {data.cover.generatedAt}</Text>
 
         <View style={styles.signalBox}>
           <Text style={styles.signalLabel}>{data.cover.signalLabel}</Text>
           <Text style={styles.signalValue}>{data.cover.decisionStatus}</Text>
-          <Text style={styles.signalStatus}>
-            Indicative decision signal for this scenario run
-          </Text>
+          <Text style={styles.signalPill}>Decision brief export</Text>
         </View>
 
         <View style={styles.section}>
@@ -335,70 +364,62 @@ export function ClearPathReportDocument({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Executive summary</Text>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Overview</Text>
-            <Text style={styles.executiveValue}>
-              {data.executiveSummary.overview}
-            </Text>
-          </View>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Overall signal</Text>
-            <Text style={styles.executiveValue}>
-              {data.executiveSummary.overallSignal}
-            </Text>
-          </View>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>What the model suggests</Text>
-            <Text style={styles.executiveValue}>
-              {data.executiveSummary.whatModelSuggests}
-            </Text>
-          </View>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Main dependency</Text>
-            <Text style={styles.executiveValue}>
-              {data.executiveSummary.mainDependency}
-            </Text>
-          </View>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Main fragility</Text>
-            <Text style={styles.executiveValue}>
-              {data.executiveSummary.mainFragility}
-            </Text>
-          </View>
-
-          <View style={{ marginBottom: 0 }}>
-            <Text style={styles.executiveLabel}>Best next step</Text>
-            <Text style={styles.executiveValue}>
-              {data.executiveSummary.bestNextStep}
-            </Text>
-          </View>
+          <InfoRows
+            items={[
+              {
+                label: "Overview",
+                value: data.executiveSummary.overview,
+              },
+              {
+                label: "Overall signal",
+                value: data.executiveSummary.overallSignal,
+              },
+              {
+                label: "What the model suggests",
+                value: data.executiveSummary.whatModelSuggests,
+              },
+              {
+                label: "Main dependency",
+                value: data.executiveSummary.mainDependency,
+              },
+              {
+                label: "Main fragility",
+                value: data.executiveSummary.mainFragility,
+              },
+              {
+                label: "Best next step",
+                value: data.executiveSummary.bestNextStep,
+              },
+            ]}
+          />
         </View>
 
+        <Text style={styles.footer}>
+          {data.cover.module} · {data.cover.title} · 1
+        </Text>
+      </Page>
+
+      <Page size="A4" style={styles.page}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Scenario being explored</Text>
 
           <View style={styles.narrativeBlock}>
             <Text style={styles.narrativeTitle}>Intervention concept</Text>
-            <Text style={styles.narrativeText}>
+            <Text style={styles.paragraph}>
               {data.scenario.interventionConcept}
             </Text>
           </View>
 
           <View style={styles.narrativeBlock}>
             <Text style={styles.narrativeTitle}>Target population and pathway logic</Text>
-            <Text style={styles.narrativeText}>
+            <Text style={styles.paragraph}>
               {data.scenario.targetPopulationLogic}
             </Text>
           </View>
 
-          <View style={{ marginBottom: 0 }}>
+          <View style={[styles.narrativeBlock, styles.infoRowLast]}>
             <Text style={styles.narrativeTitle}>Economic mechanism</Text>
-            <Text style={styles.narrativeText}>
+            <Text style={styles.paragraph}>
               {data.scenario.economicMechanism}
             </Text>
           </View>
@@ -406,34 +427,131 @@ export function ClearPathReportDocument({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
-          <MetricCards metrics={data.headlineMetrics} />
+          <MetricGrid metrics={data.headlineMetrics} />
         </View>
 
-        <Text
-          style={styles.footer}
-          render={({ pageNumber, totalPages }) =>
-            `${data.cover.title} • ${data.cover.module} • Page ${pageNumber} of ${totalPages}`
-          }
-          fixed
-        />
-      </Page>
-
-      <Page size="A4" style={styles.page}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Key results in plain English</Text>
           {data.plainEnglishResults.map((item, index) => (
-            <View key={`${item.title ?? "result"}-${index}`} style={styles.narrativeBlock}>
+            <View
+              key={`result-${index}`}
+              style={[
+                styles.narrativeBlock,
+                index === data.plainEnglishResults.length - 1
+                  ? styles.infoRowLast
+                  : undefined,
+              ]}
+            >
               {item.title ? (
                 <Text style={styles.narrativeTitle}>{item.title}</Text>
               ) : null}
-              <Text style={styles.narrativeText}>{item.body}</Text>
+              <Text style={styles.paragraph}>{item.body}</Text>
             </View>
           ))}
         </View>
 
+        <Text style={styles.footer}>
+          {data.cover.module} · {data.cover.title} · 2
+        </Text>
+      </Page>
+
+      <Page size="A4" style={styles.page}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Assumptions</Text>
-          {data.assumptions.sections.map((section) => (
+          <Text style={styles.sectionTitle}>Decision implications</Text>
+          <InfoRows
+            items={[
+              {
+                label: "What supports progression",
+                value: data.decisionImplications.progressionView,
+              },
+              {
+                label: "Main evidence gap",
+                value: data.decisionImplications.mainEvidenceGap,
+              },
+              {
+                label: "Current case position",
+                value: data.decisionImplications.currentCasePosition,
+              },
+              {
+                label: "Recommended next move",
+                value: data.decisionImplications.recommendedNextMove,
+              },
+            ]}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
+          <Text style={styles.paragraph}>
+            {data.uncertaintyAndSensitivity.robustnessSummary}
+          </Text>
+
+          <View style={{ marginTop: 8 }}>
+            <InfoRows
+              items={data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
+                label: row.label,
+                value: row.value,
+                note: row.note,
+              }))}
+            />
+          </View>
+
+          <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
+          <View style={styles.bulletList}>
+            {data.uncertaintyAndSensitivity.sensitivitySummary.map((item, index) => (
+              <View key={`sens-${index}`} style={styles.bulletRow}>
+                <Text style={styles.bulletDot}>•</Text>
+                <Text style={styles.bulletText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Scenario and comparator interpretation</Text>
+          <InfoRows
+            items={[
+              {
+                label: "Scenario summary",
+                value: data.scenarioAndComparator.scenarioSummary,
+              },
+              {
+                label: "Strongest scenario pattern",
+                value: data.scenarioAndComparator.strongestScenario,
+              },
+              {
+                label: "Weakest scenario pattern",
+                value: data.scenarioAndComparator.weakestScenario,
+              },
+              {
+                label: "Comparator interpretation",
+                value: data.scenarioAndComparator.comparatorSummary,
+              },
+            ]}
+          />
+        </View>
+
+        <Text style={styles.footer}>
+          {data.cover.module} · {data.cover.title} · 3
+        </Text>
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Local evidence needed next</Text>
+          <View style={styles.bulletList}>
+            {data.localEvidenceNeeded.items.map((item, index) => (
+              <View key={`local-${index}`} style={styles.bulletRow}>
+                <Text style={styles.bulletDot}>•</Text>
+                <Text style={styles.bulletText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Assumptions used</Text>
+          {data.assumptions.sections.slice(0, 2).map((section) => (
             <AssumptionTable
               key={section.title}
               title={section.title}
@@ -442,174 +560,31 @@ export function ClearPathReportDocument({
           ))}
         </View>
 
-        <Text
-          style={styles.footer}
-          render={({ pageNumber, totalPages }) =>
-            `${data.cover.title} • ${data.cover.module} • Page ${pageNumber} of ${totalPages}`
-          }
-          fixed
-        />
+        <Text style={styles.footer}>
+          {data.cover.module} · {data.cover.title} · 4
+        </Text>
       </Page>
 
       <Page size="A4" style={styles.page}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
-
-          <View style={styles.narrativeBlock}>
-            <Text style={styles.narrativeTitle}>Robustness interpretation</Text>
-            <Text style={styles.narrativeText}>
-              {data.uncertaintyAndSensitivity.robustnessSummary}
-            </Text>
-          </View>
-
-          <View style={styles.tableSection}>
-            <Text style={styles.tableSectionTitle}>Bounded uncertainty cases</Text>
-
-            <View style={styles.tableHeader}>
-              <View style={styles.colAssumption}>
-                <Text style={styles.tableHeaderText}>Case</Text>
-              </View>
-              <View style={styles.colValue}>
-                <Text style={styles.tableHeaderText}>Cost per QALY</Text>
-              </View>
-              <View style={styles.colRationale}>
-                <Text style={styles.tableHeaderText}>Interpretation</Text>
-              </View>
-            </View>
-
-            {data.uncertaintyAndSensitivity.uncertaintyRows.map((row, index, arr) => (
-              <View
-                key={row.label}
-                style={
-                  index === arr.length - 1
-                    ? [styles.tableRow, { borderBottomWidth: 0 }]
-                    : styles.tableRow
-                }
-              >
-                <View style={styles.colAssumption}>
-                  <Text style={styles.tableCellLabel}>{row.label}</Text>
-                </View>
-                <View style={styles.colValue}>
-                  <Text style={styles.tableCellValue}>{row.value}</Text>
-                </View>
-                <View style={styles.colRationale}>
-                  <Text style={styles.tableCellText}>{row.note}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.tableSection}>
-            <Text style={styles.tableSectionTitle}>Sensitivity summary</Text>
-            <View style={styles.bulletList}>
-              {data.uncertaintyAndSensitivity.sensitivitySummary.map((item, index) => (
-                <View key={`${item}-${index}`} style={styles.bulletRow}>
-                  <Text style={styles.bullet}>•</Text>
-                  <Text style={styles.bulletText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Scenario and comparator interpretation</Text>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Scenario summary</Text>
-            <Text style={styles.executiveValue}>
-              {data.scenarioAndComparator.scenarioSummary}
-            </Text>
-          </View>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Strongest scenario pattern</Text>
-            <Text style={styles.executiveValue}>
-              {data.scenarioAndComparator.strongestScenario}
-            </Text>
-          </View>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Weakest or most fragile pattern</Text>
-            <Text style={styles.executiveValue}>
-              {data.scenarioAndComparator.weakestScenario}
-            </Text>
-          </View>
-
-          <View>
-            <Text style={styles.executiveLabel}>Comparator interpretation</Text>
-            <Text style={styles.executiveValue}>
-              {data.scenarioAndComparator.comparatorSummary}
-            </Text>
-          </View>
-        </View>
-
-        <Text
-          style={styles.footer}
-          render={({ pageNumber, totalPages }) =>
-            `${data.cover.title} • ${data.cover.module} • Page ${pageNumber} of ${totalPages}`
-          }
-          fixed
-        />
-      </Page>
-
-      <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Decision implications</Text>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>What supports progression</Text>
-            <Text style={styles.executiveValue}>
-              {data.decisionImplications.progressionView}
-            </Text>
-          </View>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Main evidence gap</Text>
-            <Text style={styles.executiveValue}>
-              {data.decisionImplications.mainEvidenceGap}
-            </Text>
-          </View>
-
-          <View style={styles.executiveBlock}>
-            <Text style={styles.executiveLabel}>Current case position</Text>
-            <Text style={styles.executiveValue}>
-              {data.decisionImplications.currentCasePosition}
-            </Text>
-          </View>
-
-          <View>
-            <Text style={styles.executiveLabel}>Recommended next move</Text>
-            <Text style={styles.executiveValue}>
-              {data.decisionImplications.recommendedNextMove}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Local evidence needed next</Text>
-          <View style={styles.bulletList}>
-            {data.localEvidenceNeeded.items.map((item, index) => (
-              <View key={`${item}-${index}`} style={styles.bulletRow}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.bulletText}>{item}</Text>
-              </View>
-            ))}
-          </View>
+          <Text style={styles.sectionTitle}>Assumptions used</Text>
+          {data.assumptions.sections.slice(2).map((section) => (
+            <AssumptionTable
+              key={section.title}
+              title={section.title}
+              rows={section.rows}
+            />
+          ))}
         </View>
 
         <View style={styles.caveatBox}>
-          <Text style={styles.caveatTitle}>Caveats and use note</Text>
+          <Text style={styles.sectionTitle}>Caveats and use note</Text>
           <Text style={styles.caveatText}>{data.caveats.useNote}</Text>
         </View>
 
-        <Text
-          style={styles.footer}
-          render={({ pageNumber, totalPages }) =>
-            `${data.cover.title} • ${data.cover.module} • Page ${pageNumber} of ${totalPages}`
-          }
-          fixed
-        />
+        <Text style={styles.footer}>
+          {data.cover.module} · {data.cover.title} · 5
+        </Text>
       </Page>
     </Document>
   );
