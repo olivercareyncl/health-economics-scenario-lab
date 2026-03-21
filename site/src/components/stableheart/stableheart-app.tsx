@@ -436,23 +436,21 @@ function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[
 }
 
 function ImpactChart({ results }: { results: ModelResults }) {
-  const data = [
-    {
-      label: "Events",
-      fullLabel: "Events avoided",
-      value: results.events_avoided_total,
-    },
-    {
-      label: "Admits",
-      fullLabel: "Admissions avoided",
-      value: results.admissions_avoided_total,
-    },
-    {
-      label: "Bed days",
-      fullLabel: "Bed days avoided",
-      value: results.bed_days_avoided_total,
-    },
-  ];
+  const rawData = buildEventsChartData(results);
+  const data = rawData
+    .filter((item) => item.label !== "Patients reached")
+    .map((item) => {
+      if (item.label === "Events avoided") {
+        return { ...item, shortLabel: "Events" };
+      }
+      if (item.label === "Admissions avoided") {
+        return { ...item, shortLabel: "Adm." };
+      }
+      if (item.label === "Bed days avoided") {
+        return { ...item, shortLabel: "Bed days" };
+      }
+      return { ...item, shortLabel: item.label };
+    });
 
   return (
     <div className={SUBCARD}>
@@ -470,7 +468,7 @@ function ImpactChart({ results }: { results: ModelResults }) {
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
+            margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
           >
             <CartesianGrid horizontal={false} strokeDasharray="3 3" />
             <XAxis
@@ -482,18 +480,13 @@ function ImpactChart({ results }: { results: ModelResults }) {
             />
             <YAxis
               type="category"
-              dataKey="label"
+              dataKey="shortLabel"
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={70}
+              width={74}
             />
-            <Tooltip
-              formatter={(value: number, _name, entry: { payload?: { fullLabel?: string } }) => [
-                formatNumber(value),
-                entry?.payload?.fullLabel ?? "Impact",
-              ]}
-            />
+            <Tooltip content={<NumberTooltip />} />
             <Bar dataKey="value" name="Impact" radius={[0, 8, 8, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -1520,7 +1513,7 @@ export default function StableHeartApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, comparator snapshot, and the next checks."
+            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -1543,18 +1536,24 @@ export default function StableHeartApp() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 gap-3">
+                <MetricCard
+                  label="Admissions avoided"
+                  value={formatNumber(results.admissions_avoided_total)}
+                />
+                <MetricCard
+                  label="Bed days avoided"
+                  value={formatNumber(results.bed_days_avoided_total)}
+                />
+                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+              </div>
+
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
                 <div className="mt-3">{recommendationPanel}</div>
                 <p className="mt-3 text-sm leading-6 text-slate-700">
                   {recommendationSummary.recommendation_line}
                 </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3">
-                <MetricCard label="Bed days avoided" value={formatNumber(results.bed_days_avoided_total)} />
-                <MetricCard label="Patients reached" value={formatNumber(results.patients_reached_total)} />
-                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
               </div>
 
               <div className={SUBCARD}>
@@ -1598,15 +1597,9 @@ export default function StableHeartApp() {
                 <div className="mt-3">{comparatorSummary}</div>
               </div>
 
-              <MobileAccordion title="Assumption review">{assumptionsReview}</MobileAccordion>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                  <p>{interpretation.what_model_suggests}</p>
-                  <p>{interpretation.what_to_validate_next}</p>
-                </div>
-              </div>
+              <MobileAccordion title="Assumption review">
+                {assumptionsReview}
+              </MobileAccordion>
             </div>
           </SectionCard>
         </div>
@@ -1694,7 +1687,7 @@ export default function StableHeartApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, comparator snapshot, and the next checks."
+            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -1717,18 +1710,24 @@ export default function StableHeartApp() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <MetricCard
+                  label="Admissions avoided"
+                  value={formatNumber(results.admissions_avoided_total)}
+                />
+                <MetricCard
+                  label="Bed days avoided"
+                  value={formatNumber(results.bed_days_avoided_total)}
+                />
+                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+              </div>
+
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
                 <div className="mt-3">{recommendationPanel}</div>
                 <p className="mt-3 text-sm leading-6 text-slate-700">
                   {recommendationSummary.recommendation_line}
                 </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <MetricCard label="Bed days avoided" value={formatNumber(results.bed_days_avoided_total)} />
-                <MetricCard label="Patients reached" value={formatNumber(results.patients_reached_total)} />
-                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
               </div>
 
               <div className={SUBCARD}>
@@ -1770,18 +1769,6 @@ export default function StableHeartApp() {
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
                 <div className="mt-3">{comparatorSummary}</div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-                  <MiniInsight label="Main driver" value={`The result is currently most shaped by ${mainDriver}.`} />
-                  <MiniInsight label="Value mechanism" value={interpretation.where_value_is_coming_from} />
-                  <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
-                  <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
-                  <MiniInsight label="Current case type" value={currentCaseType} />
-                </div>
               </div>
 
               <div>
