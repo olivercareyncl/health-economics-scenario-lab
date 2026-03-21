@@ -155,18 +155,20 @@ const styles = StyleSheet.create({
   },
 
   metricsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
     marginTop: 2,
+  },
+  metricRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
   metricCard: {
     width: "48%",
     border: "1 solid #cbd5e1",
     borderRadius: 8,
     padding: 10,
-    marginBottom: 10,
     backgroundColor: "#ffffff",
+    minHeight: 74,
   },
   metricLabel: {
     fontSize: 8.6,
@@ -328,21 +330,36 @@ function renderInfoRows(
 }
 
 function renderMetricCards(items: Array<{ label: string; value: string }>) {
+  const rows: Array<Array<{ label: string; value: string }>> = [];
+
+  for (let i = 0; i < items.length; i += 2) {
+    rows.push(items.slice(i, i + 2));
+  }
+
   return (
     <View style={styles.metricsGrid}>
-      {items.map((item) => (
-        <View key={item.label} style={styles.metricCard}>
-          <Text style={styles.metricLabel}>{item.label}</Text>
-          <Text style={styles.metricValue}>{item.value}</Text>
+      {rows.map((row, rowIndex) => (
+        <View key={`metric-row-${rowIndex}`} style={styles.metricRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>{row[0].label}</Text>
+            <Text style={styles.metricValue}>{row[0].value}</Text>
+          </View>
+
+          {row[1] ? (
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>{row[1].label}</Text>
+              <Text style={styles.metricValue}>{row[1].value}</Text>
+            </View>
+          ) : (
+            <View style={styles.metricCard} />
+          )}
         </View>
       ))}
     </View>
   );
 }
 
-function renderBulletBlocks(
-  items: Array<string> | Array<{ body: string }>,
-) {
+function renderBulletBlocks(items: Array<string> | Array<{ body: string }>) {
   return (
     <View style={styles.bulletBlock}>
       {items.map((item, index) => {
