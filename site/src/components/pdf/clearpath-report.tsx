@@ -439,13 +439,14 @@ export function ClearPathReportDocument({
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>
-              Exploratory intervention scenario for earlier diagnosis
+            <Text style={styles.title}>Earlier diagnosis scenario brief</Text>
+            <Text style={styles.subtitle}>
+              Exploratory assessment of potential pathway and economic value
             </Text>
-            <Text style={styles.subtitle}>{data.cover.subtitle}</Text>
             <Text style={styles.metaLine}>
-              Generated: {formatGeneratedAt(data.cover.generatedAt)}
+              Prepared: {formatGeneratedAt(data.cover.generatedAt)}
             </Text>
+            <Text style={styles.metaLine}>Prepared by Oliver Carey</Text>
           </View>
 
           <View style={styles.headerRight}>
@@ -557,7 +558,9 @@ export function ClearPathReportDocument({
 
       <Page size="A4" style={styles.page}>
         <View style={styles.sectionTight}>
-          <Text style={styles.sectionTitle}>Scenario and comparator interpretation</Text>
+          <Text style={styles.sectionTitle}>
+            Scenario and comparator interpretation
+          </Text>
           {renderInfoRows([
             {
               label: "Scenario readout",
