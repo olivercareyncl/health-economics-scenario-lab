@@ -4,6 +4,7 @@ import {
   Text,
   View,
   StyleSheet,
+  Image,
 } from "@react-pdf/renderer";
 import type { ClearPathReportData } from "@/lib/clearpath/report";
 
@@ -25,6 +26,12 @@ function formatExportedAt(value: string) {
   }).format(date);
 }
 
+// Update this path to wherever you store the logo used on your site.
+// Example alternatives:
+// const LAB_LOGO_SRC = "/hesl-logo.png";
+// const LAB_LOGO_SRC = "/images/hesl-logo.png";
+const LAB_LOGO_SRC = "/hesl-logo.png";
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 34,
@@ -39,23 +46,41 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     paddingBottom: 14,
     borderBottom: "1 solid #e2e8f0",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  headerLeft: {
+    width: "68%",
+    paddingRight: 12,
+  },
+  headerRight: {
+    width: "32%",
+    alignItems: "flex-end",
   },
   title: {
-    fontSize: 25,
+    fontSize: 23,
     fontWeight: 700,
     color: "#0f172a",
-    marginBottom: 4,
+    marginBottom: 6,
+    lineHeight: 1.15,
     letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: "#475569",
-    marginBottom: 10,
-  },
-  metaLine: {
     fontSize: 9,
     color: "#64748b",
+  },
+  brandLabel: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#334155",
+    marginBottom: 8,
+    textAlign: "right",
+  },
+  brandLogo: {
+    width: 88,
+    height: 88,
+    objectFit: "contain",
   },
 
   useNoteBox: {
@@ -343,10 +368,7 @@ function AssumptionTable({
         }
 
         return (
-          <View
-            key={`${row.assumption}-${index}`}
-            style={tableRowStyles}
-          >
+          <View key={`${row.assumption}-${index}`} style={tableRowStyles}>
             <View style={styles.colAssumption}>
               <Text style={styles.tableCellPrimary}>{row.assumption}</Text>
             </View>
@@ -370,13 +392,19 @@ export function ClearPathReportDocument({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.title}>{data.cover.title}</Text>
-          <Text style={styles.subtitle}>
-            Decision brief on the potential value of earlier diagnosis
-          </Text>
-          <Text style={styles.metaLine}>
-            {data.cover.module} · Exported {formatExportedAt(data.cover.generatedAt)}
-          </Text>
+          <View style={styles.headerLeft}>
+            <Text style={styles.title}>
+              Decision brief on the potential value of earlier diagnosis
+            </Text>
+            <Text style={styles.subtitle}>
+              Exported {formatExportedAt(data.cover.generatedAt)}
+            </Text>
+          </View>
+
+          <View style={styles.headerRight}>
+            <Text style={styles.brandLabel}>Health Economics Scenario Lab</Text>
+            <Image style={styles.brandLogo} src={LAB_LOGO_SRC} />
+          </View>
         </View>
 
         <View style={styles.useNoteBox}>
@@ -446,7 +474,9 @@ export function ClearPathReportDocument({
             {data.scenario.interventionConcept}
           </Text>
 
-          <Text style={styles.subSectionTitle}>Target population and pathway logic</Text>
+          <Text style={styles.subSectionTitle}>
+            Target population and pathway logic
+          </Text>
           <Text style={styles.paragraph}>
             {data.scenario.targetPopulationLogic}
           </Text>
@@ -508,7 +538,9 @@ export function ClearPathReportDocument({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Scenario and comparator interpretation</Text>
+          <Text style={styles.sectionTitle}>
+            Scenario and comparator interpretation
+          </Text>
           <InfoRows
             items={[
               {
