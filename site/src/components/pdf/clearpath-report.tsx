@@ -525,7 +525,7 @@ export function ClearPathReportDocument({
           {renderMetricCards(data.headlineMetrics)}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} break>
           <Text style={styles.sectionTitle}>Key results in plain English</Text>
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
@@ -552,7 +552,11 @@ export function ClearPathReportDocument({
           </View>
         </View>
 
-        <View style={styles.section}>
+        <Footer />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Scenario and comparator interpretation</Text>
           {renderInfoRows([
             {
@@ -614,7 +618,10 @@ export function ClearPathReportDocument({
           </Text>
 
           {data.assumptions.sections.map((section) => (
-            <View key={section.title}>
+            <View
+              key={section.title}
+              break={section.title === "Cost assumptions"}
+            >
               <Text style={styles.subSectionTitle}>{section.title}</Text>
               {renderAssumptionTable(section.rows)}
             </View>
