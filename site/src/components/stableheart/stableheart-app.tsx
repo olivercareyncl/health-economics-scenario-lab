@@ -436,7 +436,23 @@ function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[
 }
 
 function ImpactChart({ results }: { results: ModelResults }) {
-  const data = buildEventsChartData(results);
+  const data = [
+    {
+      label: "Events",
+      fullLabel: "Events avoided",
+      value: results.events_avoided_total,
+    },
+    {
+      label: "Admits",
+      fullLabel: "Admissions avoided",
+      value: results.admissions_avoided_total,
+    },
+    {
+      label: "Bed days",
+      fullLabel: "Bed days avoided",
+      value: results.bed_days_avoided_total,
+    },
+  ];
 
   return (
     <div className={SUBCARD}>
@@ -449,30 +465,38 @@ function ImpactChart({ results }: { results: ModelResults }) {
         </p>
       </div>
 
-      <div className="h-52 w-full overflow-x-auto lg:h-64 xl:h-72">
-        <div className="h-full min-w-[460px] sm:min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 16 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={false}
-                fontSize={12}
-                interval={0}
-              />
-              <YAxis
-                tickFormatter={(value) => formatNumber(Number(value))}
-                tickLine={false}
-                axisLine={false}
-                fontSize={12}
-                width={54}
-              />
-              <Tooltip content={<NumberTooltip />} />
-              <Bar dataKey="value" name="Impact" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="h-56 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 8, right: 16, left: 8, bottom: 0 }}
+          >
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              tickFormatter={(value) => formatNumber(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={70}
+            />
+            <Tooltip
+              formatter={(value: number, _name, entry: { payload?: { fullLabel?: string } }) => [
+                formatNumber(value),
+                entry?.payload?.fullLabel ?? "Impact",
+              ]}
+            />
+            <Bar dataKey="value" name="Impact" radius={[0, 8, 8, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
