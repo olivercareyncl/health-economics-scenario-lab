@@ -11,6 +11,20 @@ type ClearPathReportDocumentProps = {
   data: ClearPathReportData;
 };
 
+function formatGeneratedAt(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 30,
@@ -36,25 +50,21 @@ const styles = StyleSheet.create({
   headerRight: {
     width: "28%",
     alignItems: "flex-end",
+    paddingTop: 2,
   },
   moduleLabel: {
     fontSize: 8,
     color: "#64748b",
     textTransform: "uppercase",
-    marginBottom: 3,
+    marginBottom: 4,
     letterSpacing: 0.6,
   },
   moduleName: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: "#0f172a",
     fontWeight: 700,
-    marginBottom: 2,
     textAlign: "right",
-  },
-  appName: {
-    fontSize: 9,
-    color: "#475569",
-    textAlign: "right",
+    lineHeight: 1.35,
   },
 
   title: {
@@ -157,9 +167,6 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     backgroundColor: "#ffffff",
-  },
-  metricCardAlt: {
-    marginRight: 0,
   },
   metricLabel: {
     fontSize: 8.6,
@@ -323,17 +330,12 @@ function renderInfoRows(
 function renderMetricCards(items: Array<{ label: string; value: string }>) {
   return (
     <View style={styles.metricsGrid}>
-      {items.map((item, index) => {
-        const cardStyle =
-          index % 2 === 1 ? styles.metricCardAlt : styles.metricCard;
-
-        return (
-          <View key={item.label} style={cardStyle}>
-            <Text style={styles.metricLabel}>{item.label}</Text>
-            <Text style={styles.metricValue}>{item.value}</Text>
-          </View>
-        );
-      })}
+      {items.map((item) => (
+        <View key={item.label} style={styles.metricCard}>
+          <Text style={styles.metricLabel}>{item.label}</Text>
+          <Text style={styles.metricValue}>{item.value}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -421,18 +423,17 @@ export function ClearPathReportDocument({
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.title}>
-              Decision brief on the potential value of earlier diagnosis
+              Exploratory intervention scenario for earlier diagnosis
             </Text>
             <Text style={styles.subtitle}>{data.cover.subtitle}</Text>
             <Text style={styles.metaLine}>
-              Generated: {data.cover.generatedAt}
+              Generated: {formatGeneratedAt(data.cover.generatedAt)}
             </Text>
           </View>
 
           <View style={styles.headerRight}>
-            <Text style={styles.moduleLabel}>Module</Text>
+            <Text style={styles.moduleLabel}>ClearPath</Text>
             <Text style={styles.moduleName}>{data.cover.module}</Text>
-            <Text style={styles.appName}>ClearPath</Text>
           </View>
         </View>
 
