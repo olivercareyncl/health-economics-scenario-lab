@@ -86,15 +86,6 @@ const styles = StyleSheet.create({
     color: "#334155",
   },
 
-  twoCol: {
-    display: "flex",
-    flexDirection: "row",
-    gap: 10,
-  },
-  twoColItem: {
-    width: "48%",
-  },
-
   metricGrid: {
     display: "flex",
     flexDirection: "row",
@@ -123,6 +114,11 @@ const styles = StyleSheet.create({
     borderBottom: "1 solid #e2e8f0",
     paddingBottom: 6,
     marginBottom: 8,
+  },
+  narrativeBlockLast: {
+    paddingBottom: 0,
+    marginBottom: 0,
+    borderBottom: "0 solid #ffffff",
   },
   narrativeTitle: {
     fontSize: 10,
@@ -271,10 +267,7 @@ function InfoRows({
       {items.map((item, index) => (
         <View
           key={item.label}
-          style={[
-            styles.infoRow,
-            index === items.length - 1 ? styles.infoRowLast : undefined,
-          ]}
+          style={index === items.length - 1 ? [styles.infoRow, styles.infoRowLast] : styles.infoRow}
         >
           <Text style={styles.rowLabel}>{item.label}</Text>
           <Text style={styles.rowValue}>{item.value}</Text>
@@ -316,10 +309,7 @@ function AssumptionTable({
         {rows.map((row, index) => (
           <View
             key={`${title}-${row.assumption}`}
-            style={[
-              styles.tableRow,
-              index === rows.length - 1 ? styles.tableRowLast : undefined,
-            ]}
+            style={index === rows.length - 1 ? [styles.tableRow, styles.tableRowLast] : styles.tableRow}
           >
             <View style={[styles.tableCell, styles.colAssumption]}>
               <Text>{row.assumption}</Text>
@@ -411,13 +401,15 @@ export function ClearPathReportDocument({
           </View>
 
           <View style={styles.narrativeBlock}>
-            <Text style={styles.narrativeTitle}>Target population and pathway logic</Text>
+            <Text style={styles.narrativeTitle}>
+              Target population and pathway logic
+            </Text>
             <Text style={styles.paragraph}>
               {data.scenario.targetPopulationLogic}
             </Text>
           </View>
 
-          <View style={[styles.narrativeBlock, styles.infoRowLast]}>
+          <View style={[styles.narrativeBlock, styles.narrativeBlockLast]}>
             <Text style={styles.narrativeTitle}>Economic mechanism</Text>
             <Text style={styles.paragraph}>
               {data.scenario.economicMechanism}
@@ -435,12 +427,11 @@ export function ClearPathReportDocument({
           {data.plainEnglishResults.map((item, index) => (
             <View
               key={`result-${index}`}
-              style={[
-                styles.narrativeBlock,
+              style={
                 index === data.plainEnglishResults.length - 1
-                  ? styles.infoRowLast
-                  : undefined,
-              ]}
+                  ? [styles.narrativeBlock, styles.narrativeBlockLast]
+                  : styles.narrativeBlock
+              }
             >
               {item.title ? (
                 <Text style={styles.narrativeTitle}>{item.title}</Text>
@@ -508,7 +499,9 @@ export function ClearPathReportDocument({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Scenario and comparator interpretation</Text>
+          <Text style={styles.sectionTitle}>
+            Scenario and comparator interpretation
+          </Text>
           <InfoRows
             items={[
               {
