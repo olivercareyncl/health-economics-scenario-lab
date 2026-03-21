@@ -3,7 +3,6 @@ import { renderToStream } from "@react-pdf/renderer";
 
 import { SafeStepReportDocument } from "@/components/pdf/safestep-report";
 import { buildSafeStepReportData } from "@/lib/safestep/report";
-import { formatCurrency, formatNumber, formatPercent } from "@/lib/safestep/formatters";
 
 type Inputs = {
   targeting_mode: "Universal" | "Risk-targeted" | "High-risk only";
