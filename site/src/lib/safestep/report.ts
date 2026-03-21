@@ -497,7 +497,7 @@ export function buildSafeStepReportData({
       overview: buildOverview(inputs, results, decisionStatus),
       overallSignal,
       whatModelSuggests: buildWhatModelSuggests(results, inputs),
-      mainDependency: `The result is mainly driven by ${mainDriver}, delivery cost, and programme participation.`,
+      mainDependency: "The result is mainly driven by uptake, adherence, and delivery cost.",
       mainFragility: fragilityText,
       bestNextStep:
         "Validate local fall risk, realistic programme participation, likely implementation cost, and the share of falls that genuinely translate into avoided admissions and bed use.",
