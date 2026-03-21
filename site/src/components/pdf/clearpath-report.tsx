@@ -4,7 +4,6 @@ import {
   Text,
   View,
   StyleSheet,
-  Image as PdfImage,
 } from "@react-pdf/renderer";
 import type { ClearPathReportData } from "@/lib/clearpath/report";
 
@@ -12,18 +11,11 @@ type ClearPathReportDocumentProps = {
   data: ClearPathReportData;
 };
 
-/**
- * Replace with your actual site cover/logo asset path if available.
- * Example:
- * const LOGO_SRC = "/images/hesl-logo.png";
- */
-const LOGO_SRC: string | null = null;
-
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 28,
-    paddingBottom: 28,
-    paddingHorizontal: 32,
+    paddingTop: 30,
+    paddingBottom: 30,
+    paddingHorizontal: 34,
     fontSize: 10,
     color: "#0f172a",
     lineHeight: 1.45,
@@ -35,96 +27,74 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 18,
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottom: "1 solid #e2e8f0",
   },
   headerLeft: {
-    flexGrow: 1,
-    paddingRight: 12,
+    width: "68%",
   },
   headerRight: {
-    width: 160,
+    width: "28%",
     alignItems: "flex-end",
   },
+  moduleLabel: {
+    fontSize: 8,
+    color: "#64748b",
+    textTransform: "uppercase",
+    marginBottom: 3,
+    letterSpacing: 0.6,
+  },
+  moduleName: {
+    fontSize: 10,
+    color: "#0f172a",
+    fontWeight: 700,
+    marginBottom: 2,
+    textAlign: "right",
+  },
+  appName: {
+    fontSize: 9,
+    color: "#475569",
+    textAlign: "right",
+  },
+
   title: {
     fontSize: 21,
     fontWeight: 700,
+    color: "#0f172a",
     lineHeight: 1.2,
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 10.5,
     color: "#475569",
-    lineHeight: 1.5,
+    lineHeight: 1.45,
+    marginBottom: 8,
+    maxWidth: "95%",
   },
   metaLine: {
-    fontSize: 9,
+    fontSize: 8.5,
     color: "#64748b",
-    marginTop: 6,
-  },
-  moduleLabel: {
-    fontSize: 9,
-    color: "#64748b",
-    marginBottom: 3,
-    textAlign: "right",
-  },
-  moduleName: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: "#0f172a",
-    textAlign: "right",
-    lineHeight: 1.25,
-  },
-  appName: {
-    fontSize: 9.5,
-    color: "#475569",
-    textAlign: "right",
-    marginTop: 2,
-    lineHeight: 1.3,
-  },
-  logo: {
-    width: 74,
-    height: 74,
-    objectFit: "contain",
-    marginTop: 8,
-  },
-
-  useNoteBox: {
-    marginBottom: 16,
-    padding: 10,
-    border: "1 solid #e2e8f0",
-    borderRadius: 8,
-    backgroundColor: "#f8fafc",
-  },
-  useNoteTitle: {
-    fontSize: 9,
-    fontWeight: 700,
-    color: "#334155",
-    marginBottom: 4,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  useNoteText: {
-    fontSize: 9,
-    color: "#475569",
-    lineHeight: 1.5,
+    lineHeight: 1.4,
   },
 
   section: {
     marginTop: 16,
   },
+  sectionTight: {
+    marginTop: 12,
+  },
   sectionTitle: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: 700,
-    marginBottom: 8,
     color: "#0f172a",
+    marginBottom: 8,
   },
   subSectionTitle: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: 700,
-    marginTop: 10,
-    marginBottom: 6,
     color: "#0f172a",
+    marginTop: 12,
+    marginBottom: 8,
   },
   paragraph: {
     fontSize: 10,
@@ -132,51 +102,18 @@ const styles = StyleSheet.create({
     lineHeight: 1.55,
   },
 
-  summaryCard: {
-    border: "1 solid #e2e8f0",
-    borderRadius: 8,
-    padding: 9,
-    marginBottom: 8,
-    backgroundColor: "#ffffff",
-  },
-  summaryCardLabel: {
-    fontSize: 8.8,
-    color: "#64748b",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 4,
-  },
-  summaryCardValue: {
-    fontSize: 10,
-    color: "#0f172a",
-    lineHeight: 1.5,
-  },
-
-  metricGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  metricCard: {
-    width: "48%",
+  executiveSummaryBox: {
+    marginTop: 4,
+    padding: 12,
     border: "1 solid #cbd5e1",
     borderRadius: 8,
-    padding: 9,
-    marginBottom: 8,
     backgroundColor: "#f8fafc",
   },
-  metricLabel: {
-    fontSize: 8.8,
-    color: "#64748b",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 4,
-  },
-  metricValue: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: "#0f172a",
-    lineHeight: 1.3,
+  executiveSummaryLead: {
+    fontSize: 10,
+    color: "#334155",
+    lineHeight: 1.55,
+    marginBottom: 10,
   },
 
   infoRow: {
@@ -190,79 +127,111 @@ const styles = StyleSheet.create({
     borderBottom: "0 solid #ffffff",
   },
   rowLabel: {
-    fontSize: 9.5,
+    fontSize: 9.2,
     fontWeight: 700,
     color: "#0f172a",
     marginBottom: 2,
   },
   rowValue: {
-    fontSize: 10,
+    fontSize: 9.6,
     color: "#334155",
-    lineHeight: 1.45,
+    lineHeight: 1.5,
   },
   rowNote: {
-    fontSize: 9,
+    fontSize: 8.6,
     color: "#64748b",
-    marginTop: 2,
-    lineHeight: 1.4,
+    lineHeight: 1.45,
+    marginTop: 3,
   },
 
-  bulletList: {
-    marginTop: 4,
+  metricsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 2,
+  },
+  metricCard: {
+    width: "48%",
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    backgroundColor: "#ffffff",
+  },
+  metricCardAlt: {
+    marginRight: 0,
+  },
+  metricLabel: {
+    fontSize: 8.6,
+    color: "#64748b",
+    textTransform: "uppercase",
+    marginBottom: 5,
+    lineHeight: 1.3,
+  },
+  metricValue: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#0f172a",
+    lineHeight: 1.3,
+  },
+
+  bulletBlock: {
+    marginTop: 2,
   },
   bulletRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 6,
+    marginBottom: 7,
   },
-  bullet: {
+  bulletDot: {
     width: 10,
     fontSize: 10,
     color: "#0f172a",
+    lineHeight: 1.4,
   },
   bulletText: {
-    flexGrow: 1,
-    fontSize: 10,
+    flex: 1,
+    fontSize: 9.8,
     color: "#334155",
-    lineHeight: 1.5,
+    lineHeight: 1.55,
   },
 
-  assumptionsPageTitle: {
-    fontSize: 15,
-    fontWeight: 700,
+  assumptionsIntro: {
+    fontSize: 9.5,
+    color: "#475569",
+    lineHeight: 1.5,
     marginBottom: 10,
-    color: "#0f172a",
   },
 
   table: {
+    width: "100%",
     border: "1 solid #cbd5e1",
     borderRadius: 8,
     overflow: "hidden",
-    marginTop: 6,
+    marginTop: 4,
+    marginBottom: 12,
   },
   tableHeader: {
     flexDirection: "row",
     backgroundColor: "#e2e8f0",
     paddingVertical: 7,
     paddingHorizontal: 8,
-    borderBottom: "1 solid #cbd5e1",
   },
   tableHeaderText: {
-    fontSize: 8.8,
+    fontSize: 8.5,
     fontWeight: 700,
-    color: "#334155",
+    color: "#0f172a",
     textTransform: "uppercase",
-    letterSpacing: 0.4,
   },
   tableRow: {
     flexDirection: "row",
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     borderBottom: "1 solid #e2e8f0",
   },
   tableRowLast: {
     flexDirection: "row",
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     borderBottom: "0 solid #ffffff",
   },
@@ -271,52 +240,68 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   colValue: {
-    width: "20%",
+    width: "18%",
     paddingRight: 8,
   },
   colRationale: {
-    width: "54%",
+    width: "56%",
   },
-  tableTextStrong: {
-    fontSize: 9.4,
+  tableCellLabel: {
+    fontSize: 8.8,
     fontWeight: 700,
     color: "#0f172a",
     lineHeight: 1.35,
   },
-  tableText: {
-    fontSize: 9.3,
+  tableCellValue: {
+    fontSize: 8.8,
     color: "#334155",
+    lineHeight: 1.4,
+  },
+  tableCellRationale: {
+    fontSize: 8.6,
+    color: "#475569",
     lineHeight: 1.45,
+  },
+
+  caveatBox: {
+    marginTop: 14,
+    padding: 11,
+    border: "1 solid #e2e8f0",
+    borderRadius: 8,
+    backgroundColor: "#f8fafc",
+  },
+  caveatTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginBottom: 5,
+  },
+  caveatText: {
+    fontSize: 9,
+    color: "#475569",
+    lineHeight: 1.5,
   },
 
   footer: {
     position: "absolute",
-    left: 32,
-    right: 32,
-    bottom: 16,
+    left: 34,
+    right: 34,
+    bottom: 18,
     paddingTop: 8,
     borderTop: "1 solid #e2e8f0",
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
   },
   footerText: {
-    fontSize: 8.5,
-    color: "#94a3b8",
+    fontSize: 8,
+    color: "#64748b",
+  },
+  pageNumber: {
+    fontSize: 8,
+    color: "#64748b",
   },
 });
-
-function renderMetricGrid(items: ClearPathReportData["headlineMetrics"]) {
-  return (
-    <View style={styles.metricGrid}>
-      {items.map((item) => (
-        <View key={item.label} style={styles.metricCard}>
-          <Text style={styles.metricLabel}>{item.label}</Text>
-          <Text style={styles.metricValue}>{item.value}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
 
 function renderInfoRows(
   items: Array<{ label: string; value: string; note?: string }>,
@@ -335,22 +320,49 @@ function renderInfoRows(
   });
 }
 
-function renderNarrativeBlocks(
-  items: ClearPathReportData["plainEnglishResults"],
-) {
-  return items.map((item, index) => (
-    <View key={`${item.title ?? "result"}-${index}`} style={styles.bulletRow}>
-      <Text style={styles.bullet}>•</Text>
-      <View style={{ flexGrow: 1 }}>
-        {item.title ? <Text style={styles.rowLabel}>{item.title}</Text> : null}
-        <Text style={styles.bulletText}>{item.body}</Text>
-      </View>
+function renderMetricCards(items: Array<{ label: string; value: string }>) {
+  return (
+    <View style={styles.metricsGrid}>
+      {items.map((item, index) => {
+        const cardStyle =
+          index % 2 === 1 ? styles.metricCardAlt : styles.metricCard;
+
+        return (
+          <View key={item.label} style={cardStyle}>
+            <Text style={styles.metricLabel}>{item.label}</Text>
+            <Text style={styles.metricValue}>{item.value}</Text>
+          </View>
+        );
+      })}
     </View>
-  ));
+  );
+}
+
+function renderBulletBlocks(
+  items: Array<string> | Array<{ body: string }>,
+) {
+  return (
+    <View style={styles.bulletBlock}>
+      {items.map((item, index) => {
+        const body = typeof item === "string" ? item : item.body;
+
+        return (
+          <View key={`${body}-${index}`} style={styles.bulletRow}>
+            <Text style={styles.bulletDot}>•</Text>
+            <Text style={styles.bulletText}>{body}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
 }
 
 function renderAssumptionTable(
-  rows: Array<{ assumption: string; value: string; rationale: string }>,
+  rows: Array<{
+    assumption: string;
+    value: string;
+    rationale: string;
+  }>,
 ) {
   return (
     <View style={styles.table}>
@@ -373,17 +385,29 @@ function renderAssumptionTable(
         return (
           <View key={`${row.assumption}-${index}`} style={rowStyle}>
             <View style={styles.colAssumption}>
-              <Text style={styles.tableTextStrong}>{row.assumption}</Text>
+              <Text style={styles.tableCellLabel}>{row.assumption}</Text>
             </View>
             <View style={styles.colValue}>
-              <Text style={styles.tableText}>{row.value}</Text>
+              <Text style={styles.tableCellValue}>{row.value}</Text>
             </View>
             <View style={styles.colRationale}>
-              <Text style={styles.tableText}>{row.rationale}</Text>
+              <Text style={styles.tableCellRationale}>{row.rationale}</Text>
             </View>
           </View>
         );
       })}
+    </View>
+  );
+}
+
+function Footer() {
+  return (
+    <View style={styles.footer} fixed>
+      <Text style={styles.footerText}>Health Economics Scenario Lab · ClearPath</Text>
+      <Text
+        style={styles.pageNumber}
+        render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+      />
     </View>
   );
 }
@@ -399,12 +423,7 @@ export function ClearPathReportDocument({
             <Text style={styles.title}>
               Decision brief on the potential value of earlier diagnosis
             </Text>
-            <Text style={styles.subtitle}>
-              Structured export from ClearPath exploring whether earlier
-              diagnosis could reduce emergency pathway pressure, admissions, bed
-              use, and downstream economic burden under the selected
-              assumptions.
-            </Text>
+            <Text style={styles.subtitle}>{data.cover.subtitle}</Text>
             <Text style={styles.metaLine}>
               Generated: {data.cover.generatedAt}
             </Text>
@@ -414,115 +433,83 @@ export function ClearPathReportDocument({
             <Text style={styles.moduleLabel}>Module</Text>
             <Text style={styles.moduleName}>{data.cover.module}</Text>
             <Text style={styles.appName}>ClearPath</Text>
-            {LOGO_SRC ? (
-              // eslint-disable-next-line jsx-a11y/alt-text
-              <PdfImage src={LOGO_SRC} style={styles.logo} alt="" />
-            ) : null}
           </View>
         </View>
 
-        <View style={styles.useNoteBox}>
-          <Text style={styles.useNoteTitle}>Caveats and use note</Text>
-          <Text style={styles.useNoteText}>{data.caveats.useNote}</Text>
+        <View style={styles.caveatBox}>
+          <Text style={styles.caveatTitle}>Caveats and use note</Text>
+          <Text style={styles.caveatText}>{data.caveats.useNote}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Executive summary</Text>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Overview</Text>
-            <Text style={styles.summaryCardValue}>
+          <View style={styles.executiveSummaryBox}>
+            <Text style={styles.executiveSummaryLead}>
               {data.executiveSummary.overview}
             </Text>
-          </View>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Overall signal</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.executiveSummary.overallSignal}
-            </Text>
-          </View>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>What the model suggests</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.executiveSummary.whatModelSuggests}
-            </Text>
-          </View>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Main dependency</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.executiveSummary.mainDependency}
-            </Text>
-          </View>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Main fragility</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.executiveSummary.mainFragility}
-            </Text>
-          </View>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Best next step</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.executiveSummary.bestNextStep}
-            </Text>
+            {renderInfoRows([
+              {
+                label: "Overall signal",
+                value: data.executiveSummary.overallSignal,
+              },
+              {
+                label: "What the model suggests",
+                value: data.executiveSummary.whatModelSuggests,
+              },
+              {
+                label: "Main dependency",
+                value: data.executiveSummary.mainDependency,
+              },
+              {
+                label: "Main fragility",
+                value: data.executiveSummary.mainFragility,
+              },
+              {
+                label: "Best next step",
+                value: data.executiveSummary.bestNextStep,
+              },
+            ])}
           </View>
         </View>
 
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>Health Economics Scenario Lab</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Page ${pageNumber} of ${totalPages}`
-            }
-          />
-        </View>
+        <Footer />
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Purpose of this run</Text>
           <Text style={styles.paragraph}>{data.purpose.question}</Text>
-          <Text style={[styles.paragraph, { marginTop: 6 }]}>
+          <Text style={[styles.paragraph, { marginTop: 8 }]}>
             {data.purpose.context}
           </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Scenario being explored</Text>
-
-          <Text style={styles.subSectionTitle}>Intervention concept</Text>
-          <Text style={styles.paragraph}>
-            {data.scenario.interventionConcept}
-          </Text>
-
-          <Text style={styles.subSectionTitle}>
-            Target population and pathway logic
-          </Text>
-          <Text style={styles.paragraph}>
-            {data.scenario.targetPopulationLogic}
-          </Text>
-
-          <Text style={styles.subSectionTitle}>Economic mechanism</Text>
-          <Text style={styles.paragraph}>
-            {data.scenario.economicMechanism}
-          </Text>
+          {renderInfoRows([
+            {
+              label: "Intervention concept",
+              value: data.scenario.interventionConcept,
+            },
+            {
+              label: "Target population and pathway logic",
+              value: data.scenario.targetPopulationLogic,
+            },
+            {
+              label: "Economic mechanism",
+              value: data.scenario.economicMechanism,
+            },
+          ])}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
-          {renderMetricGrid(data.headlineMetrics)}
+          {renderMetricCards(data.headlineMetrics)}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Key results in plain English</Text>
-          <View style={styles.bulletList}>
-            {renderNarrativeBlocks(data.plainEnglishResults)}
-          </View>
+          {renderBulletBlocks(data.plainEnglishResults)}
         </View>
 
         <View style={styles.section}>
@@ -531,51 +518,42 @@ export function ClearPathReportDocument({
             {data.uncertaintyAndSensitivity.robustnessSummary}
           </Text>
 
-          <View style={{ marginTop: 8 }}>
-            {renderInfoRows(data.uncertaintyAndSensitivity.uncertaintyRows)}
+          <View style={[styles.sectionTight, { marginTop: 10 }]}>
+            {renderInfoRows(
+              data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
+                label: row.label,
+                value: row.value,
+                note: row.note,
+              })),
+            )}
           </View>
 
-          <Text style={styles.subSectionTitle}>Sensitivity summary</Text>
-          <View style={styles.bulletList}>
-            {data.uncertaintyAndSensitivity.sensitivitySummary.map(
-              (item, index) => (
-                <View key={`sensitivity-${index}`} style={styles.bulletRow}>
-                  <Text style={styles.bullet}>•</Text>
-                  <Text style={styles.bulletText}>{item}</Text>
-                </View>
-              ),
-            )}
+          <View style={[styles.sectionTight, { marginTop: 12 }]}>
+            <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
+            {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Scenario and comparator interpretation
-          </Text>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Scenario interpretation</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.scenarioAndComparator.scenarioSummary}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Stronger scenario pattern</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.scenarioAndComparator.strongestScenario}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Weaker scenario pattern</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.scenarioAndComparator.weakestScenario}
-            </Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryCardLabel}>Comparator readout</Text>
-            <Text style={styles.summaryCardValue}>
-              {data.scenarioAndComparator.comparatorSummary}
-            </Text>
-          </View>
+          <Text style={styles.sectionTitle}>Scenario and comparator interpretation</Text>
+          {renderInfoRows([
+            {
+              label: "Scenario readout",
+              value: data.scenarioAndComparator.scenarioSummary,
+            },
+            {
+              label: "Strongest scenario pattern",
+              value: data.scenarioAndComparator.strongestScenario,
+            },
+            {
+              label: "Weakest or most fragile scenario pattern",
+              value: data.scenarioAndComparator.weakestScenario,
+            },
+            {
+              label: "Comparator implication",
+              value: data.scenarioAndComparator.comparatorSummary,
+            },
+          ])}
         </View>
 
         <View style={styles.section}>
@@ -602,46 +580,30 @@ export function ClearPathReportDocument({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Local evidence needed next</Text>
-          <View style={styles.bulletList}>
-            {data.localEvidenceNeeded.items.map((item, index) => (
-              <View key={`local-evidence-${index}`} style={styles.bulletRow}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.bulletText}>{item}</Text>
-              </View>
-            ))}
-          </View>
+          {renderBulletBlocks(data.localEvidenceNeeded.items)}
         </View>
 
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>Health Economics Scenario Lab</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Page ${pageNumber} of ${totalPages}`
-            }
-          />
-        </View>
+        <Footer />
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <Text style={styles.assumptionsPageTitle}>Assumptions</Text>
+        <View style={styles.sectionTight}>
+          <Text style={styles.sectionTitle}>Assumptions</Text>
+          <Text style={styles.assumptionsIntro}>
+            The following assumptions define the current scenario run. They shape
+            the size of the pathway effect, the scale of any economic benefit, and
+            the strength of the decision signal.
+          </Text>
 
-        {data.assumptions.sections.map((section) => (
-          <View key={section.title} style={styles.section}>
-            <Text style={styles.subSectionTitle}>{section.title}</Text>
-            {renderAssumptionTable(section.rows)}
-          </View>
-        ))}
-
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>Health Economics Scenario Lab</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Page ${pageNumber} of ${totalPages}`
-            }
-          />
+          {data.assumptions.sections.map((section) => (
+            <View key={section.title}>
+              <Text style={styles.subSectionTitle}>{section.title}</Text>
+              {renderAssumptionTable(section.rows)}
+            </View>
+          ))}
         </View>
+
+        <Footer />
       </Page>
     </Document>
   );
