@@ -1,4 +1,3 @@
-
 import {
   Document,
   Page,
@@ -57,58 +56,58 @@ const styles = StyleSheet.create({
     width: "68%",
   },
   moduleLabel: {
-    fontSize: 8,
-    color: "#64748b",
+    fontSize: 7.5,
+    color: "#94a3b8",
     textTransform: "uppercase",
-    marginBottom: 4,
+    marginBottom: 3,
     letterSpacing: 0.6,
   },
   moduleName: {
-    fontSize: 10.5,
-    color: "#0f172a",
+    fontSize: 9.8,
+    color: "#334155",
     fontWeight: 700,
     textAlign: "right",
-    lineHeight: 1.35,
+    lineHeight: 1.3,
   },
 
   title: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: 700,
     color: "#0f172a",
-    lineHeight: 1.2,
-    marginBottom: 6,
+    lineHeight: 1.18,
+    marginBottom: 5,
   },
   subtitle: {
-    fontSize: 10.5,
+    fontSize: 10,
     color: "#475569",
-    lineHeight: 1.45,
-    marginBottom: 8,
-    maxWidth: "95%",
+    lineHeight: 1.42,
+    marginBottom: 7,
+    maxWidth: "92%",
   },
   metaLine: {
-    fontSize: 8.5,
+    fontSize: 8.2,
     color: "#64748b",
-    lineHeight: 1.4,
+    lineHeight: 1.35,
   },
 
   section: {
-    marginTop: 16,
+    marginTop: 15,
   },
   sectionTight: {
-    marginTop: 12,
+    marginTop: 10,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 11.6,
     fontWeight: 700,
     color: "#0f172a",
-    marginBottom: 8,
+    marginBottom: 7,
   },
   subSectionTitle: {
-    fontSize: 10,
+    fontSize: 9.6,
     fontWeight: 700,
-    color: "#0f172a",
-    marginTop: 12,
-    marginBottom: 8,
+    color: "#334155",
+    marginTop: 11,
+    marginBottom: 7,
   },
   paragraph: {
     fontSize: 10,
@@ -170,22 +169,22 @@ const styles = StyleSheet.create({
     width: "48%",
     border: "1 solid #cbd5e1",
     borderRadius: 8,
-    padding: 10,
+    padding: 9,
     backgroundColor: "#ffffff",
-    minHeight: 74,
+    minHeight: 68,
   },
   metricLabel: {
-    fontSize: 8.6,
+    fontSize: 8.1,
     color: "#64748b",
     textTransform: "uppercase",
-    marginBottom: 5,
-    lineHeight: 1.3,
+    marginBottom: 4,
+    lineHeight: 1.25,
   },
   metricValue: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: 700,
     color: "#0f172a",
-    lineHeight: 1.3,
+    lineHeight: 1.25,
   },
 
   bulletBlock: {
@@ -210,9 +209,9 @@ const styles = StyleSheet.create({
   },
 
   assumptionsIntro: {
-    fontSize: 9.5,
+    fontSize: 9.2,
     color: "#475569",
-    lineHeight: 1.5,
+    lineHeight: 1.45,
     marginBottom: 10,
   },
 
@@ -271,28 +270,28 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
   },
   tableCellRationale: {
-    fontSize: 8.6,
+    fontSize: 8.3,
     color: "#475569",
-    lineHeight: 1.45,
+    lineHeight: 1.4,
   },
 
   caveatBox: {
-    marginTop: 14,
-    padding: 11,
+    marginTop: 12,
+    padding: 9,
     border: "1 solid #e2e8f0",
     borderRadius: 8,
     backgroundColor: "#f8fafc",
   },
   caveatTitle: {
-    fontSize: 10,
+    fontSize: 9.4,
     fontWeight: 700,
     color: "#0f172a",
-    marginBottom: 5,
+    marginBottom: 4,
   },
   caveatText: {
-    fontSize: 9,
+    fontSize: 8.7,
     color: "#475569",
-    lineHeight: 1.5,
+    lineHeight: 1.45,
   },
 
   footer: {
@@ -423,11 +422,7 @@ function renderAssumptionTable(
   );
 }
 
-function RepeatingHeader({
-  module,
-}: {
-  module: string;
-}) {
+function RepeatingHeader({ module }: { module: string }) {
   return (
     <View style={styles.header} fixed>
       <View style={styles.headerSpacer} />
@@ -474,7 +469,7 @@ export function ClearPathReportDocument({
         </View>
 
         <View style={styles.caveatBox}>
-          <Text style={styles.caveatTitle}>Caveats and use note</Text>
+          <Text style={styles.caveatTitle}>Scope and use note</Text>
           <Text style={styles.caveatText}>{data.caveats.useNote}</Text>
         </View>
 
@@ -516,7 +511,7 @@ export function ClearPathReportDocument({
         <RepeatingHeader module={data.cover.module} />
 
         <View style={styles.sectionTight}>
-          <Text style={styles.sectionTitle}>Purpose of this run</Text>
+          <Text style={styles.sectionTitle}>Question explored</Text>
           <Text style={styles.paragraph}>{data.purpose.question}</Text>
           <Text style={[styles.paragraph, { marginTop: 8 }]}>
             {data.purpose.context}
@@ -524,7 +519,7 @@ export function ClearPathReportDocument({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Scenario being explored</Text>
+          <Text style={styles.sectionTitle}>Scenario framing</Text>
           {renderInfoRows([
             {
               label: "Intervention concept",
@@ -546,7 +541,7 @@ export function ClearPathReportDocument({
           {renderMetricCards(data.headlineMetrics)}
         </View>
 
-        <View style={styles.section} break>
+        <View style={styles.sectionTight} break>
           <Text style={styles.sectionTitle}>Key results in plain English</Text>
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
