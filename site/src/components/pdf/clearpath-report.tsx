@@ -286,19 +286,19 @@ function renderMetricCards(
 ) {
   return (
     <View style={styles.metricsGrid}>
-      {metrics.map((item, index) => {
-        const metricCardStyles = [styles.metricCard];
-        if (index % 2 === 1) {
-          metricCardStyles.push(styles.metricCardAlt);
-        }
-
-        return (
-          <View key={item.label} style={metricCardStyles}>
-            <Text style={styles.metricLabel}>{item.label}</Text>
-            <Text style={styles.metricValue}>{item.value}</Text>
-          </View>
-        );
-      })}
+      {metrics.map((item, index) => (
+        <View
+          key={item.label}
+          style={
+            index % 2 === 1
+              ? [styles.metricCard, styles.metricCardAlt]
+              : styles.metricCard
+          }
+        >
+          <Text style={styles.metricLabel}>{item.label}</Text>
+          <Text style={styles.metricValue}>{item.value}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -321,19 +321,19 @@ function renderInfoRows(
 ) {
   return (
     <View>
-      {items.map((item, index) => {
-        const infoRowStyles = [styles.infoRow];
-        if (index === items.length - 1) {
-          infoRowStyles.push(styles.infoRowLast);
-        }
-
-        return (
-          <View key={`${item.label}-${index}`} style={infoRowStyles}>
-            <Text style={styles.rowLabel}>{item.label}</Text>
-            <Text style={styles.rowValue}>{item.value}</Text>
-          </View>
-        );
-      })}
+      {items.map((item, index) => (
+        <View
+          key={`${item.label}-${index}`}
+          style={
+            index === items.length - 1
+              ? [styles.infoRow, styles.infoRowLast]
+              : styles.infoRow
+          }
+        >
+          <Text style={styles.rowLabel}>{item.label}</Text>
+          <Text style={styles.rowValue}>{item.value}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -343,20 +343,20 @@ function renderUncertaintyRows(
 ) {
   return (
     <View>
-      {items.map((item, index) => {
-        const uncertaintyRowStyles = [styles.infoRow];
-        if (index === items.length - 1) {
-          uncertaintyRowStyles.push(styles.infoRowLast);
-        }
-
-        return (
-          <View key={`${item.label}-${index}`} style={uncertaintyRowStyles}>
-            <Text style={styles.rowLabel}>{item.label}</Text>
-            <Text style={styles.rowValue}>{item.value}</Text>
-            <Text style={styles.rowNote}>{item.note}</Text>
-          </View>
-        );
-      })}
+      {items.map((item, index) => (
+        <View
+          key={`${item.label}-${index}`}
+          style={
+            index === items.length - 1
+              ? [styles.infoRow, styles.infoRowLast]
+              : styles.infoRow
+          }
+        >
+          <Text style={styles.rowLabel}>{item.label}</Text>
+          <Text style={styles.rowValue}>{item.value}</Text>
+          <Text style={styles.rowNote}>{item.note}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -382,29 +382,26 @@ function renderAssumptionTable(
         </View>
       </View>
 
-      {rows.map((row, index) => {
-        const tableRowStyles = [styles.tableRow];
-        if (index === rows.length - 1) {
-          tableRowStyles.push(styles.tableRowLast);
-        }
-
-        return (
-          <View
-            key={`${row.assumption}-${index}`}
-            style={tableRowStyles}
-          >
-            <View style={styles.colAssumption}>
-              <Text style={styles.tableCellLabel}>{row.assumption}</Text>
-            </View>
-            <View style={styles.colValue}>
-              <Text style={styles.tableCellValue}>{row.value}</Text>
-            </View>
-            <View style={styles.colRationale}>
-              <Text style={styles.tableCellRationale}>{row.rationale}</Text>
-            </View>
+      {rows.map((row, index) => (
+        <View
+          key={`${row.assumption}-${index}`}
+          style={
+            index === rows.length - 1
+              ? [styles.tableRow, styles.tableRowLast]
+              : styles.tableRow
+          }
+        >
+          <View style={styles.colAssumption}>
+            <Text style={styles.tableCellLabel}>{row.assumption}</Text>
           </View>
-        );
-      })}
+          <View style={styles.colValue}>
+            <Text style={styles.tableCellValue}>{row.value}</Text>
+          </View>
+          <View style={styles.colRationale}>
+            <Text style={styles.tableCellRationale}>{row.rationale}</Text>
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
