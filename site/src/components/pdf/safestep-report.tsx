@@ -658,7 +658,7 @@ export function SafeStepReportDocument({
           {data.assumptions.sections.map((section) => (
             <View
               key={section.title}
-              break={section.title === "Cost assumptions"}
+              break={section.title === "Pathway assumptions"}
             >
               <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
