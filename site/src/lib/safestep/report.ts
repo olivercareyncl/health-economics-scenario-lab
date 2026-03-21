@@ -202,15 +202,6 @@ function getMainDriverText(inputs: SafeStepInputs) {
   return candidates[0]?.label ?? "the core programme assumptions";
 }
 
-function getCaseType(inputs: SafeStepInputs): string {
-  if (inputs.targeting_mode === "Universal") return "Broad prevention case";
-  if (inputs.targeting_mode === "High-risk only")
-    return "High-risk intervention case";
-  if (inputs.intervention_cost_per_person >= 220)
-    return "Higher-cost delivery case";
-  return "Risk-targeted prevention case";
-}
-
 function buildOverview(
   inputs: SafeStepInputs,
   results: SafeStepModelResults,
@@ -219,7 +210,7 @@ function buildOverview(
   const netCostLabel = getNetCostLabel(results);
   const signalLabel = getSignalLabel(decisionStatus).toLowerCase();
 
-  return `This ${getCaseType(inputs).toLowerCase()} suggests that a falls prevention programme could avoid ${formatNumber(
+  return `This falls prevention scenario suggests that the programme could avoid ${formatNumber(
     results.falls_avoided_total,
   )} falls and ${formatNumber(
     results.admissions_avoided_total,
@@ -253,7 +244,6 @@ function buildWhatModelSuggests(
 }
 
 function buildFragilityText(
-  inputs: SafeStepInputs,
   uncertainty: SafeStepUncertaintyRow[],
 ) {
   const low = uncertainty.find((row) => row.case === "Low");
@@ -326,7 +316,9 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current signal appears ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to effect size, participation, and delivery cost.`,
+      body: decisionStatus === "Above current threshold"
+        ? "Taken together, the current signal remains above the current threshold. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to effect size, participation, and delivery cost."
+        : `Taken together, the current signal remains ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to effect size, participation, and delivery cost.`,
     },
   ];
 }
@@ -416,7 +408,9 @@ function buildAssumptionSections(inputs: SafeStepInputs): ReportTableSection[] {
         },
         {
           assumption: "Average length of stay",
-          value: formatNumber(inputs.average_length_of_stay),
+          value: `${Number(inputs.average_length_of_stay).toFixed(
+            Number.isInteger(inputs.average_length_of_stay) ? 0 : 1,
+          )} days`,
           rationale:
             "Converts avoided admissions into avoided bed use and downstream hospital pressure.",
         },
@@ -462,7 +456,7 @@ function buildAssumptionSections(inputs: SafeStepInputs): ReportTableSection[] {
         },
         {
           assumption: "Discount rate",
-          value: formatPercent(inputs.discount_rate),
+          value: `${(inputs.discount_rate * 100).toFixed(1)}%`,
           rationale:
             "Adjusts future costs and benefits into present-value terms and therefore affects the reported economic signal.",
         },
@@ -483,7 +477,7 @@ export function buildSafeStepReportData({
   );
   const overallSignal = getSignalLabel(decisionStatus);
   const mainDriver = getMainDriverText(inputs);
-  const fragilityText = buildFragilityText(inputs, uncertainty);
+  const fragilityText = buildFragilityText(uncertainty);
 
   return {
     cover: {
@@ -503,7 +497,7 @@ export function buildSafeStepReportData({
       overview: buildOverview(inputs, results, decisionStatus),
       overallSignal,
       whatModelSuggests: buildWhatModelSuggests(results, inputs),
-      mainDependency: `The result is mainly driven by ${mainDriver}, along with the realism of uptake, adherence, and delivery cost.`,
+      mainDependency: `The result is mainly driven by ${mainDriver}, delivery cost, and programme participation.`,
       mainFragility: fragilityText,
       bestNextStep:
         "Validate local fall risk, realistic programme participation, likely implementation cost, and the share of falls that genuinely translate into avoided admissions and bed use.",
