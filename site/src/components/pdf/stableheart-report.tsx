@@ -598,12 +598,6 @@ export function StableHeartReportDocument({
           ])}
         </View>
 
-        <Footer />
-      </Page>
-
-      <Page size="A4" style={styles.page}>
-        <RepeatingHeader module={data.cover.module} />
-
         <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Decision implications</Text>
           {renderInfoRows([
