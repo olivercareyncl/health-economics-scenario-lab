@@ -315,7 +315,7 @@ function buildAssumptionSections(
       rows: [
         {
           assumption: "QALY gain per case shifted earlier",
-          value: formatNumber(inputs.qaly_gain_per_case_shifted),
+          value: inputs.qaly_gain_per_case_shifted.toFixed(2),
           rationale:
             "Determines how much health gain is attributed to each case shifted earlier and therefore strongly influences cost per QALY.",
         },
