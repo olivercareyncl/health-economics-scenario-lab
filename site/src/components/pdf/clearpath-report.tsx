@@ -13,61 +13,75 @@ type ClearPathReportDocumentProps = {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 28,
+    paddingTop: 34,
     paddingBottom: 28,
-    paddingHorizontal: 30,
+    paddingHorizontal: 32,
     fontSize: 10,
     color: "#0f172a",
     lineHeight: 1.45,
   },
 
-  title: {
-    fontSize: 20,
-    marginBottom: 4,
-    fontWeight: 700,
-  },
-  subtitle: {
-    fontSize: 11,
-    marginBottom: 3,
-    color: "#475569",
-  },
-  metaLine: {
-    fontSize: 9,
-    color: "#64748b",
-    marginBottom: 2,
+  coverPage: {
+    paddingTop: 42,
+    paddingBottom: 28,
+    paddingHorizontal: 32,
+    fontSize: 10,
+    color: "#0f172a",
+    lineHeight: 1.45,
   },
 
-  signalBox: {
-    marginTop: 10,
-    padding: 10,
-    border: "1 solid #cbd5e1",
-    borderRadius: 6,
-    backgroundColor: "#f8fafc",
-  },
-  signalLabel: {
-    fontSize: 9,
+  coverKicker: {
+    fontSize: 10,
     color: "#64748b",
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  coverTitle: {
+    fontSize: 26,
+    fontWeight: 700,
+    marginBottom: 6,
+  },
+  coverReportTitle: {
+    fontSize: 15,
+    fontWeight: 700,
     marginBottom: 4,
   },
-  signalValue: {
-    fontSize: 13,
+  coverSubtitle: {
+    fontSize: 11,
+    color: "#475569",
+    marginBottom: 12,
+    lineHeight: 1.5,
+  },
+  coverMeta: {
+    fontSize: 9,
+    color: "#64748b",
+    marginBottom: 3,
+  },
+  coverSignalWrap: {
+    marginTop: 14,
+    paddingTop: 10,
+    borderTop: "1 solid #cbd5e1",
+  },
+  coverSignalLabel: {
+    fontSize: 9,
+    color: "#64748b",
+    marginBottom: 3,
+  },
+  coverSignalValue: {
+    fontSize: 14,
     fontWeight: 700,
     marginBottom: 2,
   },
-  signalPill: {
-    marginTop: 4,
-    alignSelf: "flex-start",
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 999,
-    border: "1 solid #cbd5e1",
-    backgroundColor: "#ffffff",
+  coverSignalSubtle: {
     fontSize: 9,
-    color: "#334155",
+    color: "#475569",
   },
 
   section: {
-    marginTop: 16,
+    marginTop: 18,
+  },
+  sectionCompact: {
+    marginTop: 14,
   },
   sectionTitle: {
     fontSize: 12,
@@ -81,8 +95,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     color: "#0f172a",
   },
+
   paragraph: {
-    lineHeight: 1.5,
+    lineHeight: 1.55,
     color: "#334155",
   },
 
@@ -110,22 +125,6 @@ const styles = StyleSheet.create({
     fontWeight: 700,
   },
 
-  narrativeBlock: {
-    borderBottom: "1 solid #e2e8f0",
-    paddingBottom: 6,
-    marginBottom: 8,
-  },
-  narrativeBlockLast: {
-    paddingBottom: 0,
-    marginBottom: 0,
-    borderBottom: "0 solid #ffffff",
-  },
-  narrativeTitle: {
-    fontSize: 10,
-    fontWeight: 700,
-    marginBottom: 3,
-  },
-
   infoRow: {
     borderBottom: "1 solid #e2e8f0",
     paddingBottom: 6,
@@ -144,12 +143,29 @@ const styles = StyleSheet.create({
   rowValue: {
     fontSize: 10,
     color: "#334155",
+    lineHeight: 1.45,
   },
   rowNote: {
     fontSize: 9,
     color: "#64748b",
     marginTop: 2,
     lineHeight: 1.4,
+  },
+
+  narrativeBlock: {
+    borderBottom: "1 solid #e2e8f0",
+    paddingBottom: 7,
+    marginBottom: 9,
+  },
+  narrativeBlockLast: {
+    paddingBottom: 0,
+    marginBottom: 0,
+    borderBottom: "0 solid #ffffff",
+  },
+  narrativeTitle: {
+    fontSize: 10,
+    fontWeight: 700,
+    marginBottom: 3,
   },
 
   table: {
@@ -217,7 +233,7 @@ const styles = StyleSheet.create({
   },
 
   caveatBox: {
-    marginTop: 16,
+    marginTop: 14,
     padding: 10,
     border: "1 solid #e2e8f0",
     borderRadius: 6,
@@ -232,8 +248,8 @@ const styles = StyleSheet.create({
   footer: {
     position: "absolute",
     bottom: 14,
-    left: 30,
-    right: 30,
+    left: 32,
+    right: 32,
     fontSize: 8,
     color: "#94a3b8",
     textAlign: "center",
@@ -267,7 +283,11 @@ function InfoRows({
       {items.map((item, index) => (
         <View
           key={item.label}
-          style={index === items.length - 1 ? [styles.infoRow, styles.infoRowLast] : styles.infoRow}
+          style={
+            index === items.length - 1
+              ? [styles.infoRow, styles.infoRowLast]
+              : styles.infoRow
+          }
         >
           <Text style={styles.rowLabel}>{item.label}</Text>
           <Text style={styles.rowValue}>{item.value}</Text>
@@ -309,7 +329,11 @@ function AssumptionTable({
         {rows.map((row, index) => (
           <View
             key={`${title}-${row.assumption}`}
-            style={index === rows.length - 1 ? [styles.tableRow, styles.tableRowLast] : styles.tableRow}
+            style={
+              index === rows.length - 1
+                ? [styles.tableRow, styles.tableRowLast]
+                : styles.tableRow
+            }
           >
             <View style={[styles.tableCell, styles.colAssumption]}>
               <Text>{row.assumption}</Text>
@@ -332,16 +356,24 @@ export function ClearPathReportDocument({
 }: ClearPathReportDocumentProps) {
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>{data.cover.title}</Text>
-        <Text style={styles.subtitle}>{data.cover.subtitle}</Text>
-        <Text style={styles.metaLine}>{data.cover.module}</Text>
-        <Text style={styles.metaLine}>Generated: {data.cover.generatedAt}</Text>
+      <Page size="A4" style={styles.coverPage}>
+        <Text style={styles.coverKicker}>{data.cover.module}</Text>
+        <Text style={styles.coverTitle}>ClearPath</Text>
+        <Text style={styles.coverReportTitle}>Scenario briefing note</Text>
+        <Text style={styles.coverSubtitle}>
+          Exploratory health economic assessment of whether earlier diagnosis could
+          reduce downstream emergency pressure, hospital activity, and economic
+          burden under the selected assumptions.
+        </Text>
 
-        <View style={styles.signalBox}>
-          <Text style={styles.signalLabel}>{data.cover.signalLabel}</Text>
-          <Text style={styles.signalValue}>{data.cover.decisionStatus}</Text>
-          <Text style={styles.signalPill}>Decision brief export</Text>
+        <Text style={styles.coverMeta}>Generated: {data.cover.generatedAt}</Text>
+
+        <View style={styles.coverSignalWrap}>
+          <Text style={styles.coverSignalLabel}>Current signal</Text>
+          <Text style={styles.coverSignalValue}>{data.cover.signalLabel}</Text>
+          <Text style={styles.coverSignalSubtle}>
+            {data.cover.decisionStatus}
+          </Text>
         </View>
 
         <View style={styles.section}>
@@ -385,12 +417,12 @@ export function ClearPathReportDocument({
         </View>
 
         <Text style={styles.footer}>
-          {data.cover.module} · {data.cover.title} · 1
+          {data.cover.module} · ClearPath scenario briefing note · 1
         </Text>
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
+        <View style={styles.sectionCompact}>
           <Text style={styles.sectionTitle}>Scenario being explored</Text>
 
           <View style={styles.narrativeBlock}>
@@ -442,12 +474,12 @@ export function ClearPathReportDocument({
         </View>
 
         <Text style={styles.footer}>
-          {data.cover.module} · {data.cover.title} · 2
+          {data.cover.module} · ClearPath scenario briefing note · 2
         </Text>
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
+        <View style={styles.sectionCompact}>
           <Text style={styles.sectionTitle}>Decision implications</Text>
           <InfoRows
             items={[
@@ -525,12 +557,12 @@ export function ClearPathReportDocument({
         </View>
 
         <Text style={styles.footer}>
-          {data.cover.module} · {data.cover.title} · 3
+          {data.cover.module} · ClearPath scenario briefing note · 3
         </Text>
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
+        <View style={styles.sectionCompact}>
           <Text style={styles.sectionTitle}>Local evidence needed next</Text>
           <View style={styles.bulletList}>
             {data.localEvidenceNeeded.items.map((item, index) => (
@@ -540,6 +572,11 @@ export function ClearPathReportDocument({
               </View>
             ))}
           </View>
+        </View>
+
+        <View style={styles.caveatBox}>
+          <Text style={styles.sectionTitle}>Caveats and use note</Text>
+          <Text style={styles.caveatText}>{data.caveats.useNote}</Text>
         </View>
 
         <View style={styles.section}>
@@ -554,12 +591,12 @@ export function ClearPathReportDocument({
         </View>
 
         <Text style={styles.footer}>
-          {data.cover.module} · {data.cover.title} · 4
+          {data.cover.module} · ClearPath scenario briefing note · 4
         </Text>
       </Page>
 
       <Page size="A4" style={styles.page}>
-        <View style={styles.section}>
+        <View style={styles.sectionCompact}>
           <Text style={styles.sectionTitle}>Assumptions used</Text>
           {data.assumptions.sections.slice(2).map((section) => (
             <AssumptionTable
@@ -570,13 +607,8 @@ export function ClearPathReportDocument({
           ))}
         </View>
 
-        <View style={styles.caveatBox}>
-          <Text style={styles.sectionTitle}>Caveats and use note</Text>
-          <Text style={styles.caveatText}>{data.caveats.useNote}</Text>
-        </View>
-
         <Text style={styles.footer}>
-          {data.cover.module} · {data.cover.title} · 5
+          {data.cover.module} · ClearPath scenario briefing note · 5
         </Text>
       </Page>
     </Document>
