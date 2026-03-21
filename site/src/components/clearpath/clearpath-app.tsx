@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useMemo, useState, type ReactNode } from "react";
 import {
   RotateCcw,
@@ -1054,6 +1053,7 @@ export default function ClearPathApp() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
   const [showComparatorDesktop, setShowComparatorDesktop] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [openSections, setOpenSections] = useState<
     Record<AssumptionSectionKey, boolean>
   >({
@@ -1155,8 +1155,39 @@ export default function ClearPathApp() {
 
   const presetDescription = CLEARPATH_PRESETS[presetMode].description;
 
-  const handleExportReport = () => {
-    console.log("Export report");
+  const handleExportReport = async () => {
+    try {
+      setIsExporting(true);
+
+      const response = await fetch("/api/export/clearpath", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ inputs }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate report");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "clearpath-report.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to export report.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
@@ -1650,10 +1681,11 @@ export default function ClearPathApp() {
         <button
           type="button"
           onClick={handleExportReport}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          disabled={isExporting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FileDown className="h-4 w-4" />
-          Export report
+          {isExporting ? "Exporting..." : "Export report"}
         </button>
       </div>
 
@@ -1683,10 +1715,11 @@ export default function ClearPathApp() {
           <button
             type="button"
             onClick={handleExportReport}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            disabled={isExporting}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FileDown className="h-4 w-4" />
-            Export report
+            {isExporting ? "Exporting..." : "Export report"}
           </button>
         </div>
       </div>
@@ -1833,10 +1866,11 @@ export default function ClearPathApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export report
+                    {isExporting ? "Exporting..." : "Export report"}
                   </button>
                 </div>
               </div>
@@ -1999,10 +2033,11 @@ export default function ClearPathApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export report
+                    {isExporting ? "Exporting..." : "Export report"}
                   </button>
                 </div>
               </div>
