@@ -29,6 +29,7 @@ import {
   buildComparatorCase,
   runBoundedUncertainty,
   runModel,
+  runParameterSensitivity,
 } from "@/lib/clearpath/calculations";
 import {
   buildCasesShiftedChartData,
@@ -58,11 +59,6 @@ import {
   TARGETING_MODE_OPTIONS,
 } from "@/lib/clearpath/scenarios";
 import {
-  buildSensitivityTakeaways,
-  runOneWaySensitivity,
-  SENSITIVITY_VARIABLES,
-} from "@/lib/clearpath/sensitivity";
-import {
   assessUncertaintyRobustness,
   generateInterpretation,
   generateOverviewSummary,
@@ -76,103 +72,34 @@ import {
 import type {
   AssumptionSectionKey,
   ComparatorOption,
+  CostingMethod,
   Inputs,
   MobileTab,
   ModelResults,
+  ParameterSensitivityRow,
   ScenarioComparisonRow,
-  SensitivityRow,
+  SensitivitySummary,
+  TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/clearpath/types";
 
-type PresetOption =
+type ScenarioPreset =
   | "Base case"
-  | "Conservative case"
-  | "Optimistic case"
-  | "High late-diagnosis burden"
-  | "High-reach case-finding"
-  | "Emergency-pressure reduction focus";
+  | "Lower-cost delivery"
+  | "Stronger shift"
+  | "Higher-risk targeting"
+  | "Tighter high-risk targeting"
+  | "Custom";
 
-type PresetDefinition = {
-  description: string;
-  apply: (defaults: Inputs) => Partial<Inputs>;
-};
-
-const PRESET_OPTIONS: readonly PresetOption[] = [
+const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
   "Base case",
-  "Conservative case",
-  "Optimistic case",
-  "High late-diagnosis burden",
-  "High-reach case-finding",
-  "Emergency-pressure reduction focus",
-];
-
-const CLEARPATH_PRESETS: Record<PresetOption, PresetDefinition> = {
-  "Base case": {
-    description: "Restores the standard earlier-diagnosis starting point.",
-    apply: () => ({}),
-  },
-  "Conservative case": {
-    description:
-      "Lower reach and smaller diagnosis shift with slightly higher delivery friction.",
-    apply: () => ({
-      intervention_reach_rate: 0.5,
-      achievable_reduction_in_late_diagnosis: 0.08,
-      intervention_cost_per_case_reached:
-        DEFAULT_INPUTS.intervention_cost_per_case_reached * 1.15,
-      effect_decay_rate: 0.12,
-      participation_dropoff_rate: 0.1,
-    }),
-  },
-  "Optimistic case": {
-    description:
-      "Higher reach and stronger pathway shift with more persistent performance.",
-    apply: () => ({
-      intervention_reach_rate: 0.78,
-      achievable_reduction_in_late_diagnosis: 0.18,
-      intervention_cost_per_case_reached:
-        DEFAULT_INPUTS.intervention_cost_per_case_reached * 0.92,
-      effect_decay_rate: 0.05,
-      participation_dropoff_rate: 0.04,
-    }),
-  },
-  "High late-diagnosis burden": {
-    description:
-      "Represents a service where later diagnosis is common and the opportunity is concentrated.",
-    apply: () => ({
-      targeting_mode: DEFAULT_INPUTS.targeting_mode,
-      current_late_diagnosis_rate: 0.52,
-      achievable_reduction_in_late_diagnosis: 0.14,
-      late_emergency_presentation_rate: 0.42,
-      early_emergency_presentation_rate: 0.16,
-      intervention_reach_rate: 0.65,
-    }),
-  },
-  "High-reach case-finding": {
-    description:
-      "Emphasises wider operational reach and stronger programme penetration.",
-    apply: () => ({
-      targeting_mode: DEFAULT_INPUTS.targeting_mode,
-      intervention_reach_rate: 0.82,
-      achievable_reduction_in_late_diagnosis: 0.13,
-      participation_dropoff_rate: 0.04,
-      effect_decay_rate: 0.05,
-    }),
-  },
-  "Emergency-pressure reduction focus": {
-    description:
-      "Pushes value toward avoided emergency presentations and acute pressure.",
-    apply: () => ({
-      achievable_reduction_in_late_diagnosis: 0.13,
-      late_emergency_presentation_rate: 0.45,
-      early_emergency_presentation_rate: 0.14,
-      admissions_per_emergency_presentation: 1.2,
-      cost_per_emergency_admission:
-        DEFAULT_INPUTS.cost_per_emergency_admission * 1.1,
-      intervention_reach_rate: 0.68,
-    }),
-  },
-};
+  "Lower-cost delivery",
+  "Stronger shift",
+  "Higher-risk targeting",
+  "Tighter high-risk targeting",
+  "Custom",
+] as const;
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -185,6 +112,217 @@ const SECTION_KICKER =
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function formatAssumptionValue(
+  formatter: typeof ASSUMPTION_META[keyof typeof ASSUMPTION_META]["formatter"],
+  value: string | number,
+) {
+  if (typeof value === "string") return value;
+
+  switch (formatter) {
+    case "percent":
+      return formatPercent(value);
+    case "currency":
+      return formatCurrency(value);
+    case "decimal1":
+      return value.toFixed(1);
+    case "decimal2":
+      return value.toFixed(2);
+    case "integer":
+      return formatNumber(Math.round(value));
+    case "number":
+      return formatNumber(value);
+    case "text":
+    default:
+      return String(value);
+  }
+}
+
+function getPresetPatch(
+  preset: Exclude<ScenarioPreset, "Custom">,
+): Partial<Inputs> {
+  switch (preset) {
+    case "Base case":
+      return { ...DEFAULT_INPUTS };
+
+    case "Lower-cost delivery":
+      return {
+        intervention_cost_per_case_reached:
+          DEFAULT_INPUTS.intervention_cost_per_case_reached * 0.8,
+        intervention_reach_rate: Math.min(
+          1,
+          DEFAULT_INPUTS.intervention_reach_rate * 1.02,
+        ),
+      };
+
+    case "Stronger shift":
+      return {
+        achievable_reduction_in_late_diagnosis: Math.min(
+          0.5,
+          DEFAULT_INPUTS.achievable_reduction_in_late_diagnosis * 1.3,
+        ),
+        effect_decay_rate: Math.max(0, DEFAULT_INPUTS.effect_decay_rate * 0.85),
+        participation_dropoff_rate: Math.max(
+          0,
+          DEFAULT_INPUTS.participation_dropoff_rate * 0.9,
+        ),
+      };
+
+    case "Higher-risk targeting":
+      return {
+        targeting_mode: "Higher-risk targeting",
+        current_late_diagnosis_rate: Math.min(
+          1,
+          DEFAULT_INPUTS.current_late_diagnosis_rate * 1.05,
+        ),
+        intervention_reach_rate: Math.min(
+          1,
+          DEFAULT_INPUTS.intervention_reach_rate * 1.03,
+        ),
+      };
+
+    case "Tighter high-risk targeting":
+      return {
+        targeting_mode: "Tighter high-risk targeting",
+        current_late_diagnosis_rate: Math.min(
+          1,
+          DEFAULT_INPUTS.current_late_diagnosis_rate * 1.08,
+        ),
+        intervention_reach_rate: Math.min(
+          1,
+          DEFAULT_INPUTS.intervention_reach_rate * 1.05,
+        ),
+      };
+  }
+}
+
+function getPresetDescription(preset: ScenarioPreset) {
+  switch (preset) {
+    case "Base case":
+      return "Neutral starting template for workshop use.";
+    case "Lower-cost delivery":
+      return "Tests whether value improves under leaner delivery.";
+    case "Stronger shift":
+      return "Tests a stronger and slightly more persistent shift to earlier diagnosis.";
+    case "Higher-risk targeting":
+      return "Focuses value into a more at-risk group with more concentrated later diagnosis.";
+    case "Tighter high-risk targeting":
+      return "Smaller, higher-opportunity group with tighter targeting logic.";
+    case "Custom":
+      return "Inputs have been edited away from a named template.";
+  }
+}
+
+function deriveCaseType(
+  preset: ScenarioPreset,
+  inputs: Inputs,
+): string {
+  if (preset !== "Custom") {
+    switch (preset) {
+      case "Base case":
+        return "Broad earlier-diagnosis case";
+      case "Lower-cost delivery":
+        return "Lower-cost delivery case";
+      case "Stronger shift":
+        return "Stronger-shift case";
+      case "Higher-risk targeting":
+        return "Higher-risk targeting case";
+      case "Tighter high-risk targeting":
+        return "Tighter high-risk targeting case";
+      default:
+        return "Current scenario case";
+    }
+  }
+
+  if (inputs.targeting_mode === "Tighter high-risk targeting") {
+    return "Tighter high-risk targeting case";
+  }
+
+  if (inputs.targeting_mode === "Higher-risk targeting") {
+    return "Higher-risk targeting case";
+  }
+
+  if (inputs.intervention_cost_per_case_reached <= 320) {
+    return "Lower-cost delivery case";
+  }
+
+  if (inputs.achievable_reduction_in_late_diagnosis >= 0.1) {
+    return "Stronger-shift case";
+  }
+
+  return "Broad earlier-diagnosis case";
+}
+
+function buildRecommendationSummary(
+  inputs: Inputs,
+  results: ModelResults,
+  uncertaintyRows: UncertaintyRow[],
+  preset: ScenarioPreset,
+  caseType: string,
+  sensitivity: SensitivitySummary,
+) {
+  const interpretation = generateInterpretation(
+    results,
+    inputs,
+    uncertaintyRows,
+    sensitivity,
+  );
+  const decisionStatus = getDecisionStatus(
+    results,
+    inputs.cost_effectiveness_threshold,
+  );
+  const baseRow = uncertaintyRows.find((row) => row.case === "Base");
+  const lowRow = uncertaintyRows.find((row) => row.case === "Low");
+  const highRow = uncertaintyRows.find((row) => row.case === "High");
+  const topDrivers = sensitivity.top_drivers;
+
+  const currentCaseSuggests =
+    decisionStatus === "Appears cost-saving"
+      ? `${caseType} currently suggests earlier diagnosis with a net saving signal.`
+      : decisionStatus === "Appears cost-effective"
+        ? `${caseType} currently suggests a plausible value case at the present threshold.`
+        : `${caseType} currently suggests pathway benefit, but the economic case remains above threshold.`;
+
+  const drivingResult =
+    topDrivers.length > 0
+      ? `The result is mainly being driven by ${topDrivers
+          .slice(0, 3)
+          .map((driver) => driver.parameter_label.toLowerCase())
+          .join(", ")}.`
+      : "The result is mainly being shaped by late diagnosis burden, achievable shift, targeting, and delivery cost.";
+
+  const fragilePoint =
+    lowRow && highRow && lowRow.decision_status !== highRow.decision_status
+      ? topDrivers.length > 0
+        ? `The bounded range crosses decision categories, and one-way sensitivity suggests the case is particularly exposed to ${topDrivers[0].parameter_label.toLowerCase()}.`
+        : "The bounded range crosses decision categories, so moderate assumption shifts could change the conclusion."
+      : interpretation.what_looks_fragile;
+
+  const validateNext =
+    baseRow &&
+    baseRow.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
+      ? topDrivers.length > 0
+        ? `Validate local ${topDrivers[0].parameter_label.toLowerCase()}${
+            topDrivers[1]
+              ? ` and ${topDrivers[1].parameter_label.toLowerCase()}`
+              : ""
+          } before treating the case as decision-ready.`
+        : "Validate local shift size, likely delivery cost, and pathway assumptions before treating the case as decision-ready."
+      : interpretation.what_to_validate_next;
+
+  const recommendationLine =
+    preset === "Custom"
+      ? "This is currently a custom setup. Use the named templates to benchmark whether the current setup is unusually strict or favourable."
+      : `This is currently framed as a ${caseType.toLowerCase()}. Use comparator mode to judge whether a nearby alternative looks materially stronger.`;
+
+  return {
+    current_case_suggests: currentCaseSuggests,
+    driving_result: drivingResult,
+    fragile_point: fragilePoint,
+    validate_next: validateNext,
+    recommendation_line: recommendationLine,
+  };
 }
 
 function buildScenarioComparison(
@@ -225,41 +363,6 @@ function buildScenarioComparison(
       ),
     };
   });
-}
-
-function getCaseTypeLabel(
-  preset: PresetOption,
-  inputs: Inputs,
-  mainDriver: string,
-): string {
-  if (preset === "Conservative case") return "Conservative delivery case";
-  if (preset === "Optimistic case") return "Optimistic earlier-diagnosis case";
-  if (preset === "High late-diagnosis burden") {
-    return "High late-diagnosis burden case";
-  }
-  if (preset === "High-reach case-finding") {
-    return "High-reach case-finding case";
-  }
-  if (preset === "Emergency-pressure reduction focus") {
-    return "Emergency-pressure reduction case";
-  }
-
-  if (inputs.current_late_diagnosis_rate >= 0.45) {
-    return "High late-diagnosis burden case";
-  }
-  if (inputs.intervention_reach_rate >= 0.75) {
-    return "High-reach case-finding case";
-  }
-  if (mainDriver.toLowerCase().includes("emergency")) {
-    return "Emergency-pressure reduction case";
-  }
-  if (
-    inputs.targeting_mode.toLowerCase().includes("risk") ||
-    inputs.targeting_mode.toLowerCase().includes("target")
-  ) {
-    return "Targeted earlier-diagnosis case";
-  }
-  return "Broad earlier-diagnosis improvement case";
 }
 
 function CurrencyTooltip({
@@ -591,6 +694,61 @@ function SelectInput<T extends string>({
   );
 }
 
+function CostVsSavingsChart({
+  yearlyResults,
+}: {
+  yearlyResults: YearlyResultRow[];
+}) {
+  const data = buildCumulativeCostChartData(yearlyResults);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Cost vs savings
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Cumulative programme cost compared with cumulative gross savings.
+        </p>
+      </div>
+
+      <div className="h-52 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={58}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Line
+              type="monotone"
+              dataKey="programmeCost"
+              name="Programme cost"
+              stroke="#0f172a"
+              strokeWidth={2.5}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="grossSavings"
+              name="Gross savings"
+              stroke="#b91c1c"
+              strokeWidth={2.5}
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function CasesShiftedChart({
   yearlyResults,
 }: {
@@ -634,59 +792,6 @@ function CasesShiftedChart({
   );
 }
 
-function CostVsSavingsChart({
-  yearlyResults,
-}: {
-  yearlyResults: YearlyResultRow[];
-}) {
-  const data = buildCumulativeCostChartData(yearlyResults);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Cost vs savings
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Cumulative programme cost compared with cumulative gross savings.
-        </p>
-      </div>
-
-      <div className="h-52 w-full lg:h-64 xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={58}
-            />
-            <Tooltip content={<CurrencyTooltip />} />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
-            <Line
-              type="monotone"
-              dataKey="programmeCost"
-              name="Programme cost"
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="grossSavings"
-              name="Gross savings"
-              strokeWidth={2}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
 function PathwayImpactChart({
   results,
 }: {
@@ -695,10 +800,12 @@ function PathwayImpactChart({
   const rawData = buildImpactBarChartData(results);
   const data = rawData.map((row) => ({
     label: row.label,
-    mobileLabel:
+    shortLabel:
       row.label === "Emergency presentations avoided"
         ? "Emergency presentations"
-        : row.label,
+        : row.label === "Cases shifted earlier"
+          ? "Cases shifted"
+          : row.label,
     value: row.value,
   }));
 
@@ -713,13 +820,12 @@ function PathwayImpactChart({
         </p>
       </div>
 
-      <div className="h-52 w-full md:hidden">
+      <div className="h-56 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 6, right: 18, left: 8, bottom: 6 }}
-            barCategoryGap={14}
+            margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
           >
             <CartesianGrid horizontal={false} strokeDasharray="3 3" />
             <XAxis
@@ -727,36 +833,18 @@ function PathwayImpactChart({
               tickFormatter={(value) => formatNumber(Number(value))}
               tickLine={false}
               axisLine={false}
-              fontSize={11}
+              fontSize={12}
             />
             <YAxis
               type="category"
-              dataKey="mobileLabel"
-              tickLine={false}
-              axisLine={false}
-              fontSize={11}
-              width={118}
-            />
-            <Tooltip content={<NumberTooltip />} />
-            <Bar dataKey="value" name="Impact" radius={[0, 8, 8, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="hidden h-64 w-full md:block xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => formatNumber(Number(value))}
+              dataKey="shortLabel"
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={54}
+              width={138}
             />
             <Tooltip content={<NumberTooltip />} />
-            <Bar dataKey="value" name="Impact" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="value" name="Impact" radius={[0, 8, 8, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -825,13 +913,7 @@ function BoundedUncertaintyChart({
 
       <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dark = at or below threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Light = above threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dashed orange = threshold
+          Dark bars are at or below threshold
         </span>
       </div>
     </div>
@@ -839,17 +921,18 @@ function BoundedUncertaintyChart({
 }
 
 function SensitivityChart({
-  sensitivityRows,
+  sensitivity,
 }: {
-  sensitivityRows: SensitivityRow[];
+  sensitivity: SensitivitySummary;
 }) {
-  const data = [...sensitivityRows]
-    .sort((a, b) => a.swing - b.swing)
-    .map((row) => ({
-      label: row.label,
-      lowDelta: row.low_delta,
-      highDelta: row.high_delta,
-    }));
+  const data = sensitivity.top_drivers.map((row) => ({
+    parameter: row.parameter_label,
+    lowDelta: row.low_delta,
+    highDelta: row.high_delta,
+    baseIcer: row.base_icer,
+    lowValueLabel: row.low_value_label,
+    highValueLabel: row.high_value_label,
+  }));
 
   return (
     <div className={SUBCARD}>
@@ -858,17 +941,16 @@ function SensitivityChart({
           One-way sensitivity
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Which assumptions move discounted cost per QALY the most.
+          Top drivers of discounted cost per QALY when varied one at a time.
         </p>
       </div>
 
-      <div className="h-[440px] w-full xl:h-[520px]">
+      <div className="h-64 w-full lg:h-72 xl:h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 8, right: 18, left: 30, bottom: 0 }}
-            barCategoryGap={8}
+            margin={{ top: 8, right: 20, left: 12, bottom: 0 }}
           >
             <CartesianGrid horizontal={false} strokeDasharray="3 3" />
             <XAxis
@@ -880,16 +962,54 @@ function SensitivityChart({
             />
             <YAxis
               type="category"
-              dataKey="label"
+              dataKey="parameter"
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={180}
+              width={190}
             />
-            <Tooltip content={<CurrencyTooltip />} />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
-            <Bar dataKey="lowDelta" name="Low case" radius={[0, 8, 8, 0]} />
-            <Bar dataKey="highDelta" name="High case" radius={[0, 8, 8, 0]} />
+            <Tooltip
+              formatter={(
+                value: number,
+                name: string,
+                entry: {
+                  payload?: {
+                    baseIcer?: number;
+                    lowValueLabel?: string;
+                    highValueLabel?: string;
+                  };
+                },
+              ) => {
+                const baseIcer = entry.payload?.baseIcer ?? 0;
+                const scenarioIcer = baseIcer + value;
+                const label =
+                  name === "lowDelta"
+                    ? `Low case (${entry.payload?.lowValueLabel ?? "—"})`
+                    : `High case (${entry.payload?.highValueLabel ?? "—"})`;
+
+                return [formatCurrency(scenarioIcer), label];
+              }}
+              labelFormatter={(label) => String(label)}
+            />
+            <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
+            <Legend
+              wrapperStyle={{ fontSize: "12px" }}
+              formatter={(value) =>
+                value === "lowDelta" ? "Low case" : "High case"
+              }
+            />
+            <Bar
+              dataKey="lowDelta"
+              name="lowDelta"
+              fill="#94a3b8"
+              radius={[0, 6, 6, 0]}
+            />
+            <Bar
+              dataKey="highDelta"
+              name="highDelta"
+              fill="#0f172a"
+              radius={[0, 6, 6, 0]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -1064,10 +1184,11 @@ export default function ClearPathApp() {
   const [comparatorMode, setComparatorMode] = useState<ComparatorOption>(
     COMPARATOR_OPTIONS[0],
   );
-  const [presetMode, setPresetMode] = useState<PresetOption>("Base case");
+  const [presetMode, setPresetMode] = useState<ScenarioPreset>("Base case");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
+  const sensitivity = useMemo(() => runParameterSensitivity(inputs), [inputs]);
 
   const decisionStatus = useMemo(
     () => getDecisionStatus(results, inputs.cost_effectiveness_threshold),
@@ -1075,16 +1196,19 @@ export default function ClearPathApp() {
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
-  const mainDriver = useMemo(() => getMainDriverText(inputs), [inputs]);
+  const mainDriver = useMemo(
+    () => getMainDriverText(inputs, sensitivity),
+    [inputs, sensitivity],
+  );
 
   const interpretation = useMemo(
-    () => generateInterpretation(results, inputs, uncertainty),
-    [results, inputs, uncertainty],
+    () => generateInterpretation(results, inputs, uncertainty, sensitivity),
+    [results, inputs, uncertainty, sensitivity],
   );
 
   const overviewSummary = useMemo(
-    () => generateOverviewSummary(results, inputs, uncertainty),
-    [results, inputs, uncertainty],
+    () => generateOverviewSummary(results, inputs, uncertainty, sensitivity),
+    [results, inputs, uncertainty, sensitivity],
   );
 
   const overallSignal = useMemo(
@@ -1093,8 +1217,8 @@ export default function ClearPathApp() {
   );
 
   const structuredRecommendation = useMemo(
-    () => generateStructuredRecommendation(inputs, results, uncertainty),
-    [inputs, results, uncertainty],
+    () => generateStructuredRecommendation(inputs, results, uncertainty, sensitivity),
+    [inputs, results, uncertainty, sensitivity],
   );
 
   const uncertaintyRobustness = useMemo(
@@ -1104,22 +1228,6 @@ export default function ClearPathApp() {
         inputs.cost_effectiveness_threshold,
       ),
     [uncertainty, inputs.cost_effectiveness_threshold],
-  );
-
-  const sensitivityRows = useMemo(
-    () =>
-      runOneWaySensitivity(
-        inputs,
-        SENSITIVITY_VARIABLES,
-        0.2,
-        "discounted_cost_per_qaly",
-      ),
-    [inputs],
-  );
-
-  const sensitivityTakeaways = useMemo(
-    () => buildSensitivityTakeaways(sensitivityRows),
-    [sensitivityRows],
   );
 
   const scenarioRows = useMemo(
@@ -1149,11 +1257,11 @@ export default function ClearPathApp() {
   const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
 
   const caseTypeLabel = useMemo(
-    () => getCaseTypeLabel(presetMode, inputs, mainDriver),
-    [presetMode, inputs, mainDriver],
+    () => deriveCaseType(presetMode, inputs),
+    [presetMode, inputs],
   );
 
-  const presetDescription = CLEARPATH_PRESETS[presetMode].description;
+  const presetDescription = getPresetDescription(presetMode);
 
   const handleExportReport = async () => {
     try {
@@ -1192,12 +1300,13 @@ export default function ClearPathApp() {
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
+    setPresetMode("Custom");
   };
 
-  const applyPreset = (preset: PresetOption) => {
+  const applyPreset = (preset: Exclude<ScenarioPreset, "Custom">) => {
+    const patch = getPresetPatch(preset);
+    setInputs((prev) => ({ ...prev, ...patch }));
     setPresetMode(preset);
-    const updates = CLEARPATH_PRESETS[preset].apply(DEFAULT_INPUTS);
-    setInputs((prev) => ({ ...prev, ...updates }));
   };
 
   const resetToBaseCase = () => {
@@ -1291,7 +1400,7 @@ export default function ClearPathApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      These are the main levers most likely to change the decision signal.
+      Use a starting template first, then fine-tune burden, shift, reach, and delivery assumptions.
     </div>
   );
 
@@ -1299,15 +1408,18 @@ export default function ClearPathApp() {
     <div className={SUBCARD}>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,320px)_1fr] xl:items-end">
         <SelectInput
-          label="Scenario preset"
+          label="Starting template"
           value={presetMode}
-          options={PRESET_OPTIONS}
-          onChange={(value) => applyPreset(value)}
-          help="Applies a coherent scenario without removing your ability to edit assumptions manually."
+          options={SCENARIO_PRESET_OPTIONS}
+          onChange={(value) => {
+            if (value === "Custom") return;
+            applyPreset(value);
+          }}
+          help="Applies a coherent starting setup without resetting the full app."
         />
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Preset summary
+            Template summary
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-700">
             <span className="font-medium text-slate-900">{presetMode}:</span>{" "}
@@ -1323,7 +1435,7 @@ export default function ClearPathApp() {
       <SelectInput
         label="Targeting mode"
         value={inputs.targeting_mode}
-        options={TARGETING_MODE_OPTIONS}
+        options={TARGETING_MODE_OPTIONS as readonly TargetingMode[]}
         onChange={(value) => updateInput("targeting_mode", value)}
         help="Changes concentration of later diagnosis and achievable shift."
       />
@@ -1483,7 +1595,7 @@ export default function ClearPathApp() {
               <SelectInput
                 label="Costing method"
                 value={inputs.costing_method}
-                options={COSTING_METHOD_OPTIONS}
+                options={COSTING_METHOD_OPTIONS as readonly CostingMethod[]}
                 onChange={(value) => updateInput("costing_method", value)}
               />
               <NumberInput
@@ -1596,7 +1708,7 @@ export default function ClearPathApp() {
           <AssumptionReviewCard
             key={key}
             label={meta.label}
-            value={meta.formatter(rawValue as never)}
+            value={formatAssumptionValue(meta.formatter, rawValue as string | number)}
             note={`${meta.source_type} · ${meta.confidence}`}
           />
         );
@@ -1604,12 +1716,25 @@ export default function ClearPathApp() {
     </div>
   );
 
+  const sensitivityTop3 = (
+    <div className="grid gap-3 md:grid-cols-3">
+      {sensitivity.top_drivers.slice(0, 3).map((driver, index) => (
+        <AssumptionReviewCard
+          key={driver.parameter_key}
+          label={`Driver ${index + 1}`}
+          value={driver.parameter_label}
+          note={`Largest ICER swing: ${formatCurrency(driver.max_abs_icer_change)}`}
+        />
+      ))}
+    </div>
+  );
+
   const mobileCharts = (
     <div className="space-y-4 lg:hidden">
-      <CasesShiftedChart yearlyResults={results.yearly_results} />
+      <CostVsSavingsChart yearlyResults={results.yearly_results} />
 
-      <MobileAccordion title="Cost vs savings">
-        <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <MobileAccordion title="Cases shifted earlier">
+        <CasesShiftedChart yearlyResults={results.yearly_results} />
       </MobileAccordion>
 
       <MobileAccordion title="Pathway impact">
@@ -1622,18 +1747,23 @@ export default function ClearPathApp() {
           threshold={inputs.cost_effectiveness_threshold}
         />
       </MobileAccordion>
+
+      <MobileAccordion title="One-way sensitivity">
+        <SensitivityChart sensitivity={sensitivity} />
+      </MobileAccordion>
     </div>
   );
 
   const desktopCharts = (
     <div className="space-y-4">
-      <CasesShiftedChart yearlyResults={results.yearly_results} />
       <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <CasesShiftedChart yearlyResults={results.yearly_results} />
       <PathwayImpactChart results={results} />
       <BoundedUncertaintyChart
         uncertaintyRows={uncertainty}
         threshold={inputs.cost_effectiveness_threshold}
       />
+      <SensitivityChart sensitivity={sensitivity} />
     </div>
   );
 
@@ -1649,6 +1779,17 @@ export default function ClearPathApp() {
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
           Explore how earlier diagnosis might reduce emergency pathway pressure,
           admissions, bed use, and economic burden under different assumptions.
+        </p>
+      </div>
+
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+        <p className="text-sm font-medium text-slate-900">Scope and use note</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          ClearPath is an exploratory scenario sandbox. It is designed to test how
+          changes in late diagnosis burden, achievable shift, reach, persistence,
+          and delivery cost might influence potential pathway and economic value.
+          It does not replace formal evaluation, forecasting, or business case
+          development.
         </p>
       </div>
 
@@ -1798,7 +1939,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Preset first, then core assumptions and advanced settings."
+            description="Starting template first, then core assumptions and advanced settings."
             action={
               <button
                 type="button"
@@ -1932,12 +2073,8 @@ export default function ClearPathApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Sensitivity takeaways</h3>
-                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
-                  {sensitivityTakeaways.map((takeaway) => (
-                    <p key={takeaway}>{takeaway}</p>
-                  ))}
-                </div>
+                <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
+                <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
               <div className={SUBCARD}>
@@ -1981,7 +2118,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Preset first, then core assumptions and advanced settings."
+            description="Starting template first, then core assumptions and advanced settings."
             action={
               <button
                 type="button"
@@ -2101,13 +2238,9 @@ export default function ClearPathApp() {
               <div>
                 <h3 className={SECTION_KICKER}>Sensitivity</h3>
                 <div className="mt-3">
-                  <SensitivityChart sensitivityRows={sensitivityRows} />
+                  <SensitivityChart sensitivity={sensitivity} />
                 </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-3">
-                  {sensitivityTakeaways.map((takeaway) => (
-                    <MiniInsight key={takeaway} label="Takeaway" value={takeaway} />
-                  ))}
-                </div>
+                <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
               <div>
