@@ -11,19 +11,6 @@ type StableHeartReportDocumentProps = {
   data: StableHeartReportData;
 };
 
-type StableHeartReportDataWithSensitivity = StableHeartReportData & {
-  uncertaintyAndSensitivity?: StableHeartReportData["uncertaintyAndSensitivity"] & {
-    topSensitivityDrivers?: Array<{
-      rank?: number;
-      label: string;
-      lowCase?: string;
-      highCase?: string;
-      swing?: string;
-      note?: string;
-    }>;
-  };
-};
-
 function formatGeneratedAt(value: string) {
   const date = new Date(value);
 
@@ -288,58 +275,6 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
   },
 
-  sensitivityTable: {
-    width: "100%",
-    border: "1 solid #cbd5e1",
-    borderRadius: 8,
-    overflow: "hidden",
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  sensitivityHeader: {
-    flexDirection: "row",
-    backgroundColor: "#e2e8f0",
-    paddingVertical: 7,
-    paddingHorizontal: 8,
-  },
-  sensitivityHeaderText: {
-    fontSize: 8.3,
-    fontWeight: 700,
-    color: "#0f172a",
-    textTransform: "uppercase",
-  },
-  sensitivityRow: {
-    flexDirection: "row",
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderBottom: "1 solid #e2e8f0",
-  },
-  sensitivityRowLast: {
-    flexDirection: "row",
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderBottom: "0 solid #ffffff",
-  },
-  colRank: {
-    width: "10%",
-    paddingRight: 6,
-  },
-  colDriver: {
-    width: "34%",
-    paddingRight: 8,
-  },
-  colLow: {
-    width: "18%",
-    paddingRight: 8,
-  },
-  colHigh: {
-    width: "18%",
-    paddingRight: 8,
-  },
-  colSwing: {
-    width: "20%",
-  },
-
   caveatBox: {
     marginTop: 12,
     padding: 9,
@@ -355,6 +290,25 @@ const styles = StyleSheet.create({
   },
   caveatText: {
     fontSize: 8.7,
+    color: "#475569",
+    lineHeight: 1.45,
+  },
+
+  sensitivityDriverBox: {
+    marginTop: 10,
+    padding: 9,
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+  },
+  sensitivityDriverTitle: {
+    fontSize: 9.1,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginBottom: 5,
+  },
+  sensitivityDriverMeta: {
+    fontSize: 8.5,
     color: "#475569",
     lineHeight: 1.45,
   },
@@ -487,73 +441,6 @@ function renderAssumptionTable(
   );
 }
 
-function renderSensitivityTable(
-  rows: Array<{
-    rank?: number;
-    label: string;
-    lowCase?: string;
-    highCase?: string;
-    swing?: string;
-    note?: string;
-  }>,
-) {
-  if (!rows.length) return null;
-
-  return (
-    <View style={styles.sensitivityTable}>
-      <View style={styles.sensitivityHeader}>
-        <View style={styles.colRank}>
-          <Text style={styles.sensitivityHeaderText}>#</Text>
-        </View>
-        <View style={styles.colDriver}>
-          <Text style={styles.sensitivityHeaderText}>Driver</Text>
-        </View>
-        <View style={styles.colLow}>
-          <Text style={styles.sensitivityHeaderText}>Low</Text>
-        </View>
-        <View style={styles.colHigh}>
-          <Text style={styles.sensitivityHeaderText}>High</Text>
-        </View>
-        <View style={styles.colSwing}>
-          <Text style={styles.sensitivityHeaderText}>Swing</Text>
-        </View>
-      </View>
-
-      {rows.map((row, index) => {
-        const rowStyle =
-          index === rows.length - 1
-            ? styles.sensitivityRowLast
-            : styles.sensitivityRow;
-
-        return (
-          <View key={`${row.label}-${index}`} style={rowStyle}>
-            <View style={styles.colRank}>
-              <Text style={styles.tableCellValue}>
-                {row.rank ?? index + 1}
-              </Text>
-            </View>
-            <View style={styles.colDriver}>
-              <Text style={styles.tableCellLabel}>{row.label}</Text>
-              {row.note ? (
-                <Text style={styles.rowNote}>{row.note}</Text>
-              ) : null}
-            </View>
-            <View style={styles.colLow}>
-              <Text style={styles.tableCellValue}>{row.lowCase ?? "—"}</Text>
-            </View>
-            <View style={styles.colHigh}>
-              <Text style={styles.tableCellValue}>{row.highCase ?? "—"}</Text>
-            </View>
-            <View style={styles.colSwing}>
-              <Text style={styles.tableCellValue}>{row.swing ?? "—"}</Text>
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
 function RepeatingHeader({ module }: { module: string }) {
   return (
     <View style={styles.header} fixed>
@@ -583,10 +470,6 @@ function Footer() {
 export function StableHeartReportDocument({
   data,
 }: StableHeartReportDocumentProps) {
-  const reportData = data as StableHeartReportDataWithSensitivity;
-  const topSensitivityDrivers =
-    reportData.uncertaintyAndSensitivity?.topSensitivityDrivers ?? [];
-
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -704,21 +587,42 @@ export function StableHeartReportDocument({
             )}
           </View>
 
-          {topSensitivityDrivers.length > 0 ? (
-            <View style={[styles.sectionTight, { marginTop: 12 }]}>
-              <Text style={styles.subSectionTitle}>
-                Top parameter sensitivities
-              </Text>
-              {renderSensitivityTable(topSensitivityDrivers)}
-            </View>
-          ) : null}
-
           <View style={[styles.sectionTight, { marginTop: 12 }]}>
             <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
-            {renderBulletBlocks(
-              data.uncertaintyAndSensitivity.sensitivitySummary,
-            )}
+            {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
           </View>
+
+          {data.uncertaintyAndSensitivity.topSensitivityDrivers?.length ? (
+            <View style={[styles.sectionTight, { marginTop: 12 }]}>
+              <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
+              {data.uncertaintyAndSensitivity.topSensitivityDrivers.map((driver) => (
+                <View key={`${driver.rank}-${driver.label}`} style={styles.sensitivityDriverBox}>
+                  <Text style={styles.sensitivityDriverTitle}>
+                    {driver.rank ? `${driver.rank}. ` : ""}
+                    {driver.label}
+                  </Text>
+                  {driver.lowCase ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      Low case: {driver.lowCase}
+                    </Text>
+                  ) : null}
+                  {driver.highCase ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      High case: {driver.highCase}
+                    </Text>
+                  ) : null}
+                  {driver.swing ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      ICER swing: {driver.swing}
+                    </Text>
+                  ) : null}
+                  {driver.note ? (
+                    <Text style={styles.sensitivityDriverMeta}>{driver.note}</Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.section}>
