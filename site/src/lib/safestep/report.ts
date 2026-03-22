@@ -3,59 +3,25 @@ import {
   formatNumber,
   formatPercent,
 } from "@/lib/safestep/formatters";
-
-export type SafeStepInputs = {
-  targeting_mode: "Universal" | "Risk-targeted" | "High-risk only";
-  costing_method: "Admission costs only" | "Admission + bed days";
-  eligible_population: number;
-  annual_fall_risk: number;
-  intervention_cost_per_person: number;
-  relative_risk_reduction: number;
-  time_horizon_years: 1 | 3 | 5;
-  uptake_rate: number;
-  adherence_rate: number;
-  participation_dropoff_rate: number;
-  effect_decay_rate: number;
-  admission_rate_after_fall: number;
-  average_length_of_stay: number;
-  cost_per_admission: number;
-  cost_per_bed_day: number;
-  qaly_loss_per_serious_fall: number;
-  cost_effectiveness_threshold: number;
-  discount_rate: number;
-};
-
-export type SafeStepYearlyResultRow = {
-  year: number;
-  falls_avoided: number;
-  cumulative_programme_cost: number;
-  cumulative_gross_savings: number;
-};
-
-export type SafeStepUncertaintyRow = {
-  case: string;
-  discounted_cost_per_qaly: number;
-  falls_avoided_total: number;
-  decision_status: string;
-};
-
-export type SafeStepModelResults = {
-  falls_avoided_total: number;
-  admissions_avoided_total: number;
-  bed_days_avoided_total: number;
-  discounted_programme_cost_total: number;
-  discounted_gross_savings_total: number;
-  discounted_net_cost_total: number;
-  discounted_qalys_gained_total: number;
-  discounted_cost_per_qaly: number;
-  yearly_results: SafeStepYearlyResultRow[];
-};
+import type {
+  ModelResult as SafeStepModelResults,
+  SafeStepInputs,
+  SensitivitySummary as SafeStepSensitivitySummary,
+  UncertaintyRow as SafeStepUncertaintyRow,
+} from "@/lib/safestep/types";
+import {
+  generateInterpretation,
+  getDecisionStatus,
+  getMainDriverText,
+  getNetCostLabel,
+} from "@/lib/safestep/summaries";
 
 type BuildReportArgs = {
   inputs: SafeStepInputs;
   results: SafeStepModelResults;
   uncertainty: SafeStepUncertaintyRow[];
   exportedAt: string;
+  oneWaySensitivity?: SafeStepSensitivitySummary | null;
 };
 
 type ReportMetric = {
@@ -76,6 +42,15 @@ type ReportTableSection = {
 
 type ReportNarrativeBlock = {
   body: string;
+};
+
+type ReportSensitivityDriver = {
+  rank?: number;
+  label: string;
+  lowCase?: string;
+  highCase?: string;
+  swing?: string;
+  note?: string;
 };
 
 export type SafeStepReportData = {
@@ -112,6 +87,7 @@ export type SafeStepReportData = {
       note: string;
     }>;
     sensitivitySummary: string[];
+    topSensitivityDrivers: ReportSensitivityDriver[];
   };
   scenarioAndComparator: {
     scenarioSummary: string;
@@ -134,21 +110,6 @@ export type SafeStepReportData = {
     useNote: string;
   };
 };
-
-function getDecisionStatus(
-  results: SafeStepModelResults,
-  threshold: number,
-): string {
-  if (results.discounted_net_cost_total < 0) {
-    return "Appears cost-saving";
-  }
-
-  if (results.discounted_cost_per_qaly <= threshold) {
-    return "Appears cost-effective";
-  }
-
-  return "Above current threshold";
-}
 
 function getSignalLabel(decisionStatus: string): string {
   const normalised = decisionStatus.toLowerCase();
@@ -174,32 +135,83 @@ function getSignalLabel(decisionStatus: string): string {
   return "Weak";
 }
 
-function getNetCostLabel(results: SafeStepModelResults) {
-  return results.discounted_net_cost_total < 0 ? "Net saving" : "Net cost";
+function cleanDecisionStatus(status: string): string {
+  const trimmed = status.trim();
+  if (/^appears\s+/i.test(trimmed)) return trimmed;
+  return `Appears ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
 }
 
-function getMainDriverText(inputs: SafeStepInputs) {
-  const candidates = [
-    {
-      label: "annual fall risk",
-      score: inputs.annual_fall_risk,
-    },
-    {
-      label: "reduction in falls",
-      score: inputs.relative_risk_reduction,
-    },
-    {
-      label: "uptake and adherence",
-      score: inputs.uptake_rate * inputs.adherence_rate,
-    },
-    {
-      label: "cost per participant",
-      score: inputs.intervention_cost_per_person / 1000,
-    },
-  ];
+function prettifyParameterName(parameter: keyof SafeStepInputs | string): string {
+  switch (parameter) {
+    case "annual_fall_risk":
+      return "Annual fall risk";
+    case "relative_risk_reduction":
+      return "Reduction in falls";
+    case "intervention_cost_per_person":
+      return "Cost per participant";
+    case "uptake_rate":
+      return "Programme uptake";
+    case "adherence_rate":
+      return "Programme completion";
+    case "admission_rate_after_fall":
+      return "Falls leading to admission";
+    case "average_length_of_stay":
+      return "Average length of stay";
+    case "qaly_loss_per_serious_fall":
+      return "QALY loss per serious fall";
+    case "effect_decay_rate":
+      return "Annual effect decay";
+    case "participation_dropoff_rate":
+      return "Annual participation drop-off";
+    case "cost_per_admission":
+      return "Cost per admission";
+    case "cost_per_bed_day":
+      return "Cost per bed day";
+    case "eligible_population":
+      return "Eligible population";
+    default:
+      return String(parameter)
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+}
 
-  candidates.sort((a, b) => b.score - a.score);
-  return candidates[0]?.label ?? "the core programme assumptions";
+function buildTopSensitivityDrivers(
+  rows: SafeStepSensitivitySummary["rows"],
+): ReportSensitivityDriver[] {
+  if (!rows.length) return [];
+
+  return [...rows]
+    .sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change)
+    .slice(0, 3)
+    .map((row, index) => ({
+      rank: index + 1,
+      label: row.parameter_label || prettifyParameterName(row.parameter_key),
+      lowCase: `${row.low_value_label} → ${formatCurrency(row.low_icer)}`,
+      highCase: `${row.high_value_label} → ${formatCurrency(row.high_icer)}`,
+      swing: formatCurrency(row.max_abs_icer_change),
+      note:
+        "Low and high cases show how discounted cost per QALY changes when this parameter is varied in one direction at a time.",
+    }));
+}
+
+function buildSensitivityLead(
+  topSensitivityDrivers: ReportSensitivityDriver[],
+  fallback: string,
+): string {
+  if (!topSensitivityDrivers.length) return fallback;
+
+  const labels = topSensitivityDrivers.map((driver) => driver.label.toLowerCase());
+
+  if (labels.length === 1) {
+    return `The result is most sensitive to ${labels[0]}.`;
+  }
+
+  if (labels.length === 2) {
+    return `The result is most sensitive to ${labels[0]} and ${labels[1]}.`;
+  }
+
+  return `The result is most sensitive to ${labels[0]}, ${labels[1]}, and ${labels[2]}.`;
 }
 
 function buildOverview(
@@ -221,43 +233,6 @@ function buildOverview(
   )}, with a discounted cost per QALY of ${formatCurrency(
     results.discounted_cost_per_qaly,
   )}. Taken together, this points to a ${signalLabel} early-stage value case rather than a definitive conclusion.`;
-}
-
-function buildWhatModelSuggests(
-  results: SafeStepModelResults,
-  inputs: SafeStepInputs,
-) {
-  const decisionStatus = getDecisionStatus(
-    results,
-    inputs.cost_effectiveness_threshold,
-  );
-
-  if (decisionStatus === "Appears cost-saving") {
-    return "The current base case suggests the programme could reduce falls and admissions while saving more than it costs.";
-  }
-
-  if (decisionStatus === "Appears cost-effective") {
-    return "The current base case suggests the programme may represent reasonable value for money at the selected threshold, even if it does not generate a net saving.";
-  }
-
-  return "The current base case suggests operational benefit, but the economic case remains above the selected threshold and would need either stronger impact or lower delivery cost.";
-}
-
-function buildFragilityText(
-  uncertainty: SafeStepUncertaintyRow[],
-) {
-  const low = uncertainty.find((row) => row.case === "Low");
-  const high = uncertainty.find((row) => row.case === "High");
-
-  if (!low || !high) {
-    return "The result should be interpreted cautiously because bounded uncertainty has not been fully characterised.";
-  }
-
-  if (low.decision_status === high.decision_status) {
-    return "The bounded uncertainty range is directionally stable, but the case still depends on realistic assumptions about effect persistence, uptake, and delivery cost.";
-  }
-
-  return "The bounded uncertainty range crosses decision boundaries, so modest changes in delivery realism or effect size could change the conclusion.";
 }
 
 function buildPurposeQuestion(inputs: SafeStepInputs) {
@@ -282,6 +257,39 @@ function buildScenarioSection(inputs: SafeStepInputs) {
     )}. Targeting mode is set to ${inputs.targeting_mode}, which changes how concentrated risk is assumed to be within the intervention population and therefore how much value is likely to be concentrated in higher-risk groups.`,
     economicMechanism: `The value mechanism runs through avoided falls, avoided admissions, lower bed use, and preserved quality of life. The model then assesses whether these benefits are sufficient to offset intervention cost and generate an acceptable cost per QALY at the selected threshold.`,
   };
+}
+
+function buildFragilityText(
+  interpretation: ReturnType<typeof generateInterpretation>,
+  uncertainty: SafeStepUncertaintyRow[],
+  topSensitivityDrivers: ReportSensitivityDriver[],
+) {
+  const low = uncertainty.find((row) => row.case === "Low");
+  const high = uncertainty.find((row) => row.case === "High");
+
+  if (!low || !high) {
+    return "The result should be interpreted cautiously because bounded uncertainty has not been fully characterised.";
+  }
+
+  if (low.decision_status !== high.decision_status) {
+    if (topSensitivityDrivers.length > 0) {
+      const labels = topSensitivityDrivers
+        .slice(0, 3)
+        .map((driver) => driver.label.toLowerCase());
+
+      return `The bounded uncertainty range crosses decision categories, and one-way sensitivity suggests the result is particularly exposed to ${labels.join(
+        ", ",
+      )}.`;
+    }
+
+    return "The bounded uncertainty range crosses decision boundaries, so modest changes in delivery realism or effect size could change the conclusion.";
+  }
+
+  if (topSensitivityDrivers.length > 0) {
+    return `The bounded range is more stable, but the result still moves most when ${topSensitivityDrivers[0].label.toLowerCase()} is varied.`;
+  }
+
+  return interpretation.what_looks_fragile;
 }
 
 function buildPlainEnglishResults(
@@ -316,9 +324,9 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: decisionStatus === "Above current threshold"
-        ? "Taken together, the current signal remains above the current threshold. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to effect size, participation, and delivery cost."
-        : `Taken together, the current signal remains ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to effect size, participation, and delivery cost.`,
+      body: `Taken together, the current signal is ${cleanDecisionStatus(
+        decisionStatus,
+      ).toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to effect size, participation, and delivery cost.`,
     },
   ];
 }
@@ -470,14 +478,45 @@ export function buildSafeStepReportData({
   results,
   uncertainty,
   exportedAt,
+  oneWaySensitivity = null,
 }: BuildReportArgs): SafeStepReportData {
   const decisionStatus = getDecisionStatus(
     results,
     inputs.cost_effectiveness_threshold,
   );
+
+  const interpretation = generateInterpretation(
+    results,
+    inputs,
+    uncertainty,
+    oneWaySensitivity ?? undefined,
+  );
+
   const overallSignal = getSignalLabel(decisionStatus);
-  const mainDriver = getMainDriverText(inputs);
-  const fragilityText = buildFragilityText(uncertainty);
+  const fallbackMainDriver = getMainDriverText(
+    inputs,
+    oneWaySensitivity ?? undefined,
+  );
+
+  const sensitivityRows = oneWaySensitivity?.rows ?? [];
+  const topSensitivityDrivers = buildTopSensitivityDrivers(sensitivityRows);
+
+  const fragilityText = buildFragilityText(
+    interpretation,
+    uncertainty,
+    topSensitivityDrivers,
+  );
+
+  const mainDependencyText =
+    oneWaySensitivity?.primary_driver != null
+      ? buildSensitivityLead(
+          topSensitivityDrivers,
+          `The result is mainly driven by ${fallbackMainDriver}, effective participation, and delivery cost.`,
+        )
+      : `The result is mainly driven by ${fallbackMainDriver}, effective participation, and delivery cost.`;
+
+  const primaryDriverLabel =
+    oneWaySensitivity?.primary_driver?.parameter_label?.toLowerCase();
 
   return {
     cover: {
@@ -496,11 +535,13 @@ export function buildSafeStepReportData({
     executiveSummary: {
       overview: buildOverview(inputs, results, decisionStatus),
       overallSignal,
-      whatModelSuggests: buildWhatModelSuggests(results, inputs),
-      mainDependency: "The result is mainly driven by uptake, adherence, and delivery cost.",
+      whatModelSuggests: interpretation.what_model_suggests,
+      mainDependency: mainDependencyText,
       mainFragility: fragilityText,
       bestNextStep:
-        "Validate local fall risk, realistic programme participation, likely implementation cost, and the share of falls that genuinely translate into avoided admissions and bed use.",
+        primaryDriverLabel != null
+          ? `Validate local ${primaryDriverLabel}, realistic programme participation, likely implementation cost, and the share of falls that genuinely translate into avoided admissions and bed use.`
+          : "Validate local fall risk, realistic programme participation, likely implementation cost, and the share of falls that genuinely translate into avoided admissions and bed use.",
     },
 
     scenario: buildScenarioSection(inputs),
@@ -536,7 +577,7 @@ export function buildSafeStepReportData({
       },
       {
         label: "QALYs gained",
-        value: results.discounted_qalys_gained_total.toFixed(2),
+        value: results.discounted_qalys_total.toFixed(2),
       },
     ],
 
@@ -553,11 +594,27 @@ export function buildSafeStepReportData({
         value: formatCurrency(row.discounted_cost_per_qaly),
         note: `${formatNumber(row.falls_avoided_total)} falls avoided · ${row.decision_status}`,
       })),
-      sensitivitySummary: [
-        "The result is most likely to move when assumptions change around fall risk, the achieved reduction in falls, effective programme participation, and delivery cost per participant.",
-        "In practical terms, the case is strongest when the intervention reaches a population with meaningful baseline risk and delivers a credible reduction in falls at manageable cost.",
-        "The case weakens when uptake or completion are lower than expected, when effect size is modest, or when avoided falls do not translate into meaningful avoided admissions and bed use.",
-      ],
+      sensitivitySummary:
+        topSensitivityDrivers.length > 0
+          ? [
+              `The one-way sensitivity analysis suggests the result moves most when ${topSensitivityDrivers[0].label.toLowerCase()} is varied${
+                topSensitivityDrivers[1]
+                  ? `, followed by ${topSensitivityDrivers[1].label.toLowerCase()}`
+                  : ""
+              }${
+                topSensitivityDrivers[2]
+                  ? ` and ${topSensitivityDrivers[2].label.toLowerCase()}`
+                  : ""
+              }.`,
+              "In practical terms, the case is strongest when the intervention reaches a population with meaningful baseline risk and delivers a credible reduction in falls at manageable cost.",
+              "The case weakens when uptake or completion are lower than expected, when effect size is modest, or when avoided falls do not translate into meaningful avoided admissions and bed use.",
+            ]
+          : [
+              "The result is most likely to move when assumptions change around fall risk, the achieved reduction in falls, effective programme participation, and delivery cost per participant.",
+              "In practical terms, the case is strongest when the intervention reaches a population with meaningful baseline risk and delivers a credible reduction in falls at manageable cost.",
+              "The case weakens when uptake or completion are lower than expected, when effect size is modest, or when avoided falls do not translate into meaningful avoided admissions and bed use.",
+            ],
+      topSensitivityDrivers,
     },
 
     scenarioAndComparator: {
@@ -575,7 +632,13 @@ export function buildSafeStepReportData({
       progressionView:
         "Progression is better supported when the model shows a credible avoided-falls effect, a plausible link to avoided admissions and bed use, and an acceptable cost per QALY under bounded uncertainty.",
       mainEvidenceGap:
-        "The most important evidence gap is usually the local realism of the achieved reduction in falls and how strongly avoided falls translate into avoided acute activity and bed use.",
+        topSensitivityDrivers.length > 0
+          ? `The most important evidence gap is the local realism of ${topSensitivityDrivers[0].label.toLowerCase()}${
+              topSensitivityDrivers[1]
+                ? `, alongside ${topSensitivityDrivers[1].label.toLowerCase()}`
+                : ""
+            }.`
+          : "The most important evidence gap is usually the local realism of the achieved reduction in falls and how strongly avoided falls translate into avoided acute activity and bed use.",
       recommendedNextMove:
         "The next step should be to validate local fall risk, the serious-fall pathway, realistic uptake and adherence, and the likely delivery cost of the intended intervention model.",
     },
