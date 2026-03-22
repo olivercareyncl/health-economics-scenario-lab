@@ -480,12 +480,6 @@ function BoundedUncertaintyChart({
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
           Dark bars are at or below threshold
         </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Light bars are above threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dashed orange line = threshold
-        </span>
       </div>
     </div>
   );
