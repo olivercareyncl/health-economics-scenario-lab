@@ -1368,10 +1368,10 @@ export default function StableHeartApp() {
 
   const mobileCharts = (
     <div className="space-y-4 lg:hidden">
-      <EventsByYearChart yearlyResults={results.yearly_results} />
+      <CostVsSavingsChart yearlyResults={results.yearly_results} />
 
-      <MobileAccordion title="Cost vs savings">
-        <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <MobileAccordion title="Events avoided by year">
+        <EventsByYearChart yearlyResults={results.yearly_results} />
       </MobileAccordion>
 
       <MobileAccordion title="Clinical impact">
@@ -1393,8 +1393,8 @@ export default function StableHeartApp() {
 
   const desktopCharts = (
     <div className="space-y-4">
-      <EventsByYearChart yearlyResults={results.yearly_results} />
       <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <EventsByYearChart yearlyResults={results.yearly_results} />
       <ImpactChart results={results} />
       <BoundedUncertaintyChart
         uncertaintyRows={uncertainty}
