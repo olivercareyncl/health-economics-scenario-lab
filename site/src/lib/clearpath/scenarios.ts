@@ -19,11 +19,10 @@ export const COSTING_METHOD_OPTIONS: CostingMethod[] = [
 ];
 
 export const COMPARATOR_OPTIONS: ComparatorOption[] = [
+  "Lower-cost delivery",
+  "Stronger shift",
   "Higher-risk targeting",
   "Tighter high-risk targeting",
-  "Modest shift",
-  "Stronger shift",
-  "Lower-cost delivery",
   "Targeted and stronger shift",
 ];
 
@@ -62,12 +61,14 @@ export function getBaseCase(defaults: Inputs): Partial<Inputs> {
   return { ...defaults };
 }
 
-export function getModestShift(defaults: Inputs): Partial<Inputs> {
+export function getLowerCostDelivery(defaults: Inputs): Partial<Inputs> {
   return {
     ...defaults,
-    achievable_reduction_in_late_diagnosis: Math.max(
-      0,
-      defaults.achievable_reduction_in_late_diagnosis * 0.7,
+    intervention_cost_per_case_reached:
+      defaults.intervention_cost_per_case_reached * 0.8,
+    intervention_reach_rate: Math.min(
+      1,
+      defaults.intervention_reach_rate * 1.02,
     ),
   };
 }
@@ -79,6 +80,11 @@ export function getStrongerShift(defaults: Inputs): Partial<Inputs> {
       0.5,
       defaults.achievable_reduction_in_late_diagnosis * 1.3,
     ),
+    effect_decay_rate: Math.max(0, defaults.effect_decay_rate * 0.85),
+    participation_dropoff_rate: Math.max(
+      0,
+      defaults.participation_dropoff_rate * 0.9,
+    ),
   };
 }
 
@@ -86,6 +92,14 @@ export function getHigherRiskTargeting(defaults: Inputs): Partial<Inputs> {
   return {
     ...defaults,
     targeting_mode: "Higher-risk targeting",
+    current_late_diagnosis_rate: Math.min(
+      1,
+      defaults.current_late_diagnosis_rate * 1.05,
+    ),
+    intervention_reach_rate: Math.min(
+      1,
+      defaults.intervention_reach_rate * 1.03,
+    ),
   };
 }
 
@@ -93,14 +107,14 @@ export function getTighterHighRiskTargeting(defaults: Inputs): Partial<Inputs> {
   return {
     ...defaults,
     targeting_mode: "Tighter high-risk targeting",
-  };
-}
-
-export function getLowerCostDelivery(defaults: Inputs): Partial<Inputs> {
-  return {
-    ...defaults,
-    intervention_cost_per_case_reached:
-      defaults.intervention_cost_per_case_reached * 0.8,
+    current_late_diagnosis_rate: Math.min(
+      1,
+      defaults.current_late_diagnosis_rate * 1.08,
+    ),
+    intervention_reach_rate: Math.min(
+      1,
+      defaults.intervention_reach_rate * 1.05,
+    ),
   };
 }
 
@@ -112,15 +126,19 @@ export function getTargetedAndStronger(defaults: Inputs): Partial<Inputs> {
       0.5,
       defaults.achievable_reduction_in_late_diagnosis * 1.2,
     ),
+    effect_decay_rate: Math.max(0, defaults.effect_decay_rate * 0.9),
+    participation_dropoff_rate: Math.max(
+      0,
+      defaults.participation_dropoff_rate * 0.9,
+    ),
   };
 }
 
 export const SCENARIO_MAP: Record<string, (defaults: Inputs) => Partial<Inputs>> = {
   "Base case": getBaseCase,
-  "Modest shift": getModestShift,
+  "Lower-cost delivery": getLowerCostDelivery,
   "Stronger shift": getStrongerShift,
   "Higher-risk targeting": getHigherRiskTargeting,
   "Tighter high-risk targeting": getTighterHighRiskTargeting,
-  "Lower-cost delivery": getLowerCostDelivery,
   "Targeted and stronger shift": getTargetedAndStronger,
 };
