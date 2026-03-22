@@ -62,7 +62,6 @@ import type {
   Inputs,
   MobileTab,
   ModelResults,
-  ParameterSensitivityRow,
   SensitivitySummary,
   TargetingMode,
   UncertaintyRow,
@@ -430,6 +429,7 @@ function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[
               type="monotone"
               dataKey="programmeCost"
               name="Programme cost"
+              stroke="#0f172a"
               strokeWidth={2}
               dot={false}
             />
@@ -437,6 +437,7 @@ function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[
               type="monotone"
               dataKey="grossSavings"
               name="Gross savings"
+              stroke="#c2410c"
               strokeWidth={2}
               dot={false}
             />
@@ -568,13 +569,13 @@ function BoundedUncertaintyChart({
 
       <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dark = at or below threshold
+          Dark bars are at or below threshold
         </span>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Light = above threshold
+          Light bars are above threshold
         </span>
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dashed orange = threshold
+          Dashed orange line = threshold
         </span>
       </div>
     </div>
@@ -630,7 +631,17 @@ function TornadoSensitivityChart({
               width={170}
             />
             <Tooltip
-              formatter={(value: number, name: string, entry: { payload?: { baseIcer?: number; lowValueLabel?: string; highValueLabel?: string } }) => {
+              formatter={(
+                value: number,
+                name: string,
+                entry: {
+                  payload?: {
+                    baseIcer?: number;
+                    lowValueLabel?: string;
+                    highValueLabel?: string;
+                  };
+                },
+              ) => {
                 const baseIcer = entry.payload?.baseIcer ?? 0;
                 const scenarioIcer = baseIcer + value;
                 const label =
@@ -649,8 +660,18 @@ function TornadoSensitivityChart({
                 value === "lowDelta" ? "Low case" : "High case"
               }
             />
-            <Bar dataKey="lowDelta" name="lowDelta" radius={[0, 6, 6, 0]} />
-            <Bar dataKey="highDelta" name="highDelta" radius={[0, 6, 6, 0]} />
+            <Bar
+              dataKey="lowDelta"
+              name="lowDelta"
+              fill="#0f172a"
+              radius={[0, 6, 6, 0]}
+            />
+            <Bar
+              dataKey="highDelta"
+              name="highDelta"
+              fill="#94a3b8"
+              radius={[0, 6, 6, 0]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
