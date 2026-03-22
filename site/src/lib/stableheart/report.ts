@@ -325,7 +325,7 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current signal remains ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to baseline event risk, sustained engagement, achieved effect size, and delivery cost realism.`,
+      body: `Taken together, the current case appears ${decisionStatus.toLowerCase().replace("appears ", "")}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to baseline event risk, sustained engagement, achieved effect size, and delivery cost realism.`,
     },
   ];
 }
