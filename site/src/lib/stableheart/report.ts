@@ -179,40 +179,6 @@ function prettifyParameterName(parameter: keyof StableHeartInputs | string): str
   }
 }
 
-function formatParameterValue(
-  parameter: keyof StableHeartInputs | string,
-  value: number | string | undefined,
-): string {
-  if (value === undefined || value === null) return "—";
-  if (typeof value === "string") return value;
-
-  switch (parameter) {
-    case "baseline_recurrent_event_rate":
-    case "risk_reduction_in_recurrent_events":
-    case "sustained_engagement_rate":
-    case "intervention_reach_rate":
-    case "admission_probability_per_event":
-    case "annual_effect_decay_rate":
-    case "annual_participation_dropoff_rate":
-      return formatPercent(value);
-
-    case "intervention_cost_per_patient_reached":
-    case "cost_per_cardiovascular_event":
-    case "cost_per_admission":
-    case "cost_per_bed_day":
-      return formatCurrency(value);
-
-    case "average_length_of_stay":
-      return `${value.toFixed(1)} days`;
-
-    case "qaly_gain_per_event_avoided":
-      return value.toFixed(3);
-
-    default:
-      return Number.isInteger(value) ? formatNumber(value) : value.toFixed(2);
-  }
-}
-
 function buildTopSensitivityDrivers(
   rows: ParameterSensitivityRow[],
 ): ReportSensitivityDriver[] {
@@ -539,9 +505,11 @@ export function buildStableHeartReportData({
   const sensitivityRows = oneWaySensitivity?.rows ?? [];
   const topSensitivityDrivers = buildTopSensitivityDrivers(sensitivityRows);
 
-  const fragilityText =
-    oneWaySensitivity?.fragilityStatement ??
-    buildFragilityText(interpretation, uncertainty, topSensitivityDrivers);
+  const fragilityText = buildFragilityText(
+    interpretation,
+    uncertainty,
+    topSensitivityDrivers,
+  );
 
   const mainDependencyText =
     oneWaySensitivity?.primary_driver != null
