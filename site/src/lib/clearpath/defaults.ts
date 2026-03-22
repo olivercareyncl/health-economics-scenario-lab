@@ -2,9 +2,9 @@ import type { Inputs } from "@/lib/clearpath/types";
 
 export const DEFAULT_INPUTS: Inputs = {
   annual_incident_cases: 1000,
-  current_late_diagnosis_rate: 0.35,
-  achievable_reduction_in_late_diagnosis: 0.1,
-  intervention_reach_rate: 0.8,
+  current_late_diagnosis_rate: 0.32,
+  achievable_reduction_in_late_diagnosis: 0.07,
+  intervention_reach_rate: 0.65,
   time_horizon_years: 3,
   discount_rate: 0.035,
   cost_effectiveness_threshold: 20000,
@@ -18,8 +18,8 @@ export const DEFAULT_INPUTS: Inputs = {
   cost_per_emergency_admission: 4000,
   cost_per_bed_day: 450,
   costing_method: "Treatment cost difference only",
-  qaly_gain_per_case_shifted: 0.25,
+  qaly_gain_per_case_shifted: 0.2,
   effect_decay_rate: 0.1,
-  participation_dropoff_rate: 0.05,
+  participation_dropoff_rate: 0.06,
   targeting_mode: "Broad population",
 };
