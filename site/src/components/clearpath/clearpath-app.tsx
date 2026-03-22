@@ -65,7 +65,6 @@ import {
   generateOverallSignal,
   generateStructuredRecommendation,
   getDecisionStatus,
-  getMainDriverText,
   getNetCostLabel,
   summariseScenarioStrengths,
 } from "@/lib/clearpath/summaries";
@@ -76,7 +75,6 @@ import type {
   Inputs,
   MobileTab,
   ModelResults,
-  ParameterSensitivityRow,
   ScenarioComparisonRow,
   SensitivitySummary,
   TargetingMode,
@@ -115,28 +113,10 @@ function cx(...classes: Array<string | false | null | undefined>) {
 }
 
 function formatAssumptionValue(
-  formatter: typeof ASSUMPTION_META[keyof typeof ASSUMPTION_META]["formatter"],
+  formatter: (value: string | number) => string,
   value: string | number,
 ) {
-  if (typeof value === "string") return value;
-
-  switch (formatter) {
-    case "percent":
-      return formatPercent(value);
-    case "currency":
-      return formatCurrency(value);
-    case "decimal1":
-      return value.toFixed(1);
-    case "decimal2":
-      return value.toFixed(2);
-    case "integer":
-      return formatNumber(Math.round(value));
-    case "number":
-      return formatNumber(value);
-    case "text":
-    default:
-      return String(value);
-  }
+  return formatter(value);
 }
 
 function getPresetPatch(
@@ -214,10 +194,7 @@ function getPresetDescription(preset: ScenarioPreset) {
   }
 }
 
-function deriveCaseType(
-  preset: ScenarioPreset,
-  inputs: Inputs,
-): string {
+function deriveCaseType(preset: ScenarioPreset, inputs: Inputs): string {
   if (preset !== "Custom") {
     switch (preset) {
       case "Base case":
@@ -252,77 +229,6 @@ function deriveCaseType(
   }
 
   return "Broad earlier-diagnosis case";
-}
-
-function buildRecommendationSummary(
-  inputs: Inputs,
-  results: ModelResults,
-  uncertaintyRows: UncertaintyRow[],
-  preset: ScenarioPreset,
-  caseType: string,
-  sensitivity: SensitivitySummary,
-) {
-  const interpretation = generateInterpretation(
-    results,
-    inputs,
-    uncertaintyRows,
-    sensitivity,
-  );
-  const decisionStatus = getDecisionStatus(
-    results,
-    inputs.cost_effectiveness_threshold,
-  );
-  const baseRow = uncertaintyRows.find((row) => row.case === "Base");
-  const lowRow = uncertaintyRows.find((row) => row.case === "Low");
-  const highRow = uncertaintyRows.find((row) => row.case === "High");
-  const topDrivers = sensitivity.top_drivers;
-
-  const currentCaseSuggests =
-    decisionStatus === "Appears cost-saving"
-      ? `${caseType} currently suggests earlier diagnosis with a net saving signal.`
-      : decisionStatus === "Appears cost-effective"
-        ? `${caseType} currently suggests a plausible value case at the present threshold.`
-        : `${caseType} currently suggests pathway benefit, but the economic case remains above threshold.`;
-
-  const drivingResult =
-    topDrivers.length > 0
-      ? `The result is mainly being driven by ${topDrivers
-          .slice(0, 3)
-          .map((driver) => driver.parameter_label.toLowerCase())
-          .join(", ")}.`
-      : "The result is mainly being shaped by late diagnosis burden, achievable shift, targeting, and delivery cost.";
-
-  const fragilePoint =
-    lowRow && highRow && lowRow.decision_status !== highRow.decision_status
-      ? topDrivers.length > 0
-        ? `The bounded range crosses decision categories, and one-way sensitivity suggests the case is particularly exposed to ${topDrivers[0].parameter_label.toLowerCase()}.`
-        : "The bounded range crosses decision categories, so moderate assumption shifts could change the conclusion."
-      : interpretation.what_looks_fragile;
-
-  const validateNext =
-    baseRow &&
-    baseRow.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
-      ? topDrivers.length > 0
-        ? `Validate local ${topDrivers[0].parameter_label.toLowerCase()}${
-            topDrivers[1]
-              ? ` and ${topDrivers[1].parameter_label.toLowerCase()}`
-              : ""
-          } before treating the case as decision-ready.`
-        : "Validate local shift size, likely delivery cost, and pathway assumptions before treating the case as decision-ready."
-      : interpretation.what_to_validate_next;
-
-  const recommendationLine =
-    preset === "Custom"
-      ? "This is currently a custom setup. Use the named templates to benchmark whether the current setup is unusually strict or favourable."
-      : `This is currently framed as a ${caseType.toLowerCase()}. Use comparator mode to judge whether a nearby alternative looks materially stronger.`;
-
-  return {
-    current_case_suggests: currentCaseSuggests,
-    driving_result: drivingResult,
-    fragile_point: fragilePoint,
-    validate_next: validateNext,
-    recommendation_line: recommendationLine,
-  };
 }
 
 function buildScenarioComparison(
@@ -1196,10 +1102,6 @@ export default function ClearPathApp() {
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
-  const mainDriver = useMemo(
-    () => getMainDriverText(inputs, sensitivity),
-    [inputs, sensitivity],
-  );
 
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty, sensitivity),
