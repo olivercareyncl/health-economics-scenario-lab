@@ -1385,6 +1385,16 @@ export default function StableHeartApp() {
         </p>
       </div>
 
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+        <p className="text-sm font-medium text-slate-900">Scope and use note</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          StableHeart is an exploratory scenario sandbox. It is designed to test how
+          changes in risk, effect, engagement, and delivery cost might influence
+          potential clinical and economic value. It does not replace formal evaluation,
+          forecasting, or business case development.
+        </p>
+      </div>
+
       <div className="sticky top-[72px] z-20 mb-5 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
         <div className="grid grid-cols-3 items-start gap-3">
           <div className="min-w-0">
