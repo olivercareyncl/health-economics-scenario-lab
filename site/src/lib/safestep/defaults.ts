@@ -1,3 +1,5 @@
+import type { SafeStepInputs } from "./types";
+
 export const defaultInputs: SafeStepInputs = {
   eligible_population: 5000,
   uptake_rate: 0.5,
