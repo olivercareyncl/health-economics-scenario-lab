@@ -144,37 +144,58 @@ function getPresetPatch(
 
     case "Lower-cost delivery":
       return {
-        intervention_cost_per_person: 140,
+        intervention_cost_per_person: 200,
+        uptake_rate: 0.52,
+        adherence_rate: 0.75,
+        relative_risk_reduction: 0.16,
+        annual_fall_risk: 0.24,
+        participation_dropoff_rate: 0.06,
+        effect_decay_rate: 0.1,
+        targeting_mode: "Broad population",
+        costing_method: "Admission cost only",
       };
 
     case "Stronger effect":
       return {
-        relative_risk_reduction: 0.24,
-        adherence_rate: 0.78,
-        effect_decay_rate: 0.05,
-        participation_dropoff_rate: 0.06,
+        intervention_cost_per_person: 250,
+        uptake_rate: 0.52,
+        adherence_rate: 0.8,
+        relative_risk_reduction: 0.22,
+        annual_fall_risk: 0.24,
+        participation_dropoff_rate: 0.05,
+        effect_decay_rate: 0.08,
+        targeting_mode: "Broad population",
+        costing_method: "Admission cost only",
       };
 
     case "Higher-risk targeting":
       return {
         targeting_mode: "Higher-risk targeting",
-        eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.85),
-        annual_fall_risk: 0.28,
-        admission_rate_after_fall: 0.26,
-        uptake_rate: 0.68,
-        adherence_rate: 0.74,
+        eligible_population: 4200,
+        annual_fall_risk: 0.3,
+        admission_rate_after_fall: 0.24,
+        uptake_rate: 0.55,
+        adherence_rate: 0.78,
+        relative_risk_reduction: 0.18,
+        intervention_cost_per_person: 255,
+        participation_dropoff_rate: 0.06,
+        effect_decay_rate: 0.09,
+        costing_method: "Admission cost only",
       };
 
     case "Tighter high-risk targeting":
       return {
         targeting_mode: "Tighter high-risk targeting",
-        eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.7),
-        annual_fall_risk: 0.34,
-        admission_rate_after_fall: 0.3,
-        intervention_cost_per_person: 210,
-        relative_risk_reduction: 0.22,
-        uptake_rate: 0.72,
-        adherence_rate: 0.78,
+        eligible_population: 3000,
+        annual_fall_risk: 0.36,
+        admission_rate_after_fall: 0.28,
+        uptake_rate: 0.58,
+        adherence_rate: 0.8,
+        relative_risk_reduction: 0.2,
+        intervention_cost_per_person: 270,
+        participation_dropoff_rate: 0.06,
+        effect_decay_rate: 0.08,
+        costing_method: "Admission cost only",
       };
   }
 }
