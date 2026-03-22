@@ -116,6 +116,17 @@ export type SensitivitySummary = {
   primary_driver: ParameterSensitivityRow | null;
 };
 
+export type OneWaySensitivityRow = {
+  parameter: string;
+  lowCaseValue?: number | string;
+  highCaseValue?: number | string;
+  lowCaseResult?: number;
+  highCaseResult?: number;
+  swing?: number;
+  note?: string;
+  rank?: number;
+};
+
 export type AssumptionMeta = {
   label: string;
   unit: string;
