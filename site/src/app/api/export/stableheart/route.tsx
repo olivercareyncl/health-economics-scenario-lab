@@ -7,7 +7,7 @@ import { DEFAULT_INPUTS } from "@/lib/stableheart/defaults";
 import {
   runBoundedUncertainty,
   runModel,
-  runOneWaySensitivityAnalysis,
+  runParameterSensitivity,
 } from "@/lib/stableheart/calculations";
 import type { Inputs } from "@/lib/stableheart/types";
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const results = runModel(inputs);
     const uncertainty = runBoundedUncertainty(inputs);
-    const oneWaySensitivity = runOneWaySensitivityAnalysis(inputs);
+    const oneWaySensitivity = runParameterSensitivity(inputs);
 
     const reportData = buildStableHeartReportData({
       inputs,
