@@ -3,7 +3,11 @@ import { renderToStream } from "@react-pdf/renderer";
 
 import { ClearPathReportDocument } from "@/components/pdf/clearpath-report";
 import { DEFAULT_INPUTS } from "@/lib/clearpath/defaults";
-import { runBoundedUncertainty, runModel } from "@/lib/clearpath/calculations";
+import {
+  runBoundedUncertainty,
+  runModel,
+  runParameterSensitivity,
+} from "@/lib/clearpath/calculations";
 import { buildClearPathReportData } from "@/lib/clearpath/report";
 import type { Inputs } from "@/lib/clearpath/types";
 
@@ -18,11 +22,13 @@ export async function POST(request: Request) {
 
     const results = runModel(inputs);
     const uncertainty = runBoundedUncertainty(inputs);
+    const sensitivity = runParameterSensitivity(inputs);
 
     const reportData = buildClearPathReportData({
       inputs,
       results,
       uncertainty,
+      sensitivity,
       exportedAt: new Date().toISOString(),
     });
 
