@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useMemo, useState, type ReactNode } from "react";
 import {
   RotateCcw,
@@ -44,6 +43,7 @@ import {
   getNetCostLabel,
 } from "@/lib/safestep/summaries";
 import type {
+  AssumptionFormatter,
   AssumptionKey,
   CostingMethod,
   ModelResult,
@@ -104,6 +104,31 @@ function compactCurrencyAxis(value: number) {
   if (Math.abs(value) >= 1_000_000) return `£${(value / 1_000_000).toFixed(1)}m`;
   if (Math.abs(value) >= 1_000) return `£${(value / 1_000).toFixed(0)}k`;
   return formatCurrency(value);
+}
+
+function formatAssumptionValue(
+  formatter: AssumptionFormatter,
+  value: string | number,
+) {
+  if (typeof value === "string") return value;
+
+  switch (formatter) {
+    case "percent":
+      return formatPercent(value);
+    case "currency":
+      return formatCurrency(value);
+    case "decimal1":
+      return value.toFixed(1);
+    case "decimal2":
+      return value.toFixed(2);
+    case "integer":
+      return formatNumber(Math.round(value));
+    case "number":
+      return formatNumber(value);
+    case "text":
+    default:
+      return String(value);
+  }
 }
 
 function getPresetPatch(
@@ -1266,7 +1291,7 @@ export default function SafeStepApp() {
           <AssumptionReviewCard
             key={key}
             label={meta.label}
-            value={meta.formatter(value)}
+            value={formatAssumptionValue(meta.formatter, value)}
             note={meta.description}
           />
         );
