@@ -574,7 +574,7 @@ export function StableHeartReportDocument({
           </View>
         </View>
 
-        <View style={styles.section} break>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Scenario and comparator interpretation
           </Text>
@@ -621,7 +621,13 @@ export function StableHeartReportDocument({
           {renderBulletBlocks(data.localEvidenceNeeded.items)}
         </View>
 
-        <View style={styles.section} break>
+        <Footer />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <RepeatingHeader module={data.cover.module} />
+
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Assumptions</Text>
           <Text style={styles.assumptionsIntro}>
             The following assumptions define the current scenario run. They shape
