@@ -312,6 +312,85 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
   },
 
+  threeColTable: {
+    width: "100%",
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    overflow: "hidden",
+    marginTop: 6,
+    backgroundColor: "#ffffff",
+  },
+  threeColHeader: {
+    flexDirection: "row",
+    backgroundColor: "#e2e8f0",
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+  },
+  threeColRow: {
+    flexDirection: "row",
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderBottom: "1 solid #e2e8f0",
+  },
+  threeColRowLast: {
+    flexDirection: "row",
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderBottom: "0 solid #ffffff",
+  },
+  threeColLabelCol: {
+    width: "28%",
+    paddingRight: 8,
+  },
+  threeColValueCol: {
+    width: "24%",
+    paddingRight: 8,
+  },
+  threeColNoteCol: {
+    width: "48%",
+  },
+  threeColHeaderText: {
+    fontSize: 8.3,
+    fontWeight: 700,
+    color: "#0f172a",
+    textTransform: "uppercase",
+  },
+  threeColCaseLabel: {
+    fontSize: 8.8,
+    fontWeight: 700,
+    color: "#0f172a",
+    lineHeight: 1.35,
+  },
+  threeColValue: {
+    fontSize: 8.8,
+    color: "#334155",
+    lineHeight: 1.4,
+  },
+  threeColNote: {
+    fontSize: 8.2,
+    color: "#475569",
+    lineHeight: 1.4,
+  },
+
+  sensitivityDriverBox: {
+    marginTop: 10,
+    padding: 9,
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+  },
+  sensitivityDriverTitle: {
+    fontSize: 9.1,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginBottom: 5,
+  },
+  sensitivityDriverMeta: {
+    fontSize: 8.5,
+    color: "#475569",
+    lineHeight: 1.45,
+  },
+
   footer: {
     position: "absolute",
     left: 34,
@@ -442,6 +521,42 @@ function renderAssumptionTable(
   );
 }
 
+function renderUncertaintyColumns(
+  rows: Array<{
+    label: string;
+    value: string;
+    note: string;
+  }>,
+) {
+  return (
+    <View style={styles.threeColTable}>
+      <View style={styles.threeColHeader}>
+        {rows.map((row) => (
+          <View key={`uncertainty-header-${row.label}`} style={styles.threeColValueCol}>
+            <Text style={styles.threeColHeaderText}>{cleanText(row.label)}</Text>
+          </View>
+        ))}
+        <View style={styles.threeColNoteCol}>
+          <Text style={styles.threeColHeaderText}>Interpretation</Text>
+        </View>
+      </View>
+
+      <View style={styles.threeColRowLast}>
+        {rows.map((row) => (
+          <View key={`uncertainty-value-${row.label}`} style={styles.threeColValueCol}>
+            <Text style={styles.threeColValue}>{cleanValue(row.value)}</Text>
+          </View>
+        ))}
+        <View style={styles.threeColNoteCol}>
+          <Text style={styles.threeColNote}>
+            {cleanText(rows.map((row) => `${row.label}: ${row.note}`).join(" · "))}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function RepeatingHeader({ module }: { module: string }) {
   return (
     <View style={styles.header} fixed>
@@ -566,26 +681,63 @@ export function SafeStepReportDocument({
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
 
-        <View style={styles.section}>
+        <Footer />
+      </Page>
+
+      <Page size="A4" style={styles.page}>
+        <RepeatingHeader module={data.cover.module} />
+
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
           <Text style={styles.paragraph}>
             {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
           </Text>
 
           <View style={[styles.sectionTight, { marginTop: 10 }]}>
-            {renderInfoRows(
-              data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
-                label: row.label,
-                value: row.value,
-                note: row.note,
-              })),
-            )}
+            {renderUncertaintyColumns(data.uncertaintyAndSensitivity.uncertaintyRows)}
           </View>
 
           <View style={[styles.sectionTight, { marginTop: 12 }]}>
             <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
             {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
           </View>
+
+          {data.uncertaintyAndSensitivity.topSensitivityDrivers?.length ? (
+            <View style={[styles.sectionTight, { marginTop: 12 }]}>
+              <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
+              {data.uncertaintyAndSensitivity.topSensitivityDrivers.map((driver) => (
+                <View
+                  key={`${driver.rank}-${driver.label}`}
+                  style={styles.sensitivityDriverBox}
+                >
+                  <Text style={styles.sensitivityDriverTitle}>
+                    {driver.rank ? `${driver.rank}. ` : ""}
+                    {cleanText(driver.label)}
+                  </Text>
+                  {driver.lowCase ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      Low case: {cleanValue(driver.lowCase)}
+                    </Text>
+                  ) : null}
+                  {driver.highCase ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      High case: {cleanValue(driver.highCase)}
+                    </Text>
+                  ) : null}
+                  {driver.swing ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      ICER swing: {cleanValue(driver.swing)}
+                    </Text>
+                  ) : null}
+                  {driver.note ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      {cleanText(driver.note)}
+                    </Text>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <Footer />
