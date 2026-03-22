@@ -1,12 +1,4 @@
-import {
-  COSTING_METHOD_MAP,
-  SCENARIO_MAP,
-  TARGETING_MODE_MAP,
-} from "@/lib/stableheart/scenarios";
-import {
-  formatCurrency,
-  formatPercent,
-} from "@/lib/stableheart/formatters";
+import { COSTING_METHOD_MAP, SCENARIO_MAP, TARGETING_MODE_MAP } from "@/lib/stableheart/scenarios";
 import type {
   ComparatorOption,
   Inputs,
@@ -110,7 +102,8 @@ function runModelCore(inputs: Inputs) {
       inputs,
     );
     const net_cost = programme_cost - gross_savings;
-    const qalys_gained = events_avoided * inputs.qaly_gain_per_event_avoided;
+    const qalys_gained =
+      events_avoided * inputs.qaly_gain_per_event_avoided;
 
     const discount_factor = getDiscountFactor(year, inputs.discount_rate);
     const discounted_programme_cost = programme_cost * discount_factor;
@@ -235,7 +228,8 @@ export function calculateBreakEvenRiskReduction(inputs: Inputs): number {
       effectivePatients * targeting.adjusted_event_rate * effectMultiplier;
     const admissionsPerUnit =
       eventsPerUnit * inputs.admission_probability_per_event;
-    const bedDaysPerUnit = admissionsPerUnit * inputs.average_length_of_stay;
+    const bedDaysPerUnit =
+      admissionsPerUnit * inputs.average_length_of_stay;
 
     const grossSavingsPerUnit = calculateGrossSavings(
       eventsPerUnit,
@@ -254,7 +248,8 @@ export function calculateBreakEvenRiskReduction(inputs: Inputs): number {
       patientsReached *
       inputs.intervention_cost_per_patient_reached *
       discountFactor;
-    denominator += (grossSavingsPerUnit + qalyValuePerUnit) * discountFactor;
+    denominator +=
+      (grossSavingsPerUnit + qalyValuePerUnit) * discountFactor;
   }
 
   return safeDivide(numerator, denominator);
@@ -396,7 +391,8 @@ export function calculateBreakEvenHorizon(
 
     if (
       result.discounted_cost_per_qaly > 0 &&
-      result.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
+      result.discounted_cost_per_qaly <=
+        inputs.cost_effectiveness_threshold
     ) {
       return `${horizon} year${horizon === 1 ? "" : "s"}`;
     }
@@ -497,179 +493,275 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
   });
 }
 
-type SensitivityConfig = {
-  key: keyof Inputs;
-  label: string;
-  low: (value: number) => number;
-  high: (value: number) => number;
-  formatter: (value: number) => string;
-};
-
-const SENSITIVITY_CONFIGS: SensitivityConfig[] = [
-  {
-    key: "baseline_recurrent_event_rate",
-    label: "Baseline recurrent event rate",
-    low: (value) => clampRate(value * 0.8),
-    high: (value) => clampRate(value * 1.2),
-    formatter: (value) => formatPercent(value),
-  },
-  {
-    key: "risk_reduction_in_recurrent_events",
-    label: "Risk reduction in recurrent events",
-    low: (value) => clampRate(value * 0.8),
-    high: (value) => clampRate(value * 1.2),
-    formatter: (value) => formatPercent(value),
-  },
-  {
-    key: "intervention_cost_per_patient_reached",
-    label: "Intervention cost per patient",
-    low: (value) => Math.max(0, value * 0.8),
-    high: (value) => Math.max(0, value * 1.2),
-    formatter: (value) => formatCurrency(value),
-  },
-  {
-    key: "intervention_reach_rate",
-    label: "Intervention reach",
-    low: (value) => clampRate(value * 0.8),
-    high: (value) => clampRate(value * 1.2),
-    formatter: (value) => formatPercent(value),
-  },
-  {
-    key: "sustained_engagement_rate",
-    label: "Sustained engagement",
-    low: (value) => clampRate(value * 0.9),
-    high: (value) => clampRate(value * 1.1),
-    formatter: (value) => formatPercent(value),
-  },
-  {
-    key: "admission_probability_per_event",
-    label: "Admission probability per event",
-    low: (value) => clampRate(value * 0.85),
-    high: (value) => clampRate(value * 1.15),
-    formatter: (value) => formatPercent(value),
-  },
-  {
-    key: "average_length_of_stay",
-    label: "Average length of stay",
-    low: (value) => Math.max(0, value * 0.85),
-    high: (value) => Math.max(0, value * 1.15),
-    formatter: (value) => `${value.toFixed(1)} days`,
-  },
-  {
-    key: "qaly_gain_per_event_avoided",
-    label: "QALY gain per event avoided",
-    low: (value) => Math.max(0, value * 0.8),
-    high: (value) => Math.max(0, value * 1.2),
-    formatter: (value) => value.toFixed(3),
-  },
-  {
-    key: "cost_per_cardiovascular_event",
-    label: "Cost per cardiovascular event",
-    low: (value) => Math.max(0, value * 0.85),
-    high: (value) => Math.max(0, value * 1.15),
-    formatter: (value) => formatCurrency(value),
-  },
-  {
-    key: "cost_per_admission",
-    label: "Cost per admission",
-    low: (value) => Math.max(0, value * 0.85),
-    high: (value) => Math.max(0, value * 1.15),
-    formatter: (value) => formatCurrency(value),
-  },
-  {
-    key: "cost_per_bed_day",
-    label: "Cost per bed day",
-    low: (value) => Math.max(0, value * 0.85),
-    high: (value) => Math.max(0, value * 1.15),
-    formatter: (value) => formatCurrency(value),
-  },
-  {
-    key: "annual_effect_decay_rate",
-    label: "Annual effect decay",
-    low: (value) => clampRate(value * 0.8),
-    high: (value) => clampRate(value * 1.2),
-    formatter: (value) => formatPercent(value),
-  },
-  {
-    key: "annual_participation_dropoff_rate",
-    label: "Annual participation drop-off",
-    low: (value) => clampRate(value * 0.8),
-    high: (value) => clampRate(value * 1.2),
-    formatter: (value) => formatPercent(value),
-  },
-  {
-    key: "eligible_population",
-    label: "Eligible population",
-    low: (value) => Math.max(0, value * 0.85),
-    high: (value) => Math.max(0, value * 1.15),
-    formatter: (value) => Math.round(value).toLocaleString("en-GB"),
-  },
-];
-
-function getFiniteIcer(value: number): number {
-  return Number.isFinite(value) ? value : 0;
+function buildParameterSensitivityLabel(
+  parameterKey: keyof Inputs,
+): string {
+  switch (parameterKey) {
+    case "risk_reduction_in_recurrent_events":
+      return "Risk reduction in recurrent events";
+    case "intervention_cost_per_patient_reached":
+      return "Intervention cost per patient";
+    case "sustained_engagement_rate":
+      return "Sustained engagement";
+    case "intervention_reach_rate":
+      return "Intervention reach";
+    case "admission_probability_per_event":
+      return "Admission probability per event";
+    case "average_length_of_stay":
+      return "Average length of stay";
+    case "qaly_gain_per_event_avoided":
+      return "QALY gain per event avoided";
+    case "annual_effect_decay_rate":
+      return "Annual effect decay";
+    case "annual_participation_dropoff_rate":
+      return "Annual participation drop-off";
+    case "cost_per_cardiovascular_event":
+      return "Cost per cardiovascular event";
+    case "cost_per_admission":
+      return "Cost per admission";
+    case "cost_per_bed_day":
+      return "Cost per bed day";
+    case "eligible_population":
+      return "Eligible population";
+    case "baseline_recurrent_event_rate":
+      return "Baseline recurrent event rate";
+    case "discount_rate":
+      return "Discount rate";
+    case "cost_effectiveness_threshold":
+      return "Cost-effectiveness threshold";
+    case "costing_method":
+      return "Costing method";
+    case "targeting_mode":
+      return "Targeting mode";
+    case "time_horizon_years":
+      return "Time horizon";
+    default:
+      return String(parameterKey);
+  }
 }
 
-export function runParameterSensitivity(inputs: Inputs): SensitivitySummary {
-  const baseResults = runModel(inputs);
+function formatSensitivityValueLabel(
+  parameterKey: keyof Inputs,
+  value: number,
+): string {
+  switch (parameterKey) {
+    case "risk_reduction_in_recurrent_events":
+    case "sustained_engagement_rate":
+    case "intervention_reach_rate":
+    case "admission_probability_per_event":
+    case "annual_effect_decay_rate":
+    case "annual_participation_dropoff_rate":
+    case "baseline_recurrent_event_rate":
+    case "discount_rate":
+      return `${(value * 100).toFixed(1)}%`;
 
-  const rows: ParameterSensitivityRow[] = SENSITIVITY_CONFIGS.map((config) => {
-    const baseValue = inputs[config.key];
+    case "intervention_cost_per_patient_reached":
+    case "cost_per_cardiovascular_event":
+    case "cost_per_admission":
+    case "cost_per_bed_day":
+    case "cost_effectiveness_threshold":
+      return `£${value.toLocaleString(undefined, {
+        maximumFractionDigits: 0,
+      })}`;
 
-    if (typeof baseValue !== "number") {
+    case "average_length_of_stay":
+      return `${value.toFixed(1)} days`;
+
+    case "qaly_gain_per_event_avoided":
+      return value.toFixed(3);
+
+    case "eligible_population":
+      return value.toLocaleString(undefined, {
+        maximumFractionDigits: 0,
+      });
+
+    default:
+      return value.toLocaleString(undefined, {
+        maximumFractionDigits: 2,
+      });
+  }
+}
+
+function buildSensitivityRange(
+  inputs: Inputs,
+  parameterKey: keyof Inputs,
+): { lowValue: number; highValue: number } | null {
+  const baseValue = inputs[parameterKey];
+
+  if (typeof baseValue !== "number") return null;
+
+  switch (parameterKey) {
+    case "baseline_recurrent_event_rate":
       return {
-        parameter_key: config.key,
-        parameter_label: config.label,
-        low_value_label: "n/a",
-        high_value_label: "n/a",
-        low_icer: 0,
-        base_icer: getFiniteIcer(baseResults.discounted_cost_per_qaly),
-        high_icer: 0,
-        low_net_cost: 0,
-        base_net_cost: baseResults.discounted_net_cost_total,
-        high_net_cost: 0,
-        max_abs_icer_change: 0,
+        lowValue: clampRate(baseValue * 0.85),
+        highValue: clampRate(baseValue * 1.15),
       };
-    }
 
-    const lowValue = config.low(baseValue);
-    const highValue = config.high(baseValue);
+    case "risk_reduction_in_recurrent_events":
+      return {
+        lowValue: clampRate(baseValue * 0.8),
+        highValue: clampRate(baseValue * 1.2),
+      };
 
-    const lowInputs: Inputs = {
-      ...inputs,
-      [config.key]: lowValue,
-    };
-    const highInputs: Inputs = {
-      ...inputs,
-      [config.key]: highValue,
-    };
+    case "intervention_cost_per_patient_reached":
+      return {
+        lowValue: Math.max(0, baseValue * 0.8),
+        highValue: Math.max(0, baseValue * 1.2),
+      };
 
-    const lowResults = runModel(lowInputs);
-    const highResults = runModel(highInputs);
+    case "sustained_engagement_rate":
+      return {
+        lowValue: clampRate(baseValue * 0.9),
+        highValue: clampRate(baseValue * 1.1),
+      };
 
-    const baseIcer = getFiniteIcer(baseResults.discounted_cost_per_qaly);
-    const lowIcer = getFiniteIcer(lowResults.discounted_cost_per_qaly);
-    const highIcer = getFiniteIcer(highResults.discounted_cost_per_qaly);
+    case "intervention_reach_rate":
+      return {
+        lowValue: clampRate(baseValue * 0.9),
+        highValue: clampRate(baseValue * 1.1),
+      };
 
-    const max_abs_icer_change = Math.max(
-      Math.abs(lowIcer - baseIcer),
-      Math.abs(highIcer - baseIcer),
-    );
+    case "admission_probability_per_event":
+      return {
+        lowValue: clampRate(baseValue * 0.9),
+        highValue: clampRate(baseValue * 1.1),
+      };
 
-    return {
-      parameter_key: config.key,
-      parameter_label: config.label,
-      low_value_label: config.formatter(lowValue),
-      high_value_label: config.formatter(highValue),
-      low_icer: lowIcer,
-      base_icer: baseIcer,
-      high_icer: highIcer,
-      low_net_cost: lowResults.discounted_net_cost_total,
-      base_net_cost: baseResults.discounted_net_cost_total,
-      high_net_cost: highResults.discounted_net_cost_total,
-      max_abs_icer_change,
-    };
-  }).sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change);
+    case "average_length_of_stay":
+      return {
+        lowValue: Math.max(0, baseValue * 0.85),
+        highValue: Math.max(0, baseValue * 1.15),
+      };
+
+    case "qaly_gain_per_event_avoided":
+      return {
+        lowValue: Math.max(0, baseValue * 0.8),
+        highValue: Math.max(0, baseValue * 1.2),
+      };
+
+    case "annual_effect_decay_rate":
+      return {
+        lowValue: clampRate(baseValue * 0.8),
+        highValue: clampRate(baseValue * 1.2),
+      };
+
+    case "annual_participation_dropoff_rate":
+      return {
+        lowValue: clampRate(baseValue * 0.8),
+        highValue: clampRate(baseValue * 1.2),
+      };
+
+    case "cost_per_cardiovascular_event":
+      return {
+        lowValue: Math.max(0, baseValue * 0.85),
+        highValue: Math.max(0, baseValue * 1.15),
+      };
+
+    case "cost_per_admission":
+      return {
+        lowValue: Math.max(0, baseValue * 0.85),
+        highValue: Math.max(0, baseValue * 1.15),
+      };
+
+    case "cost_per_bed_day":
+      return {
+        lowValue: Math.max(0, baseValue * 0.85),
+        highValue: Math.max(0, baseValue * 1.15),
+      };
+
+    case "eligible_population":
+      return {
+        lowValue: Math.max(0, Math.round(baseValue * 0.9)),
+        highValue: Math.max(0, Math.round(baseValue * 1.1)),
+      };
+
+    default:
+      return null;
+  }
+}
+
+const SENSITIVITY_PARAMETER_KEYS: Array<keyof Inputs> = [
+  "risk_reduction_in_recurrent_events",
+  "intervention_cost_per_patient_reached",
+  "sustained_engagement_rate",
+  "intervention_reach_rate",
+  "admission_probability_per_event",
+  "average_length_of_stay",
+  "qaly_gain_per_event_avoided",
+  "annual_effect_decay_rate",
+  "annual_participation_dropoff_rate",
+  "cost_per_cardiovascular_event",
+  "cost_per_admission",
+  "cost_per_bed_day",
+];
+
+export function runParameterSensitivity(
+  inputs: Inputs,
+): SensitivitySummary {
+  const baseResult = runModel(inputs);
+
+  const rows: ParameterSensitivityRow[] = SENSITIVITY_PARAMETER_KEYS.map(
+    (parameterKey) => {
+      const range = buildSensitivityRange(inputs, parameterKey);
+
+      if (!range) {
+        return {
+          parameter_key: parameterKey,
+          parameter_label: buildParameterSensitivityLabel(parameterKey),
+          low_value_label: "—",
+          high_value_label: "—",
+          low_icer: baseResult.discounted_cost_per_qaly,
+          base_icer: baseResult.discounted_cost_per_qaly,
+          high_icer: baseResult.discounted_cost_per_qaly,
+          low_net_cost: baseResult.discounted_net_cost_total,
+          base_net_cost: baseResult.discounted_net_cost_total,
+          high_net_cost: baseResult.discounted_net_cost_total,
+          max_abs_icer_change: 0,
+        };
+      }
+
+      const lowInputs: Inputs = {
+        ...inputs,
+        [parameterKey]: range.lowValue,
+      };
+      const highInputs: Inputs = {
+        ...inputs,
+        [parameterKey]: range.highValue,
+      };
+
+      const lowResult = runModel(lowInputs);
+      const highResult = runModel(highInputs);
+
+      const lowDelta = Math.abs(
+        lowResult.discounted_cost_per_qaly -
+          baseResult.discounted_cost_per_qaly,
+      );
+      const highDelta = Math.abs(
+        highResult.discounted_cost_per_qaly -
+          baseResult.discounted_cost_per_qaly,
+      );
+
+      return {
+        parameter_key: parameterKey,
+        parameter_label: buildParameterSensitivityLabel(parameterKey),
+        low_value_label: formatSensitivityValueLabel(
+          parameterKey,
+          range.lowValue,
+        ),
+        high_value_label: formatSensitivityValueLabel(
+          parameterKey,
+          range.highValue,
+        ),
+        low_icer: lowResult.discounted_cost_per_qaly,
+        base_icer: baseResult.discounted_cost_per_qaly,
+        high_icer: highResult.discounted_cost_per_qaly,
+        low_net_cost: lowResult.discounted_net_cost_total,
+        base_net_cost: baseResult.discounted_net_cost_total,
+        high_net_cost: highResult.discounted_net_cost_total,
+        max_abs_icer_change: Math.max(lowDelta, highDelta),
+      };
+    },
+  ).sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change);
 
   return {
     rows,
@@ -686,7 +778,10 @@ export function buildComparatorCase(
   const comparatorInputs: Inputs = { ...defaults };
 
   if (comparatorMode in SCENARIO_MAP) {
-    Object.assign(comparatorInputs, SCENARIO_MAP[comparatorMode](defaults));
+    Object.assign(
+      comparatorInputs,
+      SCENARIO_MAP[comparatorMode](defaults),
+    );
   } else {
     Object.assign(comparatorInputs, baseInputs);
   }
