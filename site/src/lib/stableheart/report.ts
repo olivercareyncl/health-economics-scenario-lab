@@ -327,7 +327,7 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current signal is ${cleanDecisionStatus(
+      body: `Taken together, the current signal ${cleanDecisionStatus(
         decisionStatus,
       ).toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to baseline event risk, sustained engagement, achieved effect size, and delivery cost realism.`,
     },
