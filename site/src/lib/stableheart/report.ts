@@ -8,7 +8,7 @@ import type {
   ModelResults as StableHeartModelResults,
   UncertaintyRow as StableHeartUncertaintyRow,
   SensitivitySummary as StableHeartSensitivitySummary,
-  OneWaySensitivityRow,
+  ParameterSensitivityRow,
 } from "@/lib/stableheart/types";
 import {
   generateInterpretation,
@@ -136,51 +136,14 @@ function getSignalLabel(decisionStatus: string): string {
   return "Weak";
 }
 
-function prettifyParameterName(parameter: string): string {
-  switch (parameter) {
-    case "baseline_recurrent_event_rate":
-      return "Baseline recurrent event rate";
-    case "risk_reduction_in_recurrent_events":
-      return "Risk reduction in recurrent events";
-    case "intervention_cost_per_patient_reached":
-      return "Intervention cost per patient";
-    case "sustained_engagement_rate":
-      return "Sustained engagement";
-    case "intervention_reach_rate":
-      return "Intervention reach";
-    case "admission_probability_per_event":
-      return "Admission probability per event";
-    case "average_length_of_stay":
-      return "Average length of stay";
-    case "qaly_gain_per_event_avoided":
-      return "QALY gain per event avoided";
-    case "annual_effect_decay_rate":
-      return "Annual effect decay";
-    case "annual_participation_dropoff_rate":
-      return "Annual participation drop-off";
-    case "cost_per_cardiovascular_event":
-      return "Cost per cardiovascular event";
-    case "cost_per_admission":
-      return "Cost per admission";
-    case "cost_per_bed_day":
-      return "Cost per bed day";
-    case "eligible_population":
-      return "Eligible population";
-    default:
-      return parameter
-        .replaceAll("_", " ")
-        .replace(/\b\w/g, (char) => char.toUpperCase());
-  }
-}
-
 function formatParameterValue(
-  parameter: string,
+  parameterKey: keyof StableHeartInputs,
   value: number | string | undefined,
 ): string {
   if (value === undefined || value === null) return "—";
   if (typeof value === "string") return value;
 
-  switch (parameter) {
+  switch (parameterKey) {
     case "baseline_recurrent_event_rate":
     case "risk_reduction_in_recurrent_events":
     case "sustained_engagement_rate":
@@ -194,6 +157,7 @@ function formatParameterValue(
     case "cost_per_cardiovascular_event":
     case "cost_per_admission":
     case "cost_per_bed_day":
+    case "cost_effectiveness_threshold":
       return formatCurrency(value);
 
     case "average_length_of_stay":
@@ -202,28 +166,30 @@ function formatParameterValue(
     case "qaly_gain_per_event_avoided":
       return value.toFixed(3);
 
+    case "discount_rate":
+      return `${(value * 100).toFixed(1)}%`;
+
     default:
       return Number.isInteger(value) ? formatNumber(value) : value.toFixed(2);
   }
 }
 
 function buildTopSensitivityDrivers(
-  rows?: OneWaySensitivityRow[],
+  rows: ParameterSensitivityRow[],
 ): ReportSensitivityDriver[] {
-  if (!rows?.length) return [];
+  if (!rows.length) return [];
 
   return [...rows]
-    .sort((a, b) => (b.swing ?? 0) - (a.swing ?? 0))
+    .sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change)
     .slice(0, 3)
     .map((row, index) => ({
-      rank: row.rank ?? index + 1,
-      label: prettifyParameterName(row.parameter),
-      lowCase: formatParameterValue(row.parameter, row.lowCaseValue),
-      highCase: formatParameterValue(row.parameter, row.highCaseValue),
-      swing: row.swing !== undefined ? formatCurrency(row.swing) : "—",
+      rank: index + 1,
+      label: row.parameter_label,
+      lowCase: `${row.low_value_label} → ${formatCurrency(row.low_icer)}`,
+      highCase: `${row.high_value_label} → ${formatCurrency(row.high_icer)}`,
+      swing: formatCurrency(row.max_abs_icer_change),
       note:
-        row.note ??
-        "Low/high cases reflect the change in discounted cost per QALY when this parameter is varied one way.",
+        "Shows how discounted cost per QALY changes when this parameter is varied one way while others are held constant.",
     }));
 }
 
@@ -526,18 +492,17 @@ export function buildStableHeartReportData({
   const topSensitivityDrivers = buildTopSensitivityDrivers(sensitivityRows);
 
   const fragilityText =
-    oneWaySensitivity?.fragilityStatement ??
-    buildFragilityText(interpretation, uncertainty, topSensitivityDrivers);
+    oneWaySensitivity?.primary_driver
+      ? buildFragilityText(interpretation, uncertainty, topSensitivityDrivers)
+      : buildFragilityText(interpretation, uncertainty, []);
 
   const mainDependencyText =
-    oneWaySensitivity?.mainDriver
-      ? `The result is most sensitive to ${oneWaySensitivity.mainDriver.toLowerCase()}.`
-      : topSensitivityDrivers.length > 0
-        ? buildSensitivityLead(
-            topSensitivityDrivers,
-            `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`,
-          )
-        : `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`;
+    topSensitivityDrivers.length > 0
+      ? buildSensitivityLead(
+          topSensitivityDrivers,
+          `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`,
+        )
+      : `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`;
 
   return {
     cover: {
