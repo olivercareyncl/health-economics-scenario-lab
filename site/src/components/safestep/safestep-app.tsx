@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useMemo, useState, type ReactNode } from "react";
 import {
   RotateCcw,
@@ -32,7 +31,11 @@ import {
   runModel,
   runParameterSensitivity,
 } from "@/lib/safestep/calculations";
-import { formatCurrency, formatNumber, formatPercent } from "@/lib/safestep/formatters";
+import {
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+} from "@/lib/safestep/formatters";
 import { ASSUMPTION_META, ASSUMPTION_ORDER } from "@/lib/safestep/metadata";
 import {
   COSTING_METHOD_OPTIONS,
@@ -377,9 +380,17 @@ function CostVsSavingsChart({
 
       <div className="h-52 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <LineChart
+            data={data}
+            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+          >
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="year"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
@@ -401,7 +412,7 @@ function CostVsSavingsChart({
               type="monotone"
               dataKey="grossSavings"
               name="Gross savings"
-              stroke="#64748b"
+              stroke="#dc2626"
               strokeWidth={2.5}
               dot={false}
             />
@@ -435,9 +446,17 @@ function FallsAvoidedChart({
 
       <div className="h-52 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+          >
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="year"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => formatNumber(Number(value))}
               tickLine={false}
@@ -446,7 +465,77 @@ function FallsAvoidedChart({
               width={52}
             />
             <Tooltip content={<NumberTooltip />} />
-            <Bar dataKey="fallsAvoided" name="Falls avoided" radius={[8, 8, 0, 0]} />
+            <Bar
+              dataKey="fallsAvoided"
+              name="Falls avoided"
+              radius={[8, 8, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function ClinicalImpactChart({
+  results,
+}: {
+  results: ModelResult;
+}) {
+  const data = [
+    {
+      label: "Falls avoided",
+      shortLabel: "Falls",
+      value: results.falls_avoided_total,
+    },
+    {
+      label: "Admissions avoided",
+      shortLabel: "Adm.",
+      value: results.admissions_avoided_total,
+    },
+    {
+      label: "Bed days avoided",
+      shortLabel: "Bed days",
+      value: results.bed_days_avoided_total,
+    },
+  ];
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Clinical impact
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Headline avoided-activity impact over the selected horizon.
+        </p>
+      </div>
+
+      <div className="h-56 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
+          >
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              tickFormatter={(value) => formatNumber(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
+            <YAxis
+              type="category"
+              dataKey="shortLabel"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={74}
+            />
+            <Tooltip content={<NumberTooltip />} />
+            <Bar dataKey="value" name="Impact" radius={[0, 8, 8, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -479,9 +568,17 @@ function BoundedUncertaintyChart({
 
       <div className="h-56 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+          >
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
+            <XAxis
+              dataKey="case"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
             <YAxis
               tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
@@ -643,7 +740,10 @@ function MobileAccordion({
       >
         <span className="text-sm font-medium text-slate-900">{title}</span>
         <ChevronDown
-          className={cx("h-4 w-4 text-slate-500 transition-transform", open && "rotate-180")}
+          className={cx(
+            "h-4 w-4 text-slate-500 transition-transform",
+            open && "rotate-180",
+          )}
         />
       </button>
 
@@ -666,14 +766,21 @@ function SectionCard({
   dense?: boolean;
 }) {
   return (
-    <section className={cx(PANEL_SHELL, dense ? "p-4 lg:p-5" : "p-4 sm:p-5 lg:p-5 xl:p-6")}>
+    <section
+      className={cx(
+        PANEL_SHELL,
+        dense ? "p-4 lg:p-5" : "p-4 sm:p-5 lg:p-5 xl:p-6",
+      )}
+    >
       <div className="mb-4 flex flex-col gap-3 lg:mb-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-tight text-slate-950 lg:text-lg">
             {title}
           </h2>
           {description ? (
-            <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>
+            <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
+              {description}
+            </p>
           ) : null}
         </div>
         {action ? <div className="shrink-0 self-start">{action}</div> : null}
@@ -767,7 +874,9 @@ function NumberInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-slate-700">
+        {label}
+      </span>
       <input
         type="number"
         min={min}
@@ -835,7 +944,9 @@ function SelectInput<T extends string>({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-slate-700">
+        {label}
+      </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
@@ -877,7 +988,9 @@ export default function SafeStepApp() {
   const [selectedPreset, setSelectedPreset] = useState<ScenarioPreset>("Base case");
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<AssumptionSectionKey, boolean>>({
+  const [openSections, setOpenSections] = useState<
+    Record<AssumptionSectionKey, boolean>
+  >({
     "advanced-delivery": false,
     "advanced-risk": false,
     "advanced-economics": false,
@@ -890,7 +1003,11 @@ export default function SafeStepApp() {
   const sensitivity = useMemo(() => runParameterSensitivity(inputs), [inputs]);
 
   const comparatorResults = useMemo(() => {
-    const comparatorInputs = buildComparatorCase(DEFAULT_INPUTS, inputs, comparatorMode);
+    const comparatorInputs = buildComparatorCase(
+      DEFAULT_INPUTS,
+      inputs,
+      comparatorMode,
+    );
     return runModel(comparatorInputs);
   }, [inputs, comparatorMode]);
 
@@ -987,7 +1104,10 @@ export default function SafeStepApp() {
 
   const summaryMetrics = (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <MetricCard label="Falls avoided" value={formatNumber(results.falls_avoided_total)} />
+      <MetricCard
+        label="Falls avoided"
+        value={formatNumber(results.falls_avoided_total)}
+      />
       <MetricCard
         label="Admissions avoided"
         value={formatNumber(results.admissions_avoided_total)}
@@ -1006,7 +1126,10 @@ export default function SafeStepApp() {
 
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-3">
-      <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
+      <MiniInsight
+        label="Conclusion"
+        value={interpretation.what_model_suggests}
+      />
       <MiniInsight
         label="Main driver"
         value={
@@ -1030,7 +1153,9 @@ export default function SafeStepApp() {
 
   const presetControl = (
     <div className={SUBCARD}>
-      <p className="mb-3 text-sm font-semibold text-slate-900">Starting template</p>
+      <p className="mb-3 text-sm font-semibold text-slate-900">
+        Starting template
+      </p>
       <div className="grid gap-4 xl:grid-cols-2">
         <SelectInput<ScenarioPreset>
           label="Template"
@@ -1103,7 +1228,9 @@ export default function SafeStepApp() {
         <NumberInput
           label="Time horizon"
           value={inputs.time_horizon_years}
-          onChange={(value) => updateInput("time_horizon_years", Math.max(1, value))}
+          onChange={(value) =>
+            updateInput("time_horizon_years", Math.max(1, value))
+          }
           step={1}
           help="Longer horizons often improve the economic picture."
         />
@@ -1120,7 +1247,9 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-delivery"]}
         >
-          <span className="text-sm font-medium text-slate-900">Delivery persistence</span>
+          <span className="text-sm font-medium text-slate-900">
+            Delivery persistence
+          </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1153,7 +1282,9 @@ export default function SafeStepApp() {
               <SliderInput
                 label="Participation drop-off"
                 value={inputs.participation_dropoff_rate}
-                onChange={(value) => updateInput("participation_dropoff_rate", value)}
+                onChange={(value) =>
+                  updateInput("participation_dropoff_rate", value)
+                }
                 min={0}
                 max={0.5}
                 step={0.01}
@@ -1180,7 +1311,9 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-risk"]}
         >
-          <span className="text-sm font-medium text-slate-900">Risk and pathway</span>
+          <span className="text-sm font-medium text-slate-900">
+            Risk and pathway
+          </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1219,7 +1352,9 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-economics"]}
         >
-          <span className="text-sm font-medium text-slate-900">Cost inputs and threshold</span>
+          <span className="text-sm font-medium text-slate-900">
+            Cost inputs and threshold
+          </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1240,7 +1375,9 @@ export default function SafeStepApp() {
               <NumberInput
                 label="Cost-effectiveness threshold"
                 value={inputs.cost_effectiveness_threshold}
-                onChange={(value) => updateInput("cost_effectiveness_threshold", value)}
+                onChange={(value) =>
+                  updateInput("cost_effectiveness_threshold", value)
+                }
                 step={1000}
               />
               <NumberInput
@@ -1258,7 +1395,9 @@ export default function SafeStepApp() {
               <NumberInput
                 label="QALY loss per serious fall"
                 value={inputs.qaly_loss_per_serious_fall}
-                onChange={(value) => updateInput("qaly_loss_per_serious_fall", value)}
+                onChange={(value) =>
+                  updateInput("qaly_loss_per_serious_fall", value)
+                }
                 step={0.01}
               />
               <NumberInput
@@ -1317,6 +1456,10 @@ export default function SafeStepApp() {
     <div className="space-y-4 lg:hidden">
       <CostVsSavingsChart yearlyResults={results.yearly_results} />
 
+      <MobileAccordion title="Clinical impact">
+        <ClinicalImpactChart results={results} />
+      </MobileAccordion>
+
       <MobileAccordion title="Falls avoided">
         <FallsAvoidedChart yearlyResults={results.yearly_results} />
       </MobileAccordion>
@@ -1337,6 +1480,7 @@ export default function SafeStepApp() {
   const desktopCharts = (
     <div className="space-y-4">
       <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <ClinicalImpactChart results={results} />
       <FallsAvoidedChart yearlyResults={results.yearly_results} />
       <BoundedUncertaintyChart
         uncertaintyRows={uncertainty}
@@ -1351,7 +1495,9 @@ export default function SafeStepApp() {
       <AssumptionReviewCard label="Comparator" value={comparatorMode} />
       <AssumptionReviewCard
         label="Falls avoided delta"
-        value={formatNumber(comparatorResults.falls_avoided_total - results.falls_avoided_total)}
+        value={formatNumber(
+          comparatorResults.falls_avoided_total - results.falls_avoided_total,
+        )}
       />
       <AssumptionReviewCard
         label="Admissions avoided delta"
@@ -1362,7 +1508,8 @@ export default function SafeStepApp() {
       <AssumptionReviewCard
         label="Discounted net cost delta"
         value={formatCurrency(
-          comparatorResults.discounted_net_cost_total - results.discounted_net_cost_total,
+          comparatorResults.discounted_net_cost_total -
+            results.discounted_net_cost_total,
         )}
       />
     </div>
@@ -1608,7 +1755,9 @@ export default function SafeStepApp() {
               {presetControl}
 
               <div className={SUBCARD}>
-                <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Quick assumptions
+                </p>
                 {quickAssumptionNotice}
                 <div className="mt-4">{assumptionsQuick}</div>
               </div>
@@ -1631,7 +1780,9 @@ export default function SafeStepApp() {
                   />
                 </button>
 
-                {showAdvancedMobile ? <div className="mt-4">{advancedSections}</div> : null}
+                {showAdvancedMobile ? (
+                  <div className="mt-4">{advancedSections}</div>
+                ) : null}
               </div>
             </div>
           </SectionCard>
@@ -1649,7 +1800,8 @@ export default function SafeStepApp() {
                   <div>
                     <h3 className={SECTION_KICKER}>Report export</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-700">
-                      Export a structured summary of the current assumptions, results, and interpretation.
+                      Export a structured summary of the current assumptions,
+                      results, and interpretation.
                     </p>
                   </div>
                   <button
@@ -1767,13 +1919,17 @@ export default function SafeStepApp() {
               {presetControl}
 
               <div className={SUBCARD}>
-                <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Quick assumptions
+                </p>
                 {quickAssumptionNotice}
                 <div className="mt-4">{assumptionsQuick}</div>
               </div>
 
               <div className={SUBCARD}>
-                <p className="mb-3 text-sm font-semibold text-slate-900">Advanced assumptions</p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Advanced assumptions
+                </p>
                 {advancedSections}
               </div>
             </div>
@@ -1792,7 +1948,8 @@ export default function SafeStepApp() {
                   <div>
                     <h3 className={SECTION_KICKER}>Report export</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-700">
-                      Export a structured summary of the current assumptions, results, and interpretation.
+                      Export a structured summary of the current assumptions,
+                      results, and interpretation.
                     </p>
                   </div>
                   <button
