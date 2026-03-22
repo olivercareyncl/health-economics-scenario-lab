@@ -15,11 +15,23 @@ import {
   getNetCostLabel,
 } from "@/lib/stableheart/summaries";
 
+type OneWaySensitivityRow = {
+  parameter: string;
+  lowCaseValue?: number | string;
+  highCaseValue?: number | string;
+  lowCaseResult?: number;
+  highCaseResult?: number;
+  swing?: number;
+  note?: string;
+  rank?: number;
+};
+
 type BuildReportArgs = {
   inputs: StableHeartInputs;
   results: StableHeartModelResults;
   uncertainty: StableHeartUncertaintyRow[];
   exportedAt: string;
+  oneWaySensitivity?: OneWaySensitivityRow[];
 };
 
 type ReportMetric = {
@@ -40,6 +52,15 @@ type ReportTableSection = {
 
 type ReportNarrativeBlock = {
   body: string;
+};
+
+type ReportSensitivityDriver = {
+  rank?: number;
+  label: string;
+  lowCase?: string;
+  highCase?: string;
+  swing?: string;
+  note?: string;
 };
 
 export type StableHeartReportData = {
@@ -76,6 +97,7 @@ export type StableHeartReportData = {
       note: string;
     }>;
     sensitivitySummary: string[];
+    topSensitivityDrivers: ReportSensitivityDriver[];
   };
   scenarioAndComparator: {
     scenarioSummary: string;
@@ -121,6 +143,129 @@ function getSignalLabel(decisionStatus: string): string {
   }
 
   return "Weak";
+}
+
+function prettifyParameterName(parameter: string): string {
+  switch (parameter) {
+    case "baseline_recurrent_event_rate":
+      return "Baseline recurrent event rate";
+    case "risk_reduction_in_recurrent_events":
+      return "Risk reduction in recurrent events";
+    case "intervention_cost_per_patient_reached":
+      return "Intervention cost per patient";
+    case "sustained_engagement_rate":
+      return "Sustained engagement";
+    case "intervention_reach_rate":
+      return "Intervention reach";
+    case "admission_probability_per_event":
+      return "Admission probability per event";
+    case "average_length_of_stay":
+      return "Average length of stay";
+    case "qaly_gain_per_event_avoided":
+      return "QALY gain per event avoided";
+    case "annual_effect_decay_rate":
+      return "Annual effect decay";
+    case "annual_participation_dropoff_rate":
+      return "Annual participation drop-off";
+    case "cost_per_cardiovascular_event":
+      return "Cost per cardiovascular event";
+    case "cost_per_admission":
+      return "Cost per admission";
+    case "cost_per_bed_day":
+      return "Cost per bed day";
+    case "eligible_population":
+      return "Eligible population";
+    default:
+      return parameter
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+}
+
+function formatParameterValue(
+  parameter: string,
+  value: number | string | undefined,
+): string {
+  if (value === undefined || value === null) return "—";
+  if (typeof value === "string") return value;
+
+  switch (parameter) {
+    case "baseline_recurrent_event_rate":
+    case "risk_reduction_in_recurrent_events":
+    case "sustained_engagement_rate":
+    case "intervention_reach_rate":
+    case "admission_probability_per_event":
+    case "annual_effect_decay_rate":
+    case "annual_participation_dropoff_rate":
+      return formatPercent(value);
+
+    case "intervention_cost_per_patient_reached":
+    case "cost_per_cardiovascular_event":
+    case "cost_per_admission":
+    case "cost_per_bed_day":
+      return formatCurrency(value);
+
+    case "average_length_of_stay":
+      return `${value.toFixed(1)} days`;
+
+    case "qaly_gain_per_event_avoided":
+      return value.toFixed(3);
+
+    default:
+      return Number.isInteger(value) ? formatNumber(value) : value.toFixed(2);
+  }
+}
+
+function buildTopSensitivityDrivers(
+  oneWaySensitivity?: OneWaySensitivityRow[],
+): ReportSensitivityDriver[] {
+  if (!oneWaySensitivity?.length) return [];
+
+  return [...oneWaySensitivity]
+    .sort((a, b) => (b.swing ?? 0) - (a.swing ?? 0))
+    .slice(0, 3)
+    .map((row, index) => ({
+      rank: row.rank ?? index + 1,
+      label: prettifyParameterName(row.parameter),
+      lowCase:
+        row.lowCaseResult !== undefined
+          ? formatCurrency(row.lowCaseResult)
+          : formatParameterValue(row.parameter, row.lowCaseValue),
+      highCase:
+        row.highCaseResult !== undefined
+          ? formatCurrency(row.highCaseResult)
+          : formatParameterValue(row.parameter, row.highCaseValue),
+      swing:
+        row.swing !== undefined ? formatCurrency(row.swing) : "—",
+      note:
+        row.note ??
+        `Low/high cases reflect the change in discounted cost per QALY when this parameter is varied one way.`,
+    }));
+}
+
+function buildSensitivityLead(
+  topSensitivityDrivers: ReportSensitivityDriver[],
+  fallback: string,
+): string {
+  if (!topSensitivityDrivers.length) return fallback;
+
+  const first = topSensitivityDrivers[0]?.label;
+  const second = topSensitivityDrivers[1]?.label;
+  const third = topSensitivityDrivers[2]?.label;
+
+  if (first && second && third) {
+    return `The result is most sensitive to ${first.toLowerCase()}, ${second.toLowerCase()}, and ${third.toLowerCase()}.`;
+  }
+
+  if (first && second) {
+    return `The result is most sensitive to ${first.toLowerCase()} and ${second.toLowerCase()}.`;
+  }
+
+  if (first) {
+    return `The result is most sensitive to ${first.toLowerCase()}.`;
+  }
+
+  return fallback;
 }
 
 function buildOverview(
@@ -171,6 +316,7 @@ function buildScenarioSection(inputs: StableHeartInputs) {
 function buildFragilityText(
   interpretation: ReturnType<typeof generateInterpretation>,
   uncertainty: StableHeartUncertaintyRow[],
+  topSensitivityDrivers: ReportSensitivityDriver[],
 ) {
   const low = uncertainty.find((row) => row.case === "Low");
   const high = uncertainty.find((row) => row.case === "High");
@@ -180,7 +326,18 @@ function buildFragilityText(
   }
 
   if (low.decision_status !== high.decision_status) {
+    if (topSensitivityDrivers.length > 0) {
+      return `The bounded uncertainty range crosses decision categories, and one-way sensitivity suggests the result is particularly exposed to ${topSensitivityDrivers
+        .slice(0, 3)
+        .map((driver) => driver.label.toLowerCase())
+        .join(", ")}.`;
+    }
+
     return "The bounded uncertainty range crosses decision categories, so moderate changes in baseline risk, achieved effect, or delivery cost could change the conclusion.";
+  }
+
+  if (topSensitivityDrivers.length > 0) {
+    return `The bounded range is more stable, but the result still moves most when ${topSensitivityDrivers[0].label.toLowerCase()} and related core assumptions are varied.`;
   }
 
   return interpretation.what_looks_fragile;
@@ -218,7 +375,7 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current signal remains ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to baseline event risk, sustained engagement, and delivery cost realism.`,
+      body: `Taken together, the current signal remains ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to baseline event risk, sustained engagement, achieved effect size, and delivery cost realism.`,
     },
   ];
 }
@@ -371,6 +528,7 @@ export function buildStableHeartReportData({
   results,
   uncertainty,
   exportedAt,
+  oneWaySensitivity = [],
 }: BuildReportArgs): StableHeartReportData {
   const decisionStatus = getDecisionStatus(
     results,
@@ -378,8 +536,21 @@ export function buildStableHeartReportData({
   );
   const interpretation = generateInterpretation(results, inputs, uncertainty);
   const overallSignal = getSignalLabel(decisionStatus);
-  const mainDriver = getMainDriverText(inputs);
-  const fragilityText = buildFragilityText(interpretation, uncertainty);
+  const fallbackMainDriver = getMainDriverText(inputs);
+  const topSensitivityDrivers = buildTopSensitivityDrivers(oneWaySensitivity);
+  const fragilityText = buildFragilityText(
+    interpretation,
+    uncertainty,
+    topSensitivityDrivers,
+  );
+
+  const mainDependencyText =
+    topSensitivityDrivers.length > 0
+      ? buildSensitivityLead(
+          topSensitivityDrivers,
+          `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`,
+        )
+      : `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`;
 
   return {
     cover: {
@@ -400,7 +571,7 @@ export function buildStableHeartReportData({
       overview: buildOverview(inputs, results, decisionStatus),
       overallSignal,
       whatModelSuggests: interpretation.what_model_suggests,
-      mainDependency: `The result is mainly driven by ${mainDriver}, delivery cost, and the realism of sustained patient engagement.`,
+      mainDependency: mainDependencyText,
       mainFragility: fragilityText,
       bestNextStep:
         "Validate local recurrent event risk, realistic engagement, likely implementation cost, and the strength of the link between avoided events and avoided admissions and bed use.",
@@ -456,11 +627,27 @@ export function buildStableHeartReportData({
         value: formatCurrency(row.discounted_cost_per_qaly),
         note: `${formatNumber(row.events_avoided_total)} events avoided · ${row.decision_status}`,
       })),
-      sensitivitySummary: [
-        "The result is most likely to move when assumptions change around baseline recurrent event risk, the achieved reduction in recurrent events, sustained engagement, and delivery cost per patient.",
-        "In practical terms, the case is strongest when the programme reaches a population with meaningful baseline risk and sustains a credible reduction in recurrent events at manageable cost.",
-        "The case weakens when sustained engagement is lower than expected, when effect size is modest, or when avoided events do not translate into meaningful avoided admissions and bed use.",
-      ],
+      sensitivitySummary:
+        topSensitivityDrivers.length > 0
+          ? [
+              `The one-way sensitivity analysis suggests the result moves most when ${topSensitivityDrivers[0].label.toLowerCase()} is varied${
+                topSensitivityDrivers[1]
+                  ? `, followed by ${topSensitivityDrivers[1].label.toLowerCase()}`
+                  : ""
+              }${
+                topSensitivityDrivers[2]
+                  ? ` and ${topSensitivityDrivers[2].label.toLowerCase()}`
+                  : ""
+              }.`,
+              "In practical terms, the case is strongest when the programme reaches a population with meaningful baseline risk, sustains engagement, and delivers a credible reduction in recurrent events at manageable cost.",
+              "The case weakens when core clinical and delivery assumptions move in the wrong direction, especially if avoided events do not translate into meaningful avoided admissions and bed use.",
+            ]
+          : [
+              "The result is most likely to move when assumptions change around baseline recurrent event risk, the achieved reduction in recurrent events, sustained engagement, and delivery cost per patient.",
+              "In practical terms, the case is strongest when the programme reaches a population with meaningful baseline risk and sustains a credible reduction in recurrent events at manageable cost.",
+              "The case weakens when sustained engagement is lower than expected, when effect size is modest, or when avoided events do not translate into meaningful avoided admissions and bed use.",
+            ],
+      topSensitivityDrivers,
     },
 
     scenarioAndComparator: {
@@ -478,7 +665,13 @@ export function buildStableHeartReportData({
       progressionView:
         "Progression is better supported when the model shows a credible avoided-event effect, a plausible link to avoided admissions and bed use, and an acceptable cost per QALY under bounded uncertainty.",
       mainEvidenceGap:
-        "The most important evidence gap is usually the local realism of the achieved reduction in recurrent cardiovascular events and how strongly those avoided events translate into avoided hospital activity.",
+        topSensitivityDrivers.length > 0
+          ? `The most important evidence gap is the local realism of ${topSensitivityDrivers[0].label.toLowerCase()}${
+              topSensitivityDrivers[1]
+                ? `, alongside ${topSensitivityDrivers[1].label.toLowerCase()}`
+                : ""
+            }.`
+          : "The most important evidence gap is usually the local realism of the achieved reduction in recurrent cardiovascular events and how strongly those avoided events translate into avoided hospital activity.",
       recommendedNextMove:
         "The next step should be to validate local recurrent event risk, admission probability, sustained engagement, and the likely delivery cost of the intended proactive management model.",
     },
