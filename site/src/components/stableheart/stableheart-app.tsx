@@ -112,7 +112,7 @@ function getPresetPatch(
         targeting_mode: "High-risk targeting",
         eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.8),
         baseline_recurrent_event_rate: 0.28,
-        admission_probability_per_event: 0.42,
+        admission_probability_per_event: 0.75,
         intervention_reach_rate: 0.55,
         sustained_engagement_rate: 0.68,
       };
@@ -128,7 +128,7 @@ function getPresetPatch(
         annual_participation_dropoff_rate:
           DEFAULT_INPUTS.annual_participation_dropoff_rate,
       };
-
+    
     case "Stronger effect":
       return {
         risk_reduction_in_recurrent_events: 0.24,
