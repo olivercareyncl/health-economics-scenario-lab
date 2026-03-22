@@ -1,6 +1,10 @@
 import { clampRate, runModel } from "@/lib/clearpath/calculations";
 import { ASSUMPTION_META } from "@/lib/clearpath/metadata";
-import type { Inputs, SensitivityRow } from "@/lib/clearpath/types";
+import type {
+  Inputs,
+  ParameterSensitivityRow,
+  SensitivitySummary,
+} from "@/lib/clearpath/types";
 
 export const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
   "achievable_reduction_in_late_diagnosis",
@@ -29,92 +33,127 @@ function applyVariation(
   return [low, high];
 }
 
+function formatScenarioValue(value: number, isRate: boolean): string {
+  if (isRate) {
+    return `${(value * 100).toFixed(1)}%`;
+  }
+
+  if (Math.abs(value) >= 1000) {
+    return `£${Math.round(value).toLocaleString()}`;
+  }
+
+  if (Number.isInteger(value)) {
+    return value.toLocaleString();
+  }
+
+  return value.toFixed(2);
+}
+
 export function runOneWaySensitivity(
   baseInputs: Inputs,
   variables: Array<keyof Inputs>,
   variation = 0.2,
   outcomeKey: keyof ReturnType<typeof runModel> = "discounted_cost_per_qaly",
-): SensitivityRow[] {
+): ParameterSensitivityRow[] {
   const baseResults = runModel(baseInputs);
-  const baseValue = Number(baseResults[outcomeKey]);
+  const baseIcer = Number(baseResults[outcomeKey]);
 
-  const rows: SensitivityRow[] = [];
+  const rows: ParameterSensitivityRow[] = [];
 
   for (const variable of variables) {
     const meta = ASSUMPTION_META[variable];
-    const baseInputValue = Number(baseInputs[variable]);
+    const baseValue = Number(baseInputs[variable]);
 
     const isRate = new Set<keyof Inputs>([
       "current_late_diagnosis_rate",
       "achievable_reduction_in_late_diagnosis",
       "late_emergency_presentation_rate",
       "early_emergency_presentation_rate",
+      "intervention_reach_rate",
       "effect_decay_rate",
       "participation_dropoff_rate",
       "discount_rate",
     ]).has(variable);
 
-    const [lowInput, highInput] = applyVariation(
-      baseInputValue,
-      variation,
-      isRate,
-    );
+    const [lowValue, highValue] = applyVariation(baseValue, variation, isRate);
 
-    const lowCaseInputs: Inputs = { ...baseInputs, [variable]: lowInput };
-    const highCaseInputs: Inputs = { ...baseInputs, [variable]: highInput };
+    const lowCaseInputs: Inputs = { ...baseInputs, [variable]: lowValue };
+    const highCaseInputs: Inputs = { ...baseInputs, [variable]: highValue };
 
     const lowCaseResults = runModel(lowCaseInputs);
     const highCaseResults = runModel(highCaseInputs);
 
-    const lowOutcome = Number(lowCaseResults[outcomeKey]);
-    const highOutcome = Number(highCaseResults[outcomeKey]);
+    const lowIcer = Number(lowCaseResults[outcomeKey]);
+    const highIcer = Number(highCaseResults[outcomeKey]);
 
-    const lowDelta = lowOutcome - baseValue;
-    const highDelta = highOutcome - baseValue;
-    const swing = Math.abs(highOutcome - lowOutcome);
+    const lowDelta = lowIcer - baseIcer;
+    const highDelta = highIcer - baseIcer;
 
     rows.push({
-      variable,
-      label: meta.label,
-      base_input: baseInputValue,
-      low_input: lowInput,
-      high_input: highInput,
-      base_outcome: baseValue,
-      low_outcome: lowOutcome,
-      high_outcome: highOutcome,
+      parameter_key: variable,
+      parameter_label: meta.label,
+      base_value: baseValue,
+      low_value: lowValue,
+      high_value: highValue,
+      low_value_label: formatScenarioValue(lowValue, isRate),
+      high_value_label: formatScenarioValue(highValue, isRate),
+      base_icer: baseIcer,
+      low_icer: lowIcer,
+      high_icer: highIcer,
       low_delta: lowDelta,
       high_delta: highDelta,
-      swing,
+      max_abs_icer_change: Math.max(Math.abs(lowDelta), Math.abs(highDelta)),
     });
   }
 
-  return rows.sort((a, b) => b.swing - a.swing);
+  return rows.sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change);
 }
 
 export function buildSensitivityTakeaways(
-  sensitivityRows: SensitivityRow[],
+  sensitivityRows: ParameterSensitivityRow[],
 ): string[] {
-  const top = [...sensitivityRows].sort((a, b) => b.swing - a.swing).slice(0, 3);
+  const top = [...sensitivityRows]
+    .sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change)
+    .slice(0, 3);
 
   const takeaways: string[] = [];
 
   if (top.length >= 1) {
     takeaways.push(
-      `The result is most sensitive to ${top[0].label.toLowerCase()}.`,
+      `The result is most sensitive to ${top[0].parameter_label.toLowerCase()}.`,
     );
   }
 
   if (top.length >= 2) {
     takeaways.push(
-      `${top[1].label} is the next biggest driver of movement in discounted cost per QALY.`,
+      `${top[1].parameter_label} is the next biggest driver of movement in discounted cost per QALY.`,
     );
   }
 
   if (top.length >= 3) {
     takeaways.push(
-      `Changes in ${top[2].label.toLowerCase()} still matter, but less than the leading two drivers.`,
+      `Changes in ${top[2].parameter_label.toLowerCase()} still matter, but less than the leading two drivers.`,
     );
   }
 
   return takeaways;
+}
+
+export function runParameterSensitivity(
+  baseInputs: Inputs,
+  variables: Array<keyof Inputs> = SENSITIVITY_VARIABLES,
+  variation = 0.2,
+): SensitivitySummary {
+  const rows = runOneWaySensitivity(
+    baseInputs,
+    variables,
+    variation,
+    "discounted_cost_per_qaly",
+  );
+
+  return {
+    rows,
+    primary_driver: rows[0] ?? null,
+    top_drivers: rows.slice(0, 5),
+  };
 }
