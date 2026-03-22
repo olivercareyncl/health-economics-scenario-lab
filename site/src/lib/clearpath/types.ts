@@ -142,16 +142,24 @@ export type ComparatorDeltaRow = {
   isCurrency: boolean;
 };
 
-export type SensitivityRow = {
-  variable: string;
-  label: string;
-  base_input: number;
-  low_input: number;
-  high_input: number;
-  base_outcome: number;
-  low_outcome: number;
-  high_outcome: number;
+export type ParameterSensitivityRow = {
+  parameter_key: keyof Inputs;
+  parameter_label: string;
+  base_value: number;
+  low_value: number;
+  high_value: number;
+  low_value_label: string;
+  high_value_label: string;
+  base_icer: number;
+  low_icer: number;
+  high_icer: number;
   low_delta: number;
   high_delta: number;
-  swing: number;
+  max_abs_icer_change: number;
+};
+
+export type SensitivitySummary = {
+  rows: ParameterSensitivityRow[];
+  primary_driver: ParameterSensitivityRow | null;
+  top_drivers: ParameterSensitivityRow[];
 };
