@@ -150,3 +150,23 @@ export interface UncertaintyRow {
   dominant_domain: string;
   decision_status: string;
 }
+
+export interface ParameterSensitivityRow {
+  parameter_key: keyof SafeStepInputs;
+  parameter_label: string;
+  low_value_label: string;
+  high_value_label: string;
+  low_icer: number;
+  base_icer: number;
+  high_icer: number;
+  low_net_cost: number;
+  base_net_cost: number;
+  high_net_cost: number;
+  max_abs_icer_change: number;
+}
+
+export interface SensitivitySummary {
+  rows: ParameterSensitivityRow[];
+  top_drivers: ParameterSensitivityRow[];
+  primary_driver: ParameterSensitivityRow | null;
+}
