@@ -1,8 +1,8 @@
 import type {
   ComparatorDeltaRow,
   ModelResults,
+  ParameterSensitivityRow,
   ScenarioComparisonRow,
-  SensitivityRow,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/clearpath/types";
@@ -168,12 +168,12 @@ export function buildScenarioOutcomeChartData(
 }
 
 export function buildTornadoChartData(
-  sensitivityRows: SensitivityRow[],
+  sensitivityRows: ParameterSensitivityRow[],
 ): ClearPathTornadoRow[] {
   return [...sensitivityRows]
-    .sort((a, b) => a.swing - b.swing)
+    .sort((a, b) => a.max_abs_icer_change - b.max_abs_icer_change)
     .map((row) => ({
-      label: row.label,
+      label: row.parameter_label,
       lowDelta: row.low_delta,
       highDelta: row.high_delta,
     }));
