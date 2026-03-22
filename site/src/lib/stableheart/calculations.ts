@@ -1,5 +1,21 @@
-import { COSTING_METHOD_MAP, SCENARIO_MAP, TARGETING_MODE_MAP } from "@/lib/stableheart/scenarios";
-import type { ComparatorOption, Inputs, ModelResults, UncertaintyRow, YearlyResultRow } from "@/lib/stableheart/types";
+import {
+  COSTING_METHOD_MAP,
+  SCENARIO_MAP,
+  TARGETING_MODE_MAP,
+} from "@/lib/stableheart/scenarios";
+import {
+  formatCurrency,
+  formatPercent,
+} from "@/lib/stableheart/formatters";
+import type {
+  ComparatorOption,
+  Inputs,
+  ModelResults,
+  ParameterSensitivityRow,
+  SensitivitySummary,
+  UncertaintyRow,
+  YearlyResultRow,
+} from "@/lib/stableheart/types";
 
 export function safeDivide(numerator: number, denominator: number): number {
   if (denominator === 0) return 0;
@@ -16,9 +32,14 @@ export function getDiscountFactor(year: number, discountRate: number): number {
 
 export function getTargetingAdjustments(inputs: Inputs) {
   const targeting = TARGETING_MODE_MAP[inputs.targeting_mode];
-  const adjusted_population = inputs.eligible_population * targeting.population_multiplier;
-  const adjusted_reach_rate = clampRate(inputs.intervention_reach_rate * targeting.reach_multiplier);
-  const adjusted_event_rate = clampRate(inputs.baseline_recurrent_event_rate * targeting.risk_multiplier);
+  const adjusted_population =
+    inputs.eligible_population * targeting.population_multiplier;
+  const adjusted_reach_rate = clampRate(
+    inputs.intervention_reach_rate * targeting.reach_multiplier,
+  );
+  const adjusted_event_rate = clampRate(
+    inputs.baseline_recurrent_event_rate * targeting.risk_multiplier,
+  );
 
   return {
     adjusted_population,
@@ -48,7 +69,8 @@ export function calculateGrossSavings(
 
 function runModelCore(inputs: Inputs) {
   const targeting = getTargetingAdjustments(inputs);
-  const baseReachedPatients = targeting.adjusted_population * targeting.adjusted_reach_rate;
+  const baseReachedPatients =
+    targeting.adjusted_population * targeting.adjusted_reach_rate;
 
   const yearlyRows: YearlyResultRow[] = [];
   let cumulativeProgrammeCost = 0;
@@ -56,19 +78,31 @@ function runModelCore(inputs: Inputs) {
   let cumulativeNetCost = 0;
 
   for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const effectMultiplier = Math.pow(1 - inputs.annual_effect_decay_rate, year - 1);
-    const participationMultiplier = Math.pow(1 - inputs.annual_participation_dropoff_rate, year - 1);
+    const effectMultiplier = Math.pow(
+      1 - inputs.annual_effect_decay_rate,
+      year - 1,
+    );
+    const participationMultiplier = Math.pow(
+      1 - inputs.annual_participation_dropoff_rate,
+      year - 1,
+    );
 
     const patients_reached = baseReachedPatients * participationMultiplier;
-    const effective_patients = patients_reached * inputs.sustained_engagement_rate;
-    const eventRiskReduction = clampRate(inputs.risk_reduction_in_recurrent_events * effectMultiplier);
+    const effective_patients =
+      patients_reached * inputs.sustained_engagement_rate;
+    const eventRiskReduction = clampRate(
+      inputs.risk_reduction_in_recurrent_events * effectMultiplier,
+    );
 
     const baseline_events = effective_patients * targeting.adjusted_event_rate;
     const events_avoided = baseline_events * eventRiskReduction;
-    const admissions_avoided = events_avoided * inputs.admission_probability_per_event;
-    const bed_days_avoided = admissions_avoided * inputs.average_length_of_stay;
+    const admissions_avoided =
+      events_avoided * inputs.admission_probability_per_event;
+    const bed_days_avoided =
+      admissions_avoided * inputs.average_length_of_stay;
 
-    const programme_cost = patients_reached * inputs.intervention_cost_per_patient_reached;
+    const programme_cost =
+      patients_reached * inputs.intervention_cost_per_patient_reached;
     const gross_savings = calculateGrossSavings(
       events_avoided,
       admissions_avoided,
@@ -111,12 +145,30 @@ function runModelCore(inputs: Inputs) {
     });
   }
 
-  const patients_reached_total = yearlyRows.reduce((sum, row) => sum + row.patients_reached, 0);
-  const events_avoided_total = yearlyRows.reduce((sum, row) => sum + row.events_avoided, 0);
-  const admissions_avoided_total = yearlyRows.reduce((sum, row) => sum + row.admissions_avoided, 0);
-  const bed_days_avoided_total = yearlyRows.reduce((sum, row) => sum + row.bed_days_avoided, 0);
-  const programme_cost_total = yearlyRows.reduce((sum, row) => sum + row.programme_cost, 0);
-  const gross_savings_total = yearlyRows.reduce((sum, row) => sum + row.gross_savings, 0);
+  const patients_reached_total = yearlyRows.reduce(
+    (sum, row) => sum + row.patients_reached,
+    0,
+  );
+  const events_avoided_total = yearlyRows.reduce(
+    (sum, row) => sum + row.events_avoided,
+    0,
+  );
+  const admissions_avoided_total = yearlyRows.reduce(
+    (sum, row) => sum + row.admissions_avoided,
+    0,
+  );
+  const bed_days_avoided_total = yearlyRows.reduce(
+    (sum, row) => sum + row.bed_days_avoided,
+    0,
+  );
+  const programme_cost_total = yearlyRows.reduce(
+    (sum, row) => sum + row.programme_cost,
+    0,
+  );
+  const gross_savings_total = yearlyRows.reduce(
+    (sum, row) => sum + row.gross_savings,
+    0,
+  );
   const discounted_programme_cost_total = yearlyRows.reduce(
     (sum, row) => sum + row.discounted_programme_cost,
     0,
@@ -125,10 +177,19 @@ function runModelCore(inputs: Inputs) {
     (sum, row) => sum + row.discounted_gross_savings,
     0,
   );
-  const discounted_net_cost_total = yearlyRows.reduce((sum, row) => sum + row.discounted_net_cost, 0);
-  const discounted_qalys_total = yearlyRows.reduce((sum, row) => sum + row.discounted_qalys, 0);
+  const discounted_net_cost_total = yearlyRows.reduce(
+    (sum, row) => sum + row.discounted_net_cost,
+    0,
+  );
+  const discounted_qalys_total = yearlyRows.reduce(
+    (sum, row) => sum + row.discounted_qalys,
+    0,
+  );
 
-  const discounted_cost_per_qaly = safeDivide(discounted_net_cost_total, discounted_qalys_total);
+  const discounted_cost_per_qaly = safeDivide(
+    discounted_net_cost_total,
+    discounted_qalys_total,
+  );
   const roi = safeDivide(gross_savings_total, programme_cost_total);
 
   return {
@@ -150,20 +211,30 @@ function runModelCore(inputs: Inputs) {
 
 export function calculateBreakEvenRiskReduction(inputs: Inputs): number {
   const targeting = getTargetingAdjustments(inputs);
-  const baseReachedPatients = targeting.adjusted_population * targeting.adjusted_reach_rate;
+  const baseReachedPatients =
+    targeting.adjusted_population * targeting.adjusted_reach_rate;
 
   let numerator = 0;
   let denominator = 0;
 
   for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const participationMultiplier = Math.pow(1 - inputs.annual_participation_dropoff_rate, year - 1);
-    const effectMultiplier = Math.pow(1 - inputs.annual_effect_decay_rate, year - 1);
+    const participationMultiplier = Math.pow(
+      1 - inputs.annual_participation_dropoff_rate,
+      year - 1,
+    );
+    const effectMultiplier = Math.pow(
+      1 - inputs.annual_effect_decay_rate,
+      year - 1,
+    );
 
     const patientsReached = baseReachedPatients * participationMultiplier;
-    const effectivePatients = patientsReached * inputs.sustained_engagement_rate;
+    const effectivePatients =
+      patientsReached * inputs.sustained_engagement_rate;
 
-    const eventsPerUnit = effectivePatients * targeting.adjusted_event_rate * effectMultiplier;
-    const admissionsPerUnit = eventsPerUnit * inputs.admission_probability_per_event;
+    const eventsPerUnit =
+      effectivePatients * targeting.adjusted_event_rate * effectMultiplier;
+    const admissionsPerUnit =
+      eventsPerUnit * inputs.admission_probability_per_event;
     const bedDaysPerUnit = admissionsPerUnit * inputs.average_length_of_stay;
 
     const grossSavingsPerUnit = calculateGrossSavings(
@@ -179,7 +250,10 @@ export function calculateBreakEvenRiskReduction(inputs: Inputs): number {
 
     const discountFactor = getDiscountFactor(year, inputs.discount_rate);
 
-    numerator += patientsReached * inputs.intervention_cost_per_patient_reached * discountFactor;
+    numerator +=
+      patientsReached *
+      inputs.intervention_cost_per_patient_reached *
+      discountFactor;
     denominator += (grossSavingsPerUnit + qalyValuePerUnit) * discountFactor;
   }
 
@@ -188,23 +262,35 @@ export function calculateBreakEvenRiskReduction(inputs: Inputs): number {
 
 export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
   const targeting = getTargetingAdjustments(inputs);
-  const baseReachedPatients = targeting.adjusted_population * targeting.adjusted_reach_rate;
+  const baseReachedPatients =
+    targeting.adjusted_population * targeting.adjusted_reach_rate;
 
   let totalDiscountedPatientsReached = 0;
   let totalDiscountedValue = 0;
 
   for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const participationMultiplier = Math.pow(1 - inputs.annual_participation_dropoff_rate, year - 1);
-    const effectMultiplier = Math.pow(1 - inputs.annual_effect_decay_rate, year - 1);
+    const participationMultiplier = Math.pow(
+      1 - inputs.annual_participation_dropoff_rate,
+      year - 1,
+    );
+    const effectMultiplier = Math.pow(
+      1 - inputs.annual_effect_decay_rate,
+      year - 1,
+    );
 
     const patientsReached = baseReachedPatients * participationMultiplier;
-    const effectivePatients = patientsReached * inputs.sustained_engagement_rate;
+    const effectivePatients =
+      patientsReached * inputs.sustained_engagement_rate;
 
-    const eventRiskReduction = clampRate(inputs.risk_reduction_in_recurrent_events * effectMultiplier);
+    const eventRiskReduction = clampRate(
+      inputs.risk_reduction_in_recurrent_events * effectMultiplier,
+    );
     const baselineEvents = effectivePatients * targeting.adjusted_event_rate;
     const eventsAvoided = baselineEvents * eventRiskReduction;
-    const admissionsAvoided = eventsAvoided * inputs.admission_probability_per_event;
-    const bedDaysAvoided = admissionsAvoided * inputs.average_length_of_stay;
+    const admissionsAvoided =
+      eventsAvoided * inputs.admission_probability_per_event;
+    const bedDaysAvoided =
+      admissionsAvoided * inputs.average_length_of_stay;
 
     const grossSavings = calculateGrossSavings(
       eventsAvoided,
@@ -228,22 +314,34 @@ export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
 
 export function calculateBreakEvenBaselineEventRate(inputs: Inputs): number {
   const targeting = getTargetingAdjustments(inputs);
-  const baseReachedPatients = targeting.adjusted_population * targeting.adjusted_reach_rate;
+  const baseReachedPatients =
+    targeting.adjusted_population * targeting.adjusted_reach_rate;
 
   let numerator = 0;
   let denominator = 0;
 
   for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const participationMultiplier = Math.pow(1 - inputs.annual_participation_dropoff_rate, year - 1);
-    const effectMultiplier = Math.pow(1 - inputs.annual_effect_decay_rate, year - 1);
+    const participationMultiplier = Math.pow(
+      1 - inputs.annual_participation_dropoff_rate,
+      year - 1,
+    );
+    const effectMultiplier = Math.pow(
+      1 - inputs.annual_effect_decay_rate,
+      year - 1,
+    );
 
     const patientsReached = baseReachedPatients * participationMultiplier;
-    const effectivePatients = patientsReached * inputs.sustained_engagement_rate;
+    const effectivePatients =
+      patientsReached * inputs.sustained_engagement_rate;
 
     const eventsPerUnitRate =
-      effectivePatients * inputs.risk_reduction_in_recurrent_events * effectMultiplier;
-    const admissionsPerUnitRate = eventsPerUnitRate * inputs.admission_probability_per_event;
-    const bedDaysPerUnitRate = admissionsPerUnitRate * inputs.average_length_of_stay;
+      effectivePatients *
+      inputs.risk_reduction_in_recurrent_events *
+      effectMultiplier;
+    const admissionsPerUnitRate =
+      eventsPerUnitRate * inputs.admission_probability_per_event;
+    const bedDaysPerUnitRate =
+      admissionsPerUnitRate * inputs.average_length_of_stay;
 
     const grossSavingsPerUnitRate = calculateGrossSavings(
       eventsPerUnitRate,
@@ -258,8 +356,12 @@ export function calculateBreakEvenBaselineEventRate(inputs: Inputs): number {
 
     const discountFactor = getDiscountFactor(year, inputs.discount_rate);
 
-    numerator += patientsReached * inputs.intervention_cost_per_patient_reached * discountFactor;
-    denominator += (grossSavingsPerUnitRate + qalyValuePerUnitRate) * discountFactor;
+    numerator +=
+      patientsReached *
+      inputs.intervention_cost_per_patient_reached *
+      discountFactor;
+    denominator +=
+      (grossSavingsPerUnitRate + qalyValuePerUnitRate) * discountFactor;
   }
 
   return safeDivide(numerator, denominator);
@@ -277,9 +379,19 @@ export function calculateBreakEvenQalyGain(inputs: Inputs): number {
   return safeDivide(requiredTotalQalyValue, result.events_avoided_total);
 }
 
-export function calculateBreakEvenHorizon(inputs: Inputs, maxYears = 10): string {
+export function calculateBreakEvenHorizon(
+  inputs: Inputs,
+  maxYears = 10,
+): string {
   for (let horizon = 1; horizon <= maxYears; horizon += 1) {
-    const testInputs = { ...inputs, time_horizon_years: horizon as 1 | 3 | 5 };
+    const mappedHorizon =
+      horizon <= 1 ? 1 : horizon <= 3 ? 3 : 5;
+
+    const testInputs = {
+      ...inputs,
+      time_horizon_years: mappedHorizon as 1 | 3 | 5,
+    };
+
     const result = runModelCore(testInputs);
 
     if (
@@ -302,10 +414,14 @@ export function runModel(inputs: Inputs): ModelResults {
 
   return {
     ...core,
-    break_even_risk_reduction_required: clampRate(calculateBreakEvenRiskReduction(inputs)),
+    break_even_risk_reduction_required: clampRate(
+      calculateBreakEvenRiskReduction(inputs),
+    ),
     break_even_cost_per_patient: calculateBreakEvenCostPerPatient(inputs),
     break_even_horizon: calculateBreakEvenHorizon(inputs, 10),
-    break_even_baseline_event_rate_required: clampRate(calculateBreakEvenBaselineEventRate(inputs)),
+    break_even_baseline_event_rate_required: clampRate(
+      calculateBreakEvenBaselineEventRate(inputs),
+    ),
     break_even_qaly_gain_required: calculateBreakEvenQalyGain(inputs),
   };
 }
@@ -320,9 +436,14 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
         ),
         intervention_cost_per_patient_reached:
           inputs.intervention_cost_per_patient_reached * 1.2,
-        baseline_recurrent_event_rate: clampRate(inputs.baseline_recurrent_event_rate * 0.85),
-        qaly_gain_per_event_avoided: inputs.qaly_gain_per_event_avoided * 0.8,
-        sustained_engagement_rate: clampRate(inputs.sustained_engagement_rate * 0.9),
+        baseline_recurrent_event_rate: clampRate(
+          inputs.baseline_recurrent_event_rate * 0.85,
+        ),
+        qaly_gain_per_event_avoided:
+          inputs.qaly_gain_per_event_avoided * 0.8,
+        sustained_engagement_rate: clampRate(
+          inputs.sustained_engagement_rate * 0.9,
+        ),
       },
       dominant_domain: "Clinical and delivery assumptions",
     },
@@ -339,9 +460,14 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
         ),
         intervention_cost_per_patient_reached:
           inputs.intervention_cost_per_patient_reached * 0.8,
-        baseline_recurrent_event_rate: clampRate(inputs.baseline_recurrent_event_rate * 1.15),
-        qaly_gain_per_event_avoided: inputs.qaly_gain_per_event_avoided * 1.2,
-        sustained_engagement_rate: clampRate(inputs.sustained_engagement_rate * 1.05),
+        baseline_recurrent_event_rate: clampRate(
+          inputs.baseline_recurrent_event_rate * 1.15,
+        ),
+        qaly_gain_per_event_avoided:
+          inputs.qaly_gain_per_event_avoided * 1.2,
+        sustained_engagement_rate: clampRate(
+          inputs.sustained_engagement_rate * 1.05,
+        ),
       },
       dominant_domain: "Baseline risk and effect assumptions",
     },
@@ -355,7 +481,8 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
       result.discounted_net_cost_total < 0
         ? "Appears cost-saving"
         : result.discounted_cost_per_qaly > 0 &&
-            result.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
+            result.discounted_cost_per_qaly <=
+              inputs.cost_effectiveness_threshold
           ? "Appears cost-effective"
           : "Above current threshold";
 
@@ -370,6 +497,187 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
   });
 }
 
+type SensitivityConfig = {
+  key: keyof Inputs;
+  label: string;
+  low: (value: number) => number;
+  high: (value: number) => number;
+  formatter: (value: number) => string;
+};
+
+const SENSITIVITY_CONFIGS: SensitivityConfig[] = [
+  {
+    key: "baseline_recurrent_event_rate",
+    label: "Baseline recurrent event rate",
+    low: (value) => clampRate(value * 0.8),
+    high: (value) => clampRate(value * 1.2),
+    formatter: (value) => formatPercent(value),
+  },
+  {
+    key: "risk_reduction_in_recurrent_events",
+    label: "Risk reduction in recurrent events",
+    low: (value) => clampRate(value * 0.8),
+    high: (value) => clampRate(value * 1.2),
+    formatter: (value) => formatPercent(value),
+  },
+  {
+    key: "intervention_cost_per_patient_reached",
+    label: "Intervention cost per patient",
+    low: (value) => Math.max(0, value * 0.8),
+    high: (value) => Math.max(0, value * 1.2),
+    formatter: (value) => formatCurrency(value),
+  },
+  {
+    key: "intervention_reach_rate",
+    label: "Intervention reach",
+    low: (value) => clampRate(value * 0.8),
+    high: (value) => clampRate(value * 1.2),
+    formatter: (value) => formatPercent(value),
+  },
+  {
+    key: "sustained_engagement_rate",
+    label: "Sustained engagement",
+    low: (value) => clampRate(value * 0.9),
+    high: (value) => clampRate(value * 1.1),
+    formatter: (value) => formatPercent(value),
+  },
+  {
+    key: "admission_probability_per_event",
+    label: "Admission probability per event",
+    low: (value) => clampRate(value * 0.85),
+    high: (value) => clampRate(value * 1.15),
+    formatter: (value) => formatPercent(value),
+  },
+  {
+    key: "average_length_of_stay",
+    label: "Average length of stay",
+    low: (value) => Math.max(0, value * 0.85),
+    high: (value) => Math.max(0, value * 1.15),
+    formatter: (value) => `${value.toFixed(1)} days`,
+  },
+  {
+    key: "qaly_gain_per_event_avoided",
+    label: "QALY gain per event avoided",
+    low: (value) => Math.max(0, value * 0.8),
+    high: (value) => Math.max(0, value * 1.2),
+    formatter: (value) => value.toFixed(3),
+  },
+  {
+    key: "cost_per_cardiovascular_event",
+    label: "Cost per cardiovascular event",
+    low: (value) => Math.max(0, value * 0.85),
+    high: (value) => Math.max(0, value * 1.15),
+    formatter: (value) => formatCurrency(value),
+  },
+  {
+    key: "cost_per_admission",
+    label: "Cost per admission",
+    low: (value) => Math.max(0, value * 0.85),
+    high: (value) => Math.max(0, value * 1.15),
+    formatter: (value) => formatCurrency(value),
+  },
+  {
+    key: "cost_per_bed_day",
+    label: "Cost per bed day",
+    low: (value) => Math.max(0, value * 0.85),
+    high: (value) => Math.max(0, value * 1.15),
+    formatter: (value) => formatCurrency(value),
+  },
+  {
+    key: "annual_effect_decay_rate",
+    label: "Annual effect decay",
+    low: (value) => clampRate(value * 0.8),
+    high: (value) => clampRate(value * 1.2),
+    formatter: (value) => formatPercent(value),
+  },
+  {
+    key: "annual_participation_dropoff_rate",
+    label: "Annual participation drop-off",
+    low: (value) => clampRate(value * 0.8),
+    high: (value) => clampRate(value * 1.2),
+    formatter: (value) => formatPercent(value),
+  },
+  {
+    key: "eligible_population",
+    label: "Eligible population",
+    low: (value) => Math.max(0, value * 0.85),
+    high: (value) => Math.max(0, value * 1.15),
+    formatter: (value) => Math.round(value).toLocaleString("en-GB"),
+  },
+];
+
+function getFiniteIcer(value: number): number {
+  return Number.isFinite(value) ? value : 0;
+}
+
+export function runParameterSensitivity(inputs: Inputs): SensitivitySummary {
+  const baseResults = runModel(inputs);
+
+  const rows: ParameterSensitivityRow[] = SENSITIVITY_CONFIGS.map((config) => {
+    const baseValue = inputs[config.key];
+
+    if (typeof baseValue !== "number") {
+      return {
+        parameter_key: config.key,
+        parameter_label: config.label,
+        low_value_label: "n/a",
+        high_value_label: "n/a",
+        low_icer: 0,
+        base_icer: getFiniteIcer(baseResults.discounted_cost_per_qaly),
+        high_icer: 0,
+        low_net_cost: 0,
+        base_net_cost: baseResults.discounted_net_cost_total,
+        high_net_cost: 0,
+        max_abs_icer_change: 0,
+      };
+    }
+
+    const lowValue = config.low(baseValue);
+    const highValue = config.high(baseValue);
+
+    const lowInputs: Inputs = {
+      ...inputs,
+      [config.key]: lowValue,
+    };
+    const highInputs: Inputs = {
+      ...inputs,
+      [config.key]: highValue,
+    };
+
+    const lowResults = runModel(lowInputs);
+    const highResults = runModel(highInputs);
+
+    const baseIcer = getFiniteIcer(baseResults.discounted_cost_per_qaly);
+    const lowIcer = getFiniteIcer(lowResults.discounted_cost_per_qaly);
+    const highIcer = getFiniteIcer(highResults.discounted_cost_per_qaly);
+
+    const max_abs_icer_change = Math.max(
+      Math.abs(lowIcer - baseIcer),
+      Math.abs(highIcer - baseIcer),
+    );
+
+    return {
+      parameter_key: config.key,
+      parameter_label: config.label,
+      low_value_label: config.formatter(lowValue),
+      high_value_label: config.formatter(highValue),
+      low_icer: lowIcer,
+      base_icer: baseIcer,
+      high_icer: highIcer,
+      low_net_cost: lowResults.discounted_net_cost_total,
+      base_net_cost: baseResults.discounted_net_cost_total,
+      high_net_cost: highResults.discounted_net_cost_total,
+      max_abs_icer_change,
+    };
+  }).sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change);
+
+  return {
+    rows,
+    top_drivers: rows.slice(0, 3),
+    primary_driver: rows[0] ?? null,
+  };
+}
+
 export function buildComparatorCase(
   defaults: Inputs,
   baseInputs: Inputs,
@@ -378,10 +686,7 @@ export function buildComparatorCase(
   const comparatorInputs: Inputs = { ...defaults };
 
   if (comparatorMode in SCENARIO_MAP) {
-    Object.assign(
-      comparatorInputs,
-      SCENARIO_MAP[comparatorMode](defaults),
-    );
+    Object.assign(comparatorInputs, SCENARIO_MAP[comparatorMode](defaults));
   } else {
     Object.assign(comparatorInputs, baseInputs);
   }
@@ -389,11 +694,14 @@ export function buildComparatorCase(
   comparatorInputs.time_horizon_years = baseInputs.time_horizon_years;
   comparatorInputs.discount_rate = baseInputs.discount_rate;
   comparatorInputs.costing_method = baseInputs.costing_method;
-  comparatorInputs.cost_effectiveness_threshold = baseInputs.cost_effectiveness_threshold;
-  comparatorInputs.cost_per_cardiovascular_event = baseInputs.cost_per_cardiovascular_event;
+  comparatorInputs.cost_effectiveness_threshold =
+    baseInputs.cost_effectiveness_threshold;
+  comparatorInputs.cost_per_cardiovascular_event =
+    baseInputs.cost_per_cardiovascular_event;
   comparatorInputs.cost_per_admission = baseInputs.cost_per_admission;
   comparatorInputs.cost_per_bed_day = baseInputs.cost_per_bed_day;
-  comparatorInputs.qaly_gain_per_event_avoided = baseInputs.qaly_gain_per_event_avoided;
+  comparatorInputs.qaly_gain_per_event_avoided =
+    baseInputs.qaly_gain_per_event_avoided;
 
   return comparatorInputs;
 }
