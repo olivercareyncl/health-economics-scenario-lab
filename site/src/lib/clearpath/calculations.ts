@@ -7,6 +7,8 @@ import type {
   ComparatorOption,
   Inputs,
   ModelResults,
+  ParameterSensitivityRow,
+  SensitivitySummary,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/clearpath/types";
@@ -358,7 +360,10 @@ export function calculateBreakEvenHorizon(
   maxYears = 10,
 ): string {
   for (let horizon = 1; horizon <= maxYears; horizon += 1) {
-    const testInputs = { ...inputs, time_horizon_years: horizon as 1 | 3 | 5 };
+    const testInputs = {
+      ...inputs,
+      time_horizon_years: (horizon <= 1 ? 1 : horizon <= 3 ? 3 : 5) as 1 | 3 | 5,
+    };
     const result = runModelCore(testInputs);
 
     if (
@@ -453,6 +458,165 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
       decision_status: decisionStatus,
     };
   });
+}
+
+function formatSensitivityValue(
+  parameter: keyof Inputs,
+  value: number,
+): string {
+  switch (parameter) {
+    case "current_late_diagnosis_rate":
+    case "achievable_reduction_in_late_diagnosis":
+    case "intervention_reach_rate":
+    case "late_emergency_presentation_rate":
+    case "early_emergency_presentation_rate":
+    case "effect_decay_rate":
+    case "participation_dropoff_rate":
+      return `${Math.round(value * 100)}%`;
+
+    case "qaly_gain_per_case_shifted":
+      return value.toFixed(2);
+
+    case "average_length_of_stay":
+      return `${value.toFixed(1)} days`;
+
+    case "annual_incident_cases":
+    case "admissions_per_emergency_presentation":
+      return value.toFixed(Number.isInteger(value) ? 0 : 2);
+
+    default:
+      return `£${Math.round(value).toLocaleString()}`;
+  }
+}
+
+function getSensitivityLabel(parameter: keyof Inputs): string {
+  switch (parameter) {
+    case "current_late_diagnosis_rate":
+      return "Current late diagnosis rate";
+    case "achievable_reduction_in_late_diagnosis":
+      return "Reduction in late diagnosis";
+    case "intervention_reach_rate":
+      return "Intervention reach";
+    case "intervention_cost_per_case_reached":
+      return "Intervention cost per case";
+    case "qaly_gain_per_case_shifted":
+      return "QALY gain per case shifted";
+    case "late_emergency_presentation_rate":
+      return "Late emergency presentation rate";
+    case "early_emergency_presentation_rate":
+      return "Early emergency presentation rate";
+    case "average_length_of_stay":
+      return "Average length of stay";
+    case "treatment_cost_late":
+      return "Late treatment cost";
+    case "treatment_cost_early":
+      return "Early treatment cost";
+    case "cost_per_emergency_admission":
+      return "Cost per emergency admission";
+    case "cost_per_bed_day":
+      return "Cost per bed day";
+    case "annual_incident_cases":
+      return "Annual incident cases";
+    case "admissions_per_emergency_presentation":
+      return "Admissions per emergency presentation";
+    case "effect_decay_rate":
+      return "Effect decay";
+    case "participation_dropoff_rate":
+      return "Participation drop-off";
+    default:
+      return String(parameter)
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+}
+
+export function runParameterSensitivity(inputs: Inputs): SensitivitySummary {
+  const parameters: Array<{
+    key: keyof Inputs;
+    low: number;
+    high: number;
+  }> = [
+    {
+      key: "current_late_diagnosis_rate",
+      low: clampRate(inputs.current_late_diagnosis_rate * 0.8),
+      high: clampRate(inputs.current_late_diagnosis_rate * 1.2),
+    },
+    {
+      key: "achievable_reduction_in_late_diagnosis",
+      low: clampRate(inputs.achievable_reduction_in_late_diagnosis * 0.8),
+      high: clampRate(inputs.achievable_reduction_in_late_diagnosis * 1.2),
+    },
+    {
+      key: "intervention_reach_rate",
+      low: clampRate(inputs.intervention_reach_rate * 0.85),
+      high: clampRate(inputs.intervention_reach_rate * 1.15),
+    },
+    {
+      key: "intervention_cost_per_case_reached",
+      low: Math.max(0, inputs.intervention_cost_per_case_reached * 0.8),
+      high: Math.max(0, inputs.intervention_cost_per_case_reached * 1.2),
+    },
+    {
+      key: "qaly_gain_per_case_shifted",
+      low: Math.max(0, inputs.qaly_gain_per_case_shifted * 0.8),
+      high: Math.max(0, inputs.qaly_gain_per_case_shifted * 1.2),
+    },
+    {
+      key: "late_emergency_presentation_rate",
+      low: clampRate(inputs.late_emergency_presentation_rate * 0.85),
+      high: clampRate(inputs.late_emergency_presentation_rate * 1.15),
+    },
+    {
+      key: "average_length_of_stay",
+      low: Math.max(0, inputs.average_length_of_stay * 0.8),
+      high: Math.max(0, inputs.average_length_of_stay * 1.2),
+    },
+    {
+      key: "treatment_cost_late",
+      low: Math.max(0, inputs.treatment_cost_late * 0.85),
+      high: Math.max(0, inputs.treatment_cost_late * 1.15),
+    },
+  ];
+
+  const baseResult = runModel(inputs);
+
+  const rows: ParameterSensitivityRow[] = parameters.map(({ key, low, high }) => {
+    const lowInputs: Inputs = { ...inputs, [key]: low };
+    const highInputs: Inputs = { ...inputs, [key]: high };
+
+    const lowResult = runModel(lowInputs);
+    const highResult = runModel(highInputs);
+
+    const lowDelta = lowResult.discounted_cost_per_qaly - baseResult.discounted_cost_per_qaly;
+    const highDelta =
+      highResult.discounted_cost_per_qaly - baseResult.discounted_cost_per_qaly;
+
+    return {
+      parameter_key: key,
+      parameter_label: getSensitivityLabel(key),
+      base_value: inputs[key] as number,
+      low_value: low,
+      high_value: high,
+      low_value_label: formatSensitivityValue(key, low),
+      high_value_label: formatSensitivityValue(key, high),
+      base_icer: baseResult.discounted_cost_per_qaly,
+      low_icer: lowResult.discounted_cost_per_qaly,
+      high_icer: highResult.discounted_cost_per_qaly,
+      low_delta: lowDelta,
+      high_delta: highDelta,
+      max_abs_icer_change: Math.max(Math.abs(lowDelta), Math.abs(highDelta)),
+    };
+  });
+
+  const rankedRows = [...rows].sort(
+    (a, b) => b.max_abs_icer_change - a.max_abs_icer_change,
+  );
+
+  return {
+    rows,
+    primary_driver: rankedRows[0] ?? null,
+    top_drivers: rankedRows.slice(0, 5),
+  };
 }
 
 export function buildComparatorCase(
