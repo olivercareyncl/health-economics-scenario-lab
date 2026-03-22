@@ -671,7 +671,7 @@ export function SafeStepReportDocument({
           ])}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} break>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
           {renderMetricCards(data.headlineMetrics)}
         </View>
