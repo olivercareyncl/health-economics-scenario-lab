@@ -63,6 +63,7 @@ import type {
   MobileTab,
   ModelResults,
   ParameterSensitivityRow,
+  SensitivitySummary,
   TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
@@ -244,23 +245,13 @@ function deriveCaseType(
   return "Broad proactive management case";
 }
 
-function getSensitivityMainDriverText(
-  primaryDriver: ParameterSensitivityRow | null,
-) {
-  if (!primaryDriver) {
-    return "The result is currently most shaped by the core programme assumptions.";
-  }
-
-  return `The result is currently most sensitive to ${primaryDriver.parameter_label.toLowerCase()}.`;
-}
-
 function buildRecommendationSummary(
   inputs: Inputs,
   results: ModelResults,
   uncertaintyRows: UncertaintyRow[],
   preset: PresetKey,
   caseType: string,
-  primaryDriver: ParameterSensitivityRow | null,
+  sensitivity: SensitivitySummary,
 ) {
   const interpretation = generateInterpretation(results, inputs, uncertaintyRows);
   const decisionStatus = getDecisionStatus(
@@ -270,6 +261,7 @@ function buildRecommendationSummary(
   const baseRow = uncertaintyRows.find((row) => row.case === "Base");
   const lowRow = uncertaintyRows.find((row) => row.case === "Low");
   const highRow = uncertaintyRows.find((row) => row.case === "High");
+  const topDrivers = sensitivity.top_drivers;
 
   const currentCaseSuggests =
     decisionStatus === "Appears cost-saving"
@@ -278,21 +270,31 @@ function buildRecommendationSummary(
         ? `${caseType} currently suggests a plausible value case at the present threshold.`
         : `${caseType} currently suggests operational benefit, but the economic case remains above threshold.`;
 
-  const drivingResult = primaryDriver
-    ? `The result is mainly being driven by ${primaryDriver.parameter_label.toLowerCase()}, based on one-way parameter sensitivity around the current case.`
-    : "The result is mainly being shaped by the core event-rate, effect, and delivery assumptions.";
+  const drivingResult =
+    topDrivers.length > 0
+      ? `The result is mainly being driven by ${topDrivers
+          .slice(0, 3)
+          .map((driver) => driver.parameter_label.toLowerCase())
+          .join(", ")}.`
+      : "The result is mainly being shaped by the core event-rate, effect, and delivery assumptions.";
 
   const fragilePoint =
-    lowRow && highRow
-      ? lowRow.decision_status !== highRow.decision_status
-        ? "The bounded range crosses decision categories, so moderate assumption shifts could change the conclusion."
-        : interpretation.what_looks_fragile
+    lowRow && highRow && lowRow.decision_status !== highRow.decision_status
+      ? topDrivers.length > 0
+        ? `The bounded range crosses decision categories, and one-way sensitivity suggests the case is particularly exposed to ${topDrivers[0].parameter_label.toLowerCase()}.`
+        : "The bounded range crosses decision categories, so moderate assumption shifts could change the conclusion."
       : interpretation.what_looks_fragile;
 
   const validateNext =
     baseRow &&
     baseRow.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
-      ? "Validate baseline recurrent event risk, achievable engagement, and real delivery cost before treating the case as decision-ready."
+      ? topDrivers.length > 0
+        ? `Validate local ${topDrivers[0].parameter_label.toLowerCase()}${
+            topDrivers[1]
+              ? ` and ${topDrivers[1].parameter_label.toLowerCase()}`
+              : ""
+          } before treating the case as decision-ready.`
+        : "Validate baseline recurrent event risk, achievable engagement, and real delivery cost before treating the case as decision-ready."
       : interpretation.what_to_validate_next;
 
   const recommendationLine =
@@ -307,34 +309,6 @@ function buildRecommendationSummary(
     validate_next: validateNext,
     recommendation_line: recommendationLine,
   };
-}
-
-function buildSensitivityChartData(rows: ParameterSensitivityRow[]) {
-  return rows
-    .slice(0, 8)
-    .map((row) => {
-      const lowDelta = row.low_icer - row.base_icer;
-      const highDelta = row.high_icer - row.base_icer;
-
-      return {
-        parameter: row.parameter_label,
-        shortLabel:
-          row.parameter_label.length > 28
-            ? `${row.parameter_label.slice(0, 28)}…`
-            : row.parameter_label,
-        lowDelta,
-        highDelta,
-        minDelta: Math.min(lowDelta, highDelta),
-        maxDelta: Math.max(lowDelta, highDelta),
-        lowValueLabel: row.low_value_label,
-        highValueLabel: row.high_value_label,
-      };
-    })
-    .sort(
-      (a, b) =>
-        Math.max(Math.abs(b.minDelta), Math.abs(b.maxDelta)) -
-        Math.max(Math.abs(a.minDelta), Math.abs(a.maxDelta)),
-    );
 }
 
 function CurrencyTooltip({
@@ -385,44 +359,6 @@ function NumberTooltip({
           </p>
         ))}
       </div>
-    </div>
-  );
-}
-
-function SensitivityTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ name?: string; value?: number; payload?: Record<string, string> }>;
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-
-  const row = payload[0]?.payload;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-sm font-medium text-slate-900">{label}</p>
-      {row?.lowValueLabel ? (
-        <p className="mt-2 text-sm text-slate-600">
-          <span className="font-medium text-slate-800">Low case:</span>{" "}
-          {row.lowValueLabel}
-        </p>
-      ) : null}
-      {row?.highValueLabel ? (
-        <p className="text-sm text-slate-600">
-          <span className="font-medium text-slate-800">High case:</span>{" "}
-          {row.highValueLabel}
-        </p>
-      ) : null}
-      {payload.map((item, index) => (
-        <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
-          <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-          {formatCurrency(item.value ?? 0)}
-        </p>
-      ))}
     </div>
   );
 }
@@ -645,31 +581,37 @@ function BoundedUncertaintyChart({
   );
 }
 
-function TornadoChart({
-  rows,
+function TornadoSensitivityChart({
+  sensitivity,
 }: {
-  rows: ParameterSensitivityRow[];
+  sensitivity: SensitivitySummary;
 }) {
-  const data = buildSensitivityChartData(rows);
+  const data = sensitivity.top_drivers.map((row) => ({
+    parameter: row.parameter_label,
+    lowDelta: row.low_icer - row.base_icer,
+    highDelta: row.high_icer - row.base_icer,
+    baseIcer: row.base_icer,
+    lowValueLabel: row.low_value_label,
+    highValueLabel: row.high_value_label,
+  }));
 
   return (
     <div className={SUBCARD}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Parameter sensitivity
+          One-way sensitivity
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          One-way sensitivity on discounted cost per QALY. Bars show movement away from the current base case.
+          Top drivers of discounted cost per QALY when varied one at a time.
         </p>
       </div>
 
-      <div className="h-[360px] w-full lg:h-[420px]">
+      <div className="h-64 w-full lg:h-72 xl:h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
             layout="vertical"
-            margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
-            barCategoryGap={10}
+            margin={{ top: 8, right: 20, left: 12, bottom: 0 }}
           >
             <CartesianGrid horizontal={false} strokeDasharray="3 3" />
             <XAxis
@@ -681,16 +623,34 @@ function TornadoChart({
             />
             <YAxis
               type="category"
-              dataKey="shortLabel"
+              dataKey="parameter"
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={150}
+              width={170}
             />
-            <Tooltip content={<SensitivityTooltip />} />
-            <ReferenceLine x={0} stroke="#0f172a" strokeDasharray="4 4" />
-            <Bar dataKey="lowDelta" name="Low case Δ" radius={[0, 8, 8, 0]} />
-            <Bar dataKey="highDelta" name="High case Δ" radius={[0, 8, 8, 0]} />
+            <Tooltip
+              formatter={(value: number, name: string, entry: { payload?: { baseIcer?: number; lowValueLabel?: string; highValueLabel?: string } }) => {
+                const baseIcer = entry.payload?.baseIcer ?? 0;
+                const scenarioIcer = baseIcer + value;
+                const label =
+                  name === "lowDelta"
+                    ? `Low case (${entry.payload?.lowValueLabel ?? "—"})`
+                    : `High case (${entry.payload?.highValueLabel ?? "—"})`;
+
+                return [formatCurrency(scenarioIcer), label];
+              }}
+              labelFormatter={(label) => String(label)}
+            />
+            <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
+            <Legend
+              wrapperStyle={{ fontSize: "12px" }}
+              formatter={(value) =>
+                value === "lowDelta" ? "Low case" : "High case"
+              }
+            />
+            <Bar dataKey="lowDelta" name="lowDelta" radius={[0, 6, 6, 0]} />
+            <Bar dataKey="highDelta" name="highDelta" radius={[0, 6, 6, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -986,11 +946,6 @@ export default function StableHeartApp() {
     [selectedPreset, inputs],
   );
 
-  const mainDriverText = useMemo(
-    () => getSensitivityMainDriverText(sensitivity.primary_driver),
-    [sensitivity],
-  );
-
   const recommendationSummary = useMemo(
     () =>
       buildRecommendationSummary(
@@ -999,10 +954,13 @@ export default function StableHeartApp() {
         uncertainty,
         selectedPreset,
         currentCaseType,
-        sensitivity.primary_driver,
+        sensitivity,
       ),
     [inputs, results, uncertainty, selectedPreset, currentCaseType, sensitivity],
   );
+
+  const primaryDriver = sensitivity.primary_driver;
+  const topDrivers = sensitivity.top_drivers;
 
   const handleExportReport = async () => {
     try {
@@ -1078,8 +1036,15 @@ export default function StableHeartApp() {
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-3">
       <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-      <MiniInsight label="Main driver" value={mainDriverText} />
-      <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
+      <MiniInsight
+        label="Main driver"
+        value={
+          primaryDriver
+            ? `The result is currently most shaped by ${primaryDriver.parameter_label.toLowerCase()}.`
+            : interpretation.where_value_is_coming_from
+        }
+      />
+      <MiniInsight label="Fragility" value={recommendationSummary.fragile_point} />
     </div>
   );
 
@@ -1367,14 +1332,14 @@ export default function StableHeartApp() {
     </div>
   );
 
-  const sensitivityTopDrivers = (
+  const sensitivityTop3 = (
     <div className="grid gap-3 md:grid-cols-3">
-      {sensitivity.top_drivers.map((row) => (
+      {topDrivers.map((driver, index) => (
         <AssumptionReviewCard
-          key={row.parameter_key}
-          label={row.parameter_label}
-          value={`±${formatCurrency(row.max_abs_icer_change)}`}
-          note={`Low: ${row.low_value_label} · High: ${row.high_value_label}`}
+          key={driver.parameter_key}
+          label={`Driver ${index + 1}`}
+          value={driver.parameter_label}
+          note={`Largest ICER swing: ${formatCurrency(driver.max_abs_icer_change)}`}
         />
       ))}
     </div>
@@ -1398,6 +1363,10 @@ export default function StableHeartApp() {
           threshold={inputs.cost_effectiveness_threshold}
         />
       </MobileAccordion>
+
+      <MobileAccordion title="One-way sensitivity">
+        <TornadoSensitivityChart sensitivity={sensitivity} />
+      </MobileAccordion>
     </div>
   );
 
@@ -1410,6 +1379,7 @@ export default function StableHeartApp() {
         uncertaintyRows={uncertainty}
         threshold={inputs.cost_effectiveness_threshold}
       />
+      <TornadoSensitivityChart sensitivity={sensitivity} />
     </div>
   );
 
@@ -1452,6 +1422,34 @@ export default function StableHeartApp() {
         label="Validate next"
         value={recommendationSummary.validate_next}
       />
+    </div>
+  );
+
+  const analysisMetricsMobile = (
+    <div className="grid grid-cols-1 gap-3">
+      <MetricCard
+        label="Admissions avoided"
+        value={formatNumber(results.admissions_avoided_total)}
+      />
+      <MetricCard
+        label="Bed days avoided"
+        value={formatNumber(results.bed_days_avoided_total)}
+      />
+      <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+    </div>
+  );
+
+  const analysisMetricsDesktop = (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <MetricCard
+        label="Admissions avoided"
+        value={formatNumber(results.admissions_avoided_total)}
+      />
+      <MetricCard
+        label="Bed days avoided"
+        value={formatNumber(results.bed_days_avoided_total)}
+      />
+      <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
     </div>
   );
 
@@ -1684,17 +1682,7 @@ export default function StableHeartApp() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3">
-                <MetricCard
-                  label="Admissions avoided"
-                  value={formatNumber(results.admissions_avoided_total)}
-                />
-                <MetricCard
-                  label="Bed days avoided"
-                  value={formatNumber(results.bed_days_avoided_total)}
-                />
-                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
-              </div>
+              {analysisMetricsMobile}
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
@@ -1741,20 +1729,15 @@ export default function StableHeartApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Top parameter drivers</h3>
-                <div className="mt-3">{sensitivityTopDrivers}</div>
+                <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
+                <div className="mt-3">
+                  {sensitivityTop3}
+                </div>
               </div>
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
                 <div className="mt-3">{comparatorSummary}</div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Parameter sensitivity chart</h3>
-                <div className="mt-3">
-                  <TornadoChart rows={sensitivity.rows} />
-                </div>
               </div>
 
               <MobileAccordion title="Assumption review">
@@ -1870,17 +1853,7 @@ export default function StableHeartApp() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <MetricCard
-                  label="Admissions avoided"
-                  value={formatNumber(results.admissions_avoided_total)}
-                />
-                <MetricCard
-                  label="Bed days avoided"
-                  value={formatNumber(results.bed_days_avoided_total)}
-                />
-                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
-              </div>
+              {analysisMetricsDesktop}
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
@@ -1927,20 +1900,13 @@ export default function StableHeartApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Top parameter drivers</h3>
-                <div className="mt-3">{sensitivityTopDrivers}</div>
+                <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
+                <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
                 <div className="mt-3">{comparatorSummary}</div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Parameter sensitivity chart</h3>
-                <div className="mt-3">
-                  <TornadoChart rows={sensitivity.rows} />
-                </div>
               </div>
 
               <div>
