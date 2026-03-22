@@ -117,6 +117,7 @@ function getPresetPatch(
         sustained_engagement_rate: 0.68,
       };
 
+
     case "Lower-cost delivery":
       return {
         intervention_cost_per_patient_reached: 140,
