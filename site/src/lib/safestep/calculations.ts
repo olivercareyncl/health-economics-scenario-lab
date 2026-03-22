@@ -5,7 +5,9 @@ import {
 } from "./scenarios";
 import type {
   ModelResult,
+  ParameterSensitivityRow,
   SafeStepInputs,
+  SensitivitySummary,
   TargetingAdjustmentsResult,
   UncertaintyRow,
   YearlyResultRow,
@@ -388,6 +390,209 @@ export function runBoundedUncertainty(
       decision_status: decisionStatus,
     };
   });
+}
+
+function formatSensitivityValue(
+  parameter: keyof SafeStepInputs,
+  value: number,
+): string {
+  switch (parameter) {
+    case "uptake_rate":
+    case "adherence_rate":
+    case "annual_fall_risk":
+    case "admission_rate_after_fall":
+    case "relative_risk_reduction":
+    case "effect_decay_rate":
+    case "participation_dropoff_rate":
+    case "discount_rate":
+      return `${(value * 100).toFixed(1)}%`;
+
+    case "intervention_cost_per_person":
+    case "cost_per_admission":
+    case "cost_per_bed_day":
+    case "cost_effectiveness_threshold":
+      return `£${Math.round(value).toLocaleString()}`;
+
+    case "average_length_of_stay":
+    case "qaly_loss_per_serious_fall":
+      return value.toFixed(2);
+
+    case "eligible_population":
+    case "time_horizon_years":
+      return Math.round(value).toLocaleString();
+
+    default:
+      return String(value);
+  }
+}
+
+function getSensitivityParameterLabel(
+  parameter: keyof SafeStepInputs,
+): string {
+  switch (parameter) {
+    case "eligible_population":
+      return "Eligible population";
+    case "uptake_rate":
+      return "Uptake rate";
+    case "adherence_rate":
+      return "Adherence rate";
+    case "annual_fall_risk":
+      return "Annual fall risk";
+    case "admission_rate_after_fall":
+      return "Admission rate after fall";
+    case "average_length_of_stay":
+      return "Average length of stay";
+    case "intervention_cost_per_person":
+      return "Intervention cost per person";
+    case "relative_risk_reduction":
+      return "Relative risk reduction";
+    case "effect_decay_rate":
+      return "Effect decay";
+    case "participation_dropoff_rate":
+      return "Participation drop-off";
+    case "cost_per_admission":
+      return "Cost per admission";
+    case "cost_per_bed_day":
+      return "Cost per bed day";
+    case "qaly_loss_per_serious_fall":
+      return "QALY loss per serious fall";
+    case "cost_effectiveness_threshold":
+      return "Cost-effectiveness threshold";
+    case "time_horizon_years":
+      return "Time horizon";
+    case "discount_rate":
+      return "Discount rate";
+    case "costing_method":
+      return "Costing method";
+    case "targeting_mode":
+      return "Targeting mode";
+    default:
+      return String(parameter);
+  }
+}
+
+function buildSensitivityVariants(
+  parameter: keyof SafeStepInputs,
+  inputs: SafeStepInputs,
+): { lowValue: number; highValue: number } | null {
+  const currentValue = inputs[parameter];
+
+  if (typeof currentValue !== "number") return null;
+
+  switch (parameter) {
+    case "eligible_population":
+      return {
+        lowValue: Math.max(1, Math.round(currentValue * 0.8)),
+        highValue: Math.max(1, Math.round(currentValue * 1.2)),
+      };
+
+    case "time_horizon_years":
+      return {
+        lowValue: Math.max(1, currentValue - 1),
+        highValue: currentValue + 1,
+      };
+
+    case "average_length_of_stay":
+    case "qaly_loss_per_serious_fall":
+    case "intervention_cost_per_person":
+    case "cost_per_admission":
+    case "cost_per_bed_day":
+    case "cost_effectiveness_threshold":
+      return {
+        lowValue: currentValue * 0.8,
+        highValue: currentValue * 1.2,
+      };
+
+    case "uptake_rate":
+    case "adherence_rate":
+    case "annual_fall_risk":
+    case "admission_rate_after_fall":
+    case "relative_risk_reduction":
+      return {
+        lowValue: clampRate(currentValue * 0.8),
+        highValue: clampRate(currentValue * 1.2),
+      };
+
+    case "effect_decay_rate":
+    case "participation_dropoff_rate":
+    case "discount_rate":
+      return {
+        lowValue: clampRate(currentValue * 0.8),
+        highValue: clampRate(currentValue * 1.2),
+      };
+
+    default:
+      return null;
+  }
+}
+
+export function runParameterSensitivity(
+  inputs: SafeStepInputs,
+): SensitivitySummary {
+  const baseResult = runModel(inputs);
+
+  const candidateParameters: Array<keyof SafeStepInputs> = [
+    "annual_fall_risk",
+    "relative_risk_reduction",
+    "intervention_cost_per_person",
+    "admission_rate_after_fall",
+    "adherence_rate",
+    "uptake_rate",
+    "average_length_of_stay",
+    "participation_dropoff_rate",
+    "effect_decay_rate",
+    "qaly_loss_per_serious_fall",
+    "cost_per_admission",
+    "cost_per_bed_day",
+    "eligible_population",
+  ];
+
+  const rows: ParameterSensitivityRow[] = candidateParameters
+    .map((parameter) => {
+      const variants = buildSensitivityVariants(parameter, inputs);
+      if (!variants) return null;
+
+      const lowInputs: SafeStepInputs = {
+        ...inputs,
+        [parameter]: variants.lowValue,
+      };
+      const highInputs: SafeStepInputs = {
+        ...inputs,
+        [parameter]: variants.highValue,
+      };
+
+      const lowResult = runModel(lowInputs);
+      const highResult = runModel(highInputs);
+
+      const maxAbsIcerChange = Math.max(
+        Math.abs(lowResult.discounted_cost_per_qaly - baseResult.discounted_cost_per_qaly),
+        Math.abs(highResult.discounted_cost_per_qaly - baseResult.discounted_cost_per_qaly),
+      );
+
+      return {
+        parameter_key: parameter,
+        parameter_label: getSensitivityParameterLabel(parameter),
+        low_value_label: formatSensitivityValue(parameter, variants.lowValue),
+        high_value_label: formatSensitivityValue(parameter, variants.highValue),
+        low_icer: lowResult.discounted_cost_per_qaly,
+        base_icer: baseResult.discounted_cost_per_qaly,
+        high_icer: highResult.discounted_cost_per_qaly,
+        low_net_cost: lowResult.discounted_net_cost_total,
+        base_net_cost: baseResult.discounted_net_cost_total,
+        high_net_cost: highResult.discounted_net_cost_total,
+        max_abs_icer_change: maxAbsIcerChange,
+      };
+    })
+    .filter((row): row is ParameterSensitivityRow => row !== null)
+    .sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change);
+
+  const topDrivers = rows.slice(0, 3);
+
+  return {
+    rows,
+    top_drivers: topDrivers,
+    primary_driver: topDrivers[0] ?? null,
+  };
 }
 
 export function buildComparatorCase(
