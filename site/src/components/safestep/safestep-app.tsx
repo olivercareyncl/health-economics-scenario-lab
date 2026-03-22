@@ -14,6 +14,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Line,
   LineChart,
   ReferenceLine,
@@ -22,32 +23,40 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  formatCurrency,
-  formatNumber,
-  formatPercent,
-} from "@/lib/safestep/formatters";
 
-type Inputs = {
-  targeting_mode: "Universal" | "Risk-targeted" | "High-risk only";
-  costing_method: "Admission costs only" | "Admission + bed days";
-  eligible_population: number;
-  annual_fall_risk: number;
-  intervention_cost_per_person: number;
-  relative_risk_reduction: number;
-  time_horizon_years: 1 | 3 | 5;
-  uptake_rate: number;
-  adherence_rate: number;
-  participation_dropoff_rate: number;
-  effect_decay_rate: number;
-  admission_rate_after_fall: number;
-  average_length_of_stay: number;
-  cost_per_admission: number;
-  cost_per_bed_day: number;
-  qaly_loss_per_serious_fall: number;
-  cost_effectiveness_threshold: number;
-  discount_rate: number;
-};
+import { DEFAULT_INPUTS } from "@/lib/safestep/defaults";
+import {
+  buildComparatorCase,
+  runBoundedUncertainty,
+  runModel,
+  runParameterSensitivity,
+} from "@/lib/safestep/calculations";
+import { formatCurrency, formatNumber, formatPercent } from "@/lib/safestep/formatters";
+import { ASSUMPTION_META, ASSUMPTION_ORDER } from "@/lib/safestep/metadata";
+import {
+  COMPARATOR_OPTIONS,
+  COSTING_METHOD_OPTIONS,
+  SCENARIO_OPTIONS,
+  TARGETING_MODE_OPTIONS,
+} from "@/lib/safestep/scenarios";
+import {
+  generateInterpretation,
+  getDecisionStatus,
+  getMainDriverText,
+  getNetCostLabel,
+} from "@/lib/safestep/summaries";
+import type {
+  AssumptionKey,
+  CostingMethod,
+  ModelResult,
+  ParameterSensitivityRow,
+  SafeStepInputs,
+  ScenarioName,
+  SensitivitySummary,
+  TargetingMode,
+  UncertaintyRow,
+  YearlyResultRow,
+} from "@/lib/safestep/types";
 
 type MobileTab = "summary" | "assumptions" | "analysis";
 
@@ -58,137 +67,20 @@ type AssumptionSectionKey =
 
 type ScenarioPreset =
   | "Base case"
-  | "Conservative case"
-  | "Optimistic case"
-  | "Universal prevention"
-  | "Risk-targeted case"
-  | "High-risk only case";
-
-type LocalYearlyResultRow = {
-  year: number;
-  falls_avoided: number;
-  cumulative_programme_cost: number;
-  cumulative_gross_savings: number;
-};
-
-type LocalUncertaintyRow = {
-  case: string;
-  discounted_cost_per_qaly: number;
-  falls_avoided_total: number;
-  decision_status: string;
-};
-
-type ModelResults = {
-  falls_avoided_total: number;
-  admissions_avoided_total: number;
-  bed_days_avoided_total: number;
-  discounted_programme_cost_total: number;
-  discounted_gross_savings_total: number;
-  discounted_net_cost_total: number;
-  discounted_qalys_gained_total: number;
-  discounted_cost_per_qaly: number;
-  yearly_results: LocalYearlyResultRow[];
-};
-
-type RecommendationSummary = {
-  case_type: string;
-  what_current_case_suggests: string;
-  what_is_driving_result: string;
-  what_looks_fragile: string;
-  what_should_be_validated_next: string;
-};
-
-const DEFAULT_INPUTS: Inputs = {
-  targeting_mode: "Risk-targeted",
-  costing_method: "Admission + bed days",
-  eligible_population: 5000,
-  annual_fall_risk: 0.24,
-  intervention_cost_per_person: 180,
-  relative_risk_reduction: 0.18,
-  time_horizon_years: 3,
-  uptake_rate: 0.7,
-  adherence_rate: 0.75,
-  participation_dropoff_rate: 0.08,
-  effect_decay_rate: 0.06,
-  admission_rate_after_fall: 0.22,
-  average_length_of_stay: 7,
-  cost_per_admission: 3200,
-  cost_per_bed_day: 420,
-  qaly_loss_per_serious_fall: 0.055,
-  cost_effectiveness_threshold: 20000,
-  discount_rate: 0.035,
-};
-
-const COSTING_METHOD_OPTIONS: readonly Inputs["costing_method"][] = [
-  "Admission costs only",
-  "Admission + bed days",
-];
-
-const TARGETING_MODE_OPTIONS: readonly Inputs["targeting_mode"][] = [
-  "Universal",
-  "Risk-targeted",
-  "High-risk only",
-];
+  | "Lower-cost delivery"
+  | "Stronger effect"
+  | "Higher-risk targeting"
+  | "Tighter high-risk targeting"
+  | "Custom";
 
 const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
   "Base case",
-  "Conservative case",
-  "Optimistic case",
-  "Universal prevention",
-  "Risk-targeted case",
-  "High-risk only case",
-];
-
-const SCENARIO_PRESET_MAP: Record<ScenarioPreset, Partial<Inputs>> = {
-  "Base case": {},
-  "Conservative case": {
-    intervention_cost_per_person: 210,
-    relative_risk_reduction: 0.14,
-    uptake_rate: 0.62,
-    adherence_rate: 0.68,
-    participation_dropoff_rate: 0.11,
-    effect_decay_rate: 0.09,
-    admission_rate_after_fall: 0.2,
-  },
-  "Optimistic case": {
-    intervention_cost_per_person: 165,
-    relative_risk_reduction: 0.23,
-    uptake_rate: 0.78,
-    adherence_rate: 0.82,
-    participation_dropoff_rate: 0.05,
-    effect_decay_rate: 0.04,
-    admission_rate_after_fall: 0.24,
-  },
-  "Universal prevention": {
-    targeting_mode: "Universal",
-    eligible_population: 7000,
-    annual_fall_risk: 0.16,
-    intervention_cost_per_person: 145,
-    relative_risk_reduction: 0.13,
-    uptake_rate: 0.64,
-    adherence_rate: 0.7,
-  },
-  "Risk-targeted case": {
-    targeting_mode: "Risk-targeted",
-    eligible_population: 5000,
-    annual_fall_risk: 0.24,
-    intervention_cost_per_person: 180,
-    relative_risk_reduction: 0.18,
-    uptake_rate: 0.7,
-    adherence_rate: 0.75,
-  },
-  "High-risk only case": {
-    targeting_mode: "High-risk only",
-    eligible_population: 2600,
-    annual_fall_risk: 0.35,
-    intervention_cost_per_person: 235,
-    relative_risk_reduction: 0.22,
-    uptake_rate: 0.8,
-    adherence_rate: 0.82,
-    admission_rate_after_fall: 0.29,
-    qaly_loss_per_serious_fall: 0.07,
-  },
-};
+  "Lower-cost delivery",
+  "Stronger effect",
+  "Higher-risk targeting",
+  "Tighter high-risk targeting",
+  "Custom",
+] as const;
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -198,317 +90,183 @@ const SUBCARD_DENSE =
   "rounded-2xl border border-slate-200 bg-white p-3.5 lg:p-4";
 const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
-const SECTION_BODY = "text-sm leading-6 text-slate-700";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function clamp(value: number, min = 0, max = 1) {
-  return Math.min(max, Math.max(min, value));
+function compactCurrencyAxis(value: number) {
+  if (Math.abs(value) >= 1_000_000) return `£${(value / 1_000_000).toFixed(1)}m`;
+  if (Math.abs(value) >= 1_000) return `£${(value / 1_000).toFixed(0)}k`;
+  return formatCurrency(value);
 }
 
-function round(value: number) {
-  return Number.isFinite(value) ? Math.round(value) : 0;
-}
+function getPresetPatch(
+  preset: Exclude<ScenarioPreset, "Custom">,
+): Partial<SafeStepInputs> {
+  switch (preset) {
+    case "Base case":
+      return { ...DEFAULT_INPUTS };
 
-function getTargetingMultiplier(mode: Inputs["targeting_mode"]) {
-  switch (mode) {
-    case "Universal":
-      return 0.9;
-    case "Risk-targeted":
-      return 1;
-    case "High-risk only":
-      return 1.15;
-    default:
-      return 1;
+    case "Lower-cost delivery":
+      return {
+        intervention_cost_per_person: 140,
+      };
+
+    case "Stronger effect":
+      return {
+        relative_risk_reduction: 0.24,
+        adherence_rate: 0.78,
+        effect_decay_rate: 0.05,
+        participation_dropoff_rate: 0.06,
+      };
+
+    case "Higher-risk targeting":
+      return {
+        targeting_mode: "Higher-risk targeting",
+        eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.85),
+        annual_fall_risk: 0.28,
+        admission_rate_after_fall: 0.26,
+        uptake_rate: 0.68,
+        adherence_rate: 0.74,
+      };
+
+    case "Tighter high-risk targeting":
+      return {
+        targeting_mode: "Tighter high-risk targeting",
+        eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.7),
+        annual_fall_risk: 0.34,
+        admission_rate_after_fall: 0.3,
+        intervention_cost_per_person: 210,
+        relative_risk_reduction: 0.22,
+        uptake_rate: 0.72,
+        adherence_rate: 0.78,
+      };
   }
 }
 
-function getCaseType(
-  inputs: Inputs,
-  selectedPreset: ScenarioPreset,
+function getPresetDescription(preset: ScenarioPreset) {
+  switch (preset) {
+    case "Base case":
+      return "Neutral starting template for workshop use.";
+    case "Lower-cost delivery":
+      return "Tests whether value improves under leaner delivery.";
+    case "Stronger effect":
+      return "Tests better adherence and stronger fall reduction.";
+    case "Higher-risk targeting":
+      return "Focuses value into a more at-risk subgroup.";
+    case "Tighter high-risk targeting":
+      return "Smaller, higher-risk group with stronger targeting logic.";
+    case "Custom":
+      return "Inputs have been edited away from a named template.";
+  }
+}
+
+function deriveCaseType(
+  preset: ScenarioPreset,
+  inputs: SafeStepInputs,
 ): string {
-  if (selectedPreset === "Conservative case") return "Conservative delivery case";
-  if (selectedPreset === "Optimistic case") return "Optimistic prevention case";
-  if (selectedPreset === "Universal prevention") return "Broad prevention case";
-  if (selectedPreset === "High-risk only case") return "High-risk intervention case";
-  if (selectedPreset === "Risk-targeted case") return "Risk-targeted prevention case";
-
-  if (inputs.targeting_mode === "Universal") return "Broad prevention case";
-  if (inputs.targeting_mode === "High-risk only") return "High-risk intervention case";
-  if (inputs.intervention_cost_per_person >= 220) return "Higher-cost delivery case";
-  return "Risk-targeted prevention case";
-}
-
-function runModel(inputs: Inputs): ModelResults {
-  const yearlyResults: LocalYearlyResultRow[] = [];
-
-  let cumulativeProgrammeCost = 0;
-  let cumulativeGrossSavings = 0;
-  let discountedFallsAvoidedTotal = 0;
-  let discountedAdmissionsAvoidedTotal = 0;
-  let discountedBedDaysAvoidedTotal = 0;
-  let discountedQalysTotal = 0;
-
-  const targetingMultiplier = getTargetingMultiplier(inputs.targeting_mode);
-
-  for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
-    const participants =
-      inputs.eligible_population *
-      inputs.uptake_rate *
-      inputs.adherence_rate *
-      Math.pow(1 - inputs.participation_dropoff_rate, year - 1);
-
-    const effectiveRiskReduction =
-      inputs.relative_risk_reduction *
-      Math.pow(1 - inputs.effect_decay_rate, year - 1) *
-      targetingMultiplier;
-
-    const fallsAvoidedRaw =
-      participants * inputs.annual_fall_risk * clamp(effectiveRiskReduction, 0, 1);
-
-    const admissionsAvoidedRaw =
-      fallsAvoidedRaw * clamp(inputs.admission_rate_after_fall, 0, 1);
-
-    const bedDaysAvoidedRaw =
-      admissionsAvoidedRaw * Math.max(0, inputs.average_length_of_stay);
-
-    const programmeCostRaw =
-      participants * Math.max(0, inputs.intervention_cost_per_person);
-
-    const grossSavingsRaw =
-      inputs.costing_method === "Admission + bed days"
-        ? admissionsAvoidedRaw * inputs.cost_per_admission +
-          bedDaysAvoidedRaw * inputs.cost_per_bed_day
-        : admissionsAvoidedRaw * inputs.cost_per_admission;
-
-    const discountFactor = 1 / Math.pow(1 + inputs.discount_rate, year - 1);
-
-    const fallsAvoidedDiscounted = fallsAvoidedRaw * discountFactor;
-    const admissionsAvoidedDiscounted = admissionsAvoidedRaw * discountFactor;
-    const bedDaysAvoidedDiscounted = bedDaysAvoidedRaw * discountFactor;
-    const programmeCostDiscounted = programmeCostRaw * discountFactor;
-    const grossSavingsDiscounted = grossSavingsRaw * discountFactor;
-    const qalysDiscounted =
-      fallsAvoidedRaw *
-      Math.max(0, inputs.qaly_loss_per_serious_fall) *
-      discountFactor;
-
-    discountedFallsAvoidedTotal += fallsAvoidedDiscounted;
-    discountedAdmissionsAvoidedTotal += admissionsAvoidedDiscounted;
-    discountedBedDaysAvoidedTotal += bedDaysAvoidedDiscounted;
-    discountedQalysTotal += qalysDiscounted;
-
-    cumulativeProgrammeCost += programmeCostDiscounted;
-    cumulativeGrossSavings += grossSavingsDiscounted;
-
-    yearlyResults.push({
-      year,
-      falls_avoided: round(fallsAvoidedDiscounted),
-      cumulative_programme_cost: cumulativeProgrammeCost,
-      cumulative_gross_savings: cumulativeGrossSavings,
-    });
+  if (preset !== "Custom") {
+    switch (preset) {
+      case "Base case":
+        return "Broad falls prevention case";
+      case "Lower-cost delivery":
+        return "Lower-cost delivery case";
+      case "Stronger effect":
+        return "Stronger-effect case";
+      case "Higher-risk targeting":
+        return "Higher-risk targeting case";
+      case "Tighter high-risk targeting":
+        return "Tighter high-risk targeting case";
+      default:
+        return "Current scenario case";
+    }
   }
 
-  const discountedNetCostTotal = cumulativeProgrammeCost - cumulativeGrossSavings;
-  const discountedCostPerQaly =
-    discountedQalysTotal > 0
-      ? discountedNetCostTotal / discountedQalysTotal
-      : Number.POSITIVE_INFINITY;
-
-  return {
-    falls_avoided_total: round(discountedFallsAvoidedTotal),
-    admissions_avoided_total: round(discountedAdmissionsAvoidedTotal),
-    bed_days_avoided_total: round(discountedBedDaysAvoidedTotal),
-    discounted_programme_cost_total: cumulativeProgrammeCost,
-    discounted_gross_savings_total: cumulativeGrossSavings,
-    discounted_net_cost_total: discountedNetCostTotal,
-    discounted_qalys_gained_total: discountedQalysTotal,
-    discounted_cost_per_qaly: Number.isFinite(discountedCostPerQaly)
-      ? discountedCostPerQaly
-      : 0,
-    yearly_results: yearlyResults,
-  };
-}
-
-function runBoundedUncertainty(inputs: Inputs): LocalUncertaintyRow[] {
-  const scenarios = [
-    {
-      case: "Low",
-      riskMultiplier: 0.85,
-      effectMultiplier: 0.8,
-      costMultiplier: 1.1,
-    },
-    {
-      case: "Base",
-      riskMultiplier: 1,
-      effectMultiplier: 1,
-      costMultiplier: 1,
-    },
-    {
-      case: "High",
-      riskMultiplier: 1.15,
-      effectMultiplier: 1.15,
-      costMultiplier: 0.92,
-    },
-  ] as const;
-
-  return scenarios.map((scenario) => {
-    const scenarioInputs: Inputs = {
-      ...inputs,
-      annual_fall_risk: clamp(inputs.annual_fall_risk * scenario.riskMultiplier, 0, 1),
-      relative_risk_reduction: clamp(
-        inputs.relative_risk_reduction * scenario.effectMultiplier,
-        0,
-        1,
-      ),
-      intervention_cost_per_person: Math.max(
-        0,
-        inputs.intervention_cost_per_person * scenario.costMultiplier,
-      ),
-    };
-
-    const results = runModel(scenarioInputs);
-    const decisionStatus = getDecisionStatus(
-      results,
-      inputs.cost_effectiveness_threshold,
-    );
-
-    return {
-      case: scenario.case,
-      discounted_cost_per_qaly: results.discounted_cost_per_qaly,
-      falls_avoided_total: results.falls_avoided_total,
-      decision_status: decisionStatus,
-    };
-  });
-}
-
-function getDecisionStatus(results: ModelResults, threshold: number) {
-  if (results.discounted_net_cost_total < 0) {
-    return "Appears cost-saving";
+  if (inputs.targeting_mode === "Tighter high-risk targeting") {
+    return "Tighter high-risk targeting case";
+  }
+  if (inputs.targeting_mode === "Higher-risk targeting") {
+    return "Higher-risk targeting case";
+  }
+  if (inputs.intervention_cost_per_person <= 150) {
+    return "Lower-cost delivery case";
+  }
+  if (inputs.relative_risk_reduction >= 0.22) {
+    return "Stronger-effect case";
   }
 
-  if (results.discounted_cost_per_qaly <= threshold) {
-    return "Appears cost-effective";
-  }
-
-  return "Above current threshold";
-}
-
-function getMobileDecisionStatus(status: string) {
-  if (status === "Appears cost-saving") return "Cost-saving";
-  if (status === "Appears cost-effective") return "Cost-effective";
-  return "Above threshold";
-}
-
-function getNetCostLabel(results: ModelResults) {
-  return results.discounted_net_cost_total < 0 ? "Net saving" : "Net cost";
-}
-
-function getMobileNetCostLabel(results: ModelResults) {
-  return results.discounted_net_cost_total < 0 ? "Saving" : "Net cost";
-}
-
-function getMainDriverText(inputs: Inputs) {
-  const candidates = [
-    {
-      label: "annual fall risk",
-      score: inputs.annual_fall_risk,
-    },
-    {
-      label: "reduction in falls",
-      score: inputs.relative_risk_reduction,
-    },
-    {
-      label: "cost per participant",
-      score: inputs.intervention_cost_per_person / 1000,
-    },
-    {
-      label: "uptake and adherence",
-      score: inputs.uptake_rate * inputs.adherence_rate,
-    },
-  ];
-
-  candidates.sort((a, b) => b.score - a.score);
-  return candidates[0]?.label ?? "the core programme assumptions";
-}
-
-function generateInterpretation(
-  results: ModelResults,
-  inputs: Inputs,
-  uncertainty: LocalUncertaintyRow[],
-) {
-  const decisionStatus = getDecisionStatus(
-    results,
-    inputs.cost_effectiveness_threshold,
-  );
-  const baseCase = uncertainty.find((row) => row.case === "Base");
-  const worstCase = uncertainty.find((row) => row.case === "Low");
-  const bestCase = uncertainty.find((row) => row.case === "High");
-
-  const whatModelSuggests =
-    decisionStatus === "Appears cost-saving"
-      ? "The base case suggests the programme could save more than it costs while reducing falls and admissions."
-      : decisionStatus === "Appears cost-effective"
-        ? "The base case suggests the programme may be economically reasonable at the current threshold."
-        : "The base case currently sits above the threshold, so value depends on stronger impact or lower delivery cost.";
-
-  const whatDrivesResult =
-    "The result is mainly shaped by fall risk, treatment effect, uptake, and the delivery cost per participant.";
-
-  const uncertaintySignal =
-    worstCase && bestCase
-      ? worstCase.decision_status === bestCase.decision_status
-        ? "The bounded range is directionally stable across low, base, and high cases."
-        : "The bounded range crosses decision boundaries, so modest assumption shifts could change the conclusion."
-      : "The bounded range should be interpreted cautiously.";
-
-  const whatLooksFragile =
-    baseCase &&
-    baseCase.discounted_cost_per_qaly > inputs.cost_effectiveness_threshold * 0.85
-      ? "The case sits fairly close to the threshold, so changes in effect size or delivery cost could alter the decision."
-      : uncertaintySignal;
-
-  const whatToValidateNext =
-    inputs.intervention_cost_per_person > inputs.cost_per_admission
-      ? "Validate delivery cost realism and likely uptake before leaning heavily on the result."
-      : "Validate achievable effect size, uptake, and the share of falls that translate into avoided admissions.";
-
-  return {
-    what_model_suggests: whatModelSuggests,
-    what_drives_result: whatDrivesResult,
-    what_looks_fragile: whatLooksFragile,
-    what_to_validate_next: whatToValidateNext,
-  };
+  return "Broad falls prevention case";
 }
 
 function buildRecommendationSummary(
-  inputs: Inputs,
-  results: ModelResults,
-  uncertainty: LocalUncertaintyRow[],
-  selectedPreset: ScenarioPreset,
-): RecommendationSummary {
-  const interpretation = generateInterpretation(results, inputs, uncertainty);
-  const caseType = getCaseType(inputs, selectedPreset);
+  inputs: SafeStepInputs,
+  results: ModelResult,
+  uncertaintyRows: UncertaintyRow[],
+  preset: ScenarioPreset,
+  caseType: string,
+  sensitivity: SensitivitySummary,
+) {
+  const interpretation = generateInterpretation(
+    results,
+    inputs,
+    uncertaintyRows,
+    sensitivity,
+  );
   const decisionStatus = getDecisionStatus(
     results,
     inputs.cost_effectiveness_threshold,
   );
+  const baseRow = uncertaintyRows.find((row) => row.case === "Base");
+  const lowRow = uncertaintyRows.find((row) => row.case === "Low");
+  const highRow = uncertaintyRows.find((row) => row.case === "High");
+  const topDrivers = sensitivity.top_drivers;
 
-  const whatCurrentCaseSuggests =
+  const currentCaseSuggests =
     decisionStatus === "Appears cost-saving"
-      ? `${caseType} with a net-saving signal in the current base case.`
+      ? `${caseType} currently suggests avoided falls with a net saving signal.`
       : decisionStatus === "Appears cost-effective"
-        ? `${caseType} with a value-for-money signal at the current threshold, but not a net saving.`
-        : `${caseType} with operational benefit, but not yet a clear value-for-money signal at the current threshold.`;
+        ? `${caseType} currently suggests a plausible value case at the present threshold.`
+        : `${caseType} currently suggests operational benefit, but the economic case remains above threshold.`;
+
+  const drivingResult =
+    topDrivers.length > 0
+      ? `The result is mainly being driven by ${topDrivers
+          .slice(0, 3)
+          .map((driver) => driver.parameter_label.toLowerCase())
+          .join(", ")}.`
+      : "The result is mainly being shaped by fall risk, treatment effect, targeting, and delivery cost.";
+
+  const fragilePoint =
+    lowRow && highRow && lowRow.decision_status !== highRow.decision_status
+      ? topDrivers.length > 0
+        ? `The bounded range crosses decision categories, and one-way sensitivity suggests the case is particularly exposed to ${topDrivers[0].parameter_label.toLowerCase()}.`
+        : "The bounded range crosses decision categories, so moderate assumption shifts could change the conclusion."
+      : interpretation.what_looks_fragile;
+
+  const validateNext =
+    baseRow &&
+    baseRow.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
+      ? topDrivers.length > 0
+        ? `Validate local ${topDrivers[0].parameter_label.toLowerCase()}${
+            topDrivers[1]
+              ? ` and ${topDrivers[1].parameter_label.toLowerCase()}`
+              : ""
+          } before treating the case as decision-ready.`
+        : "Validate local risk, achievable effect size, and delivery cost before treating the case as decision-ready."
+      : interpretation.what_to_validate_next;
+
+  const recommendationLine =
+    preset === "Custom"
+      ? "This is currently a custom setup. Use the named templates to benchmark whether the current setup is unusually strict or favourable."
+      : `This is currently framed as a ${caseType.toLowerCase()}. Use comparator mode to judge whether a nearby alternative looks materially stronger.`;
 
   return {
-    case_type: caseType,
-    what_current_case_suggests: whatCurrentCaseSuggests,
-    what_is_driving_result: interpretation.what_drives_result,
-    what_looks_fragile: interpretation.what_looks_fragile,
-    what_should_be_validated_next: interpretation.what_to_validate_next,
+    current_case_suggests: currentCaseSuggests,
+    driving_result: drivingResult,
+    fragile_point: fragilePoint,
+    validate_next: validateNext,
+    recommendation_line: recommendationLine,
   };
 }
 
@@ -564,61 +322,15 @@ function NumberTooltip({
   );
 }
 
-function FallsAvoidedChart({
-  yearlyResults,
-}: {
-  yearlyResults: LocalYearlyResultRow[];
-}) {
-  const data = yearlyResults.map((row) => ({
-    year: `Y${row.year}`,
-    fallsAvoided: row.falls_avoided,
-  }));
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Falls avoided
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Annual impact across the horizon.
-        </p>
-      </div>
-
-      <div className="h-48 w-full lg:h-64 xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => formatNumber(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={46}
-            />
-            <Tooltip content={<NumberTooltip />} />
-            <Bar
-              dataKey="fallsAvoided"
-              name="Falls avoided"
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
 function CostVsSavingsChart({
   yearlyResults,
 }: {
-  yearlyResults: LocalYearlyResultRow[];
+  yearlyResults: YearlyResultRow[];
 }) {
   const data = yearlyResults.map((row) => ({
     year: `Y${row.year}`,
-    cumulativeProgrammeCost: row.cumulative_programme_cost,
-    cumulativeGrossSavings: row.cumulative_gross_savings,
+    programmeCost: row.cumulative_programme_cost,
+    grossSavings: row.cumulative_gross_savings,
   }));
 
   return (
@@ -632,43 +344,79 @@ function CostVsSavingsChart({
         </p>
       </div>
 
-      <div className="h-48 w-full lg:h-64 xl:h-72">
+      <div className="h-52 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
-              tickFormatter={(value) => {
-                const numeric = Number(value);
-                if (Math.abs(numeric) >= 1000000) {
-                  return `£${(numeric / 1000000).toFixed(1)}m`;
-                }
-                if (Math.abs(numeric) >= 1000) {
-                  return `£${(numeric / 1000).toFixed(0)}k`;
-                }
-                return formatCurrency(numeric);
-              }}
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={54}
+              width={58}
             />
             <Tooltip content={<CurrencyTooltip />} />
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
             <Line
               type="monotone"
-              dataKey="cumulativeProgrammeCost"
+              dataKey="programmeCost"
               name="Programme cost"
-              strokeWidth={2}
+              stroke="#0f172a"
+              strokeWidth={2.5}
               dot={false}
             />
             <Line
               type="monotone"
-              dataKey="cumulativeGrossSavings"
+              dataKey="grossSavings"
               name="Gross savings"
-              strokeWidth={2}
+              stroke="#64748b"
+              strokeWidth={2.5}
               dot={false}
             />
           </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function FallsAvoidedChart({
+  yearlyResults,
+}: {
+  yearlyResults: YearlyResultRow[];
+}) {
+  const data = yearlyResults.map((row) => ({
+    year: `Y${row.year}`,
+    fallsAvoided: row.falls_avoided,
+  }));
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Falls avoided
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Annual impact across the selected horizon.
+        </p>
+      </div>
+
+      <div className="h-52 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => formatNumber(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={52}
+            />
+            <Tooltip content={<NumberTooltip />} />
+            <Bar dataKey="fallsAvoided" name="Falls avoided" radius={[8, 8, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -679,7 +427,7 @@ function BoundedUncertaintyChart({
   uncertaintyRows,
   threshold,
 }: {
-  uncertaintyRows: LocalUncertaintyRow[];
+  uncertaintyRows: UncertaintyRow[];
   threshold: number;
 }) {
   const data = uncertaintyRows.map((row) => ({
@@ -691,30 +439,24 @@ function BoundedUncertaintyChart({
     <div className={SUBCARD}>
       <div className="mb-3">
         <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Uncertainty
+          Bounded uncertainty
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Low, base, and high cases against the threshold.
+          Low, base, and high cases against the current threshold.
         </p>
       </div>
 
       <div className="h-56 w-full lg:h-64 xl:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
             <YAxis
-              tickFormatter={(value) => {
-                const numeric = Number(value);
-                if (Math.abs(numeric) >= 1000) {
-                  return `£${(numeric / 1000).toFixed(0)}k`;
-                }
-                return formatCurrency(numeric);
-              }}
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={54}
+              width={58}
             />
             <Tooltip content={<CurrencyTooltip />} />
             <ReferenceLine
@@ -743,9 +485,108 @@ function BoundedUncertaintyChart({
         </ResponsiveContainer>
       </div>
 
-      <p className="mt-3 text-[11px] leading-5 text-slate-600">
-        Dark bars are at or below threshold.
-      </p>
+      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+          Dark bars are at or below threshold
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TornadoSensitivityChart({
+  sensitivity,
+}: {
+  sensitivity: SensitivitySummary;
+}) {
+  const data = sensitivity.top_drivers.map((row) => ({
+    parameter: row.parameter_label,
+    lowDelta: row.low_icer - row.base_icer,
+    highDelta: row.high_icer - row.base_icer,
+    baseIcer: row.base_icer,
+    lowValueLabel: row.low_value_label,
+    highValueLabel: row.high_value_label,
+  }));
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          One-way sensitivity
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Top drivers of discounted cost per QALY when varied one at a time.
+        </p>
+      </div>
+
+      <div className="h-64 w-full lg:h-72 xl:h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 8, right: 20, left: 12, bottom: 0 }}
+          >
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
+            <YAxis
+              type="category"
+              dataKey="parameter"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={180}
+            />
+            <Tooltip
+              formatter={(
+                value: number,
+                name: string,
+                entry: {
+                  payload?: {
+                    baseIcer?: number;
+                    lowValueLabel?: string;
+                    highValueLabel?: string;
+                  };
+                },
+              ) => {
+                const baseIcer = entry.payload?.baseIcer ?? 0;
+                const scenarioIcer = baseIcer + value;
+                const label =
+                  name === "lowDelta"
+                    ? `Low case (${entry.payload?.lowValueLabel ?? "—"})`
+                    : `High case (${entry.payload?.highValueLabel ?? "—"})`;
+
+                return [formatCurrency(scenarioIcer), label];
+              }}
+              labelFormatter={(label) => String(label)}
+            />
+            <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
+            <Legend
+              wrapperStyle={{ fontSize: "12px" }}
+              formatter={(value) =>
+                value === "lowDelta" ? "Low case" : "High case"
+              }
+            />
+            <Bar
+              dataKey="lowDelta"
+              name="lowDelta"
+              fill="#94a3b8"
+              radius={[0, 6, 6, 0]}
+            />
+            <Bar
+              dataKey="highDelta"
+              name="highDelta"
+              fill="#0f172a"
+              radius={[0, 6, 6, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -771,10 +612,7 @@ function MobileAccordion({
       >
         <span className="text-sm font-medium text-slate-900">{title}</span>
         <ChevronDown
-          className={cx(
-            "h-4 w-4 text-slate-500 transition-transform",
-            open && "rotate-180",
-          )}
+          className={cx("h-4 w-4 text-slate-500 transition-transform", open && "rotate-180")}
         />
       </button>
 
@@ -797,21 +635,14 @@ function SectionCard({
   dense?: boolean;
 }) {
   return (
-    <section
-      className={cx(
-        PANEL_SHELL,
-        dense ? "p-4 lg:p-5" : "p-4 sm:p-5 lg:p-5 xl:p-6",
-      )}
-    >
+    <section className={cx(PANEL_SHELL, dense ? "p-4 lg:p-5" : "p-4 sm:p-5 lg:p-5 xl:p-6")}>
       <div className="mb-4 flex flex-col gap-3 lg:mb-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-tight text-slate-950 lg:text-lg">
             {title}
           </h2>
           {description ? (
-            <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
-              {description}
-            </p>
+            <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>
           ) : null}
         </div>
         {action ? <div className="shrink-0 self-start">{action}</div> : null}
@@ -849,13 +680,7 @@ function MetricCard({
   );
 }
 
-function MiniInsight({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function MiniInsight({ label, value }: { label: string; value: string }) {
   return (
     <div className={SUBCARD_DENSE}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
@@ -911,9 +736,7 @@ function NumberInput({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">
-        {label}
-      </span>
+      <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>
       <input
         type="number"
         min={min}
@@ -981,9 +804,7 @@ function SelectInput<T extends string>({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">
-        {label}
-      </span>
+      <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
@@ -1021,20 +842,26 @@ function AssumptionReviewCard({
 }
 
 export default function SafeStepApp() {
-  const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
+  const [inputs, setInputs] = useState<SafeStepInputs>(DEFAULT_INPUTS);
   const [selectedPreset, setSelectedPreset] = useState<ScenarioPreset>("Base case");
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-  const [openSections, setOpenSections] = useState<
-    Record<AssumptionSectionKey, boolean>
-  >({
+  const [openSections, setOpenSections] = useState<Record<AssumptionSectionKey, boolean>>({
     "advanced-delivery": false,
     "advanced-risk": false,
     "advanced-economics": false,
   });
+  const [comparatorMode, setComparatorMode] =
+    useState<ScenarioName>("Lower-cost delivery");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
+  const sensitivity = useMemo(() => runParameterSensitivity(inputs), [inputs]);
+
+  const comparatorResults = useMemo(() => {
+    const comparatorInputs = buildComparatorCase(DEFAULT_INPUTS, inputs, comparatorMode);
+    return runModel(comparatorInputs);
+  }, [inputs, comparatorMode]);
 
   const decisionStatus = useMemo(
     () => getDecisionStatus(results, inputs.cost_effectiveness_threshold),
@@ -1042,15 +869,32 @@ export default function SafeStepApp() {
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
-  const mainDriver = useMemo(() => getMainDriverText(inputs), [inputs]);
+
   const interpretation = useMemo(
-    () => generateInterpretation(results, inputs, uncertainty),
-    [results, inputs, uncertainty],
+    () => generateInterpretation(results, inputs, uncertainty, sensitivity),
+    [results, inputs, uncertainty, sensitivity],
   );
+
+  const currentCaseType = useMemo(
+    () => deriveCaseType(selectedPreset, inputs),
+    [selectedPreset, inputs],
+  );
+
   const recommendationSummary = useMemo(
-    () => buildRecommendationSummary(inputs, results, uncertainty, selectedPreset),
-    [inputs, results, uncertainty, selectedPreset],
+    () =>
+      buildRecommendationSummary(
+        inputs,
+        results,
+        uncertainty,
+        selectedPreset,
+        currentCaseType,
+        sensitivity,
+      ),
+    [inputs, results, uncertainty, selectedPreset, currentCaseType, sensitivity],
   );
+
+  const primaryDriver = sensitivity.primary_driver;
+  const topDrivers = sensitivity.top_drivers;
 
   const handleExportReport = async () => {
     try {
@@ -1076,24 +920,27 @@ export default function SafeStepApp() {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error(error);
+      console.error("SafeStep export failed:", error);
     }
   };
 
-  const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
+  const updateInput = <K extends keyof SafeStepInputs>(
+    key: K,
+    value: SafeStepInputs[K],
+  ) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
+    setSelectedPreset("Custom");
   };
 
-  const applyPreset = (preset: ScenarioPreset) => {
+  const applyPreset = (preset: Exclude<ScenarioPreset, "Custom">) => {
+    const patch = getPresetPatch(preset);
+    setInputs((prev) => ({ ...prev, ...patch }));
     setSelectedPreset(preset);
-    setInputs((prev) => ({
-      ...prev,
-      ...SCENARIO_PRESET_MAP[preset],
-    }));
   };
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
+    setComparatorMode("Lower-cost delivery");
     setSelectedPreset("Base case");
     setShowAdvancedMobile(false);
     setOpenSections({
@@ -1109,10 +956,7 @@ export default function SafeStepApp() {
 
   const summaryMetrics = (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <MetricCard
-        label="Falls avoided"
-        value={formatNumber(results.falls_avoided_total)}
-      />
+      <MetricCard label="Falls avoided" value={formatNumber(results.falls_avoided_total)} />
       <MetricCard
         label="Admissions avoided"
         value={formatNumber(results.admissions_avoided_total)}
@@ -1129,140 +973,109 @@ export default function SafeStepApp() {
     </div>
   );
 
-  const desktopSecondaryMetrics = (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <MetricCard
-        label="Bed days avoided"
-        value={formatNumber(results.bed_days_avoided_total)}
-      />
-      <MetricCard
-        label="Programme cost"
-        value={formatCurrency(results.discounted_programme_cost_total)}
-      />
-      <MetricCard
-        label="Gross savings"
-        value={formatCurrency(results.discounted_gross_savings_total)}
-      />
-      <MetricCard
-        label="QALYs gained"
-        value={results.discounted_qalys_gained_total.toFixed(2)}
-      />
-    </div>
-  );
-
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-3">
-      <MiniInsight
-        label="Conclusion"
-        value={interpretation.what_model_suggests}
-      />
+      <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
       <MiniInsight
         label="Main driver"
-        value={`The result is currently most shaped by ${mainDriver}.`}
+        value={
+          primaryDriver
+            ? `The result is currently most shaped by ${primaryDriver.parameter_label.toLowerCase()}.`
+            : interpretation.where_value_is_coming_from
+        }
       />
       <MiniInsight
         label="Fragility"
-        value={interpretation.what_looks_fragile}
+        value={recommendationSummary.fragile_point}
       />
     </div>
   );
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Start with population, risk, delivery cost, and the core effect size.
+      Use a starting template first, then fine-tune risk, effect, and delivery assumptions.
     </div>
   );
 
-  const presetSelector = (
+  const presetControl = (
     <div className={SUBCARD}>
-      <p className="mb-3 text-sm font-semibold text-slate-900">
-        Scenario preset
-      </p>
-      <SelectInput
-        label="Preset"
-        value={selectedPreset}
-        options={SCENARIO_PRESET_OPTIONS}
-        onChange={applyPreset}
-        help="Applies a coherent workshop scenario. Manual edits can still be made afterward."
-      />
+      <p className="mb-3 text-sm font-semibold text-slate-900">Starting template</p>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <SelectInput<ScenarioPreset>
+          label="Template"
+          value={selectedPreset}
+          options={SCENARIO_PRESET_OPTIONS}
+          onChange={(value) => {
+            if (value === "Custom") return;
+            applyPreset(value);
+          }}
+          help="Applies a coherent starting setup without resetting the full app."
+        />
+        <AssumptionReviewCard
+          label="Current case type"
+          value={currentCaseType}
+          note={getPresetDescription(selectedPreset)}
+        />
+      </div>
     </div>
   );
 
   const assumptionsQuick = (
-    <div className="space-y-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Core setup
-        </p>
-        <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-2">
-          <SelectInput
-            label="Targeting mode"
-            value={inputs.targeting_mode}
-            options={TARGETING_MODE_OPTIONS}
-            onChange={(value) => updateInput("targeting_mode", value)}
-            help="Primary lever for risk concentration."
-          />
+    <div className="grid gap-4 lg:gap-3 xl:grid-cols-2">
+      <SelectInput
+        label="Targeting mode"
+        value={inputs.targeting_mode}
+        options={TARGETING_MODE_OPTIONS as readonly TargetingMode[]}
+        onChange={(value) => updateInput("targeting_mode", value)}
+        help="Changes how risk is concentrated in the intervention population."
+      />
 
-          <NumberInput
-            label="Eligible population"
-            value={inputs.eligible_population}
-            onChange={(value) => updateInput("eligible_population", value)}
-            step={100}
-            help="Changes the scale of impact."
-          />
+      <NumberInput
+        label="Eligible population"
+        value={inputs.eligible_population}
+        onChange={(value) => updateInput("eligible_population", value)}
+        step={100}
+        help="Baseline scale of the intervention."
+      />
 
-          <NumberInput
-            label="Cost per participant"
-            value={inputs.intervention_cost_per_person}
-            onChange={(value) => updateInput("intervention_cost_per_person", value)}
-            step={10}
-            help="Main delivery cost lever."
-          />
+      <SliderInput
+        label="Annual fall risk"
+        value={inputs.annual_fall_risk}
+        onChange={(value) => updateInput("annual_fall_risk", value)}
+        min={0}
+        max={1}
+        step={0.01}
+        display={formatPercent(inputs.annual_fall_risk)}
+        help="Core fall burden assumption."
+      />
 
-          <div className="xl:col-span-2">
-            <SelectInput
-              label="Time horizon"
-              value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
-              options={["1", "3", "5"]}
-              onChange={(value) =>
-                updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
-              }
-              help="Longer horizons often improve the economic picture."
-            />
-          </div>
-        </div>
-      </div>
+      <SliderInput
+        label="Relative risk reduction"
+        value={inputs.relative_risk_reduction}
+        onChange={(value) => updateInput("relative_risk_reduction", value)}
+        min={0}
+        max={0.7}
+        step={0.01}
+        display={formatPercent(inputs.relative_risk_reduction)}
+        help="Core avoided-falls assumption."
+      />
 
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Risk and effect
-        </p>
-        <p className="mt-1.5 text-xs leading-5 text-slate-600">
-          These inputs do most of the work in the current case.
-        </p>
-        <div className="mt-3 grid gap-4">
-          <SliderInput
-            label="Annual fall risk"
-            value={inputs.annual_fall_risk}
-            onChange={(value) => updateInput("annual_fall_risk", value)}
-            min={0}
-            max={1}
-            step={0.01}
-            display={formatPercent(inputs.annual_fall_risk)}
-            help="Major driver of avoided falls."
-          />
+      <NumberInput
+        label="Intervention cost per person"
+        value={inputs.intervention_cost_per_person}
+        onChange={(value) => updateInput("intervention_cost_per_person", value)}
+        step={10}
+        help="Main delivery cost lever."
+      />
 
-          <SliderInput
-            label="Reduction in falls"
-            value={inputs.relative_risk_reduction}
-            onChange={(value) => updateInput("relative_risk_reduction", value)}
-            min={0}
-            max={1}
-            step={0.01}
-            display={formatPercent(inputs.relative_risk_reduction)}
-            help="Major driver of economic value."
-          />
-        </div>
+      <div className="xl:col-span-2">
+        <NumberInput
+          label="Time horizon"
+          value={inputs.time_horizon_years}
+          onChange={(value) => updateInput("time_horizon_years", Math.max(1, value))}
+          step={1}
+          help="Longer horizons often improve the economic picture."
+        />
       </div>
     </div>
   );
@@ -1276,9 +1089,7 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-delivery"]}
         >
-          <span className="text-sm font-medium text-slate-900">
-            Delivery persistence
-          </span>
+          <span className="text-sm font-medium text-slate-900">Delivery persistence</span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1289,12 +1100,9 @@ export default function SafeStepApp() {
 
         {openSections["advanced-delivery"] ? (
           <div className="border-t border-slate-200 p-4">
-            <p className="mb-4 text-xs leading-5 text-slate-600">
-              Use these to adjust uptake, completion, and how the programme holds over time.
-            </p>
             <div className="grid gap-4 xl:grid-cols-2">
               <SliderInput
-                label="Programme uptake"
+                label="Uptake rate"
                 value={inputs.uptake_rate}
                 onChange={(value) => updateInput("uptake_rate", value)}
                 min={0}
@@ -1303,7 +1111,7 @@ export default function SafeStepApp() {
                 display={formatPercent(inputs.uptake_rate)}
               />
               <SliderInput
-                label="Programme completion"
+                label="Adherence rate"
                 value={inputs.adherence_rate}
                 onChange={(value) => updateInput("adherence_rate", value)}
                 min={0}
@@ -1312,18 +1120,16 @@ export default function SafeStepApp() {
                 display={formatPercent(inputs.adherence_rate)}
               />
               <SliderInput
-                label="Annual participation drop-off"
+                label="Participation drop-off"
                 value={inputs.participation_dropoff_rate}
-                onChange={(value) =>
-                  updateInput("participation_dropoff_rate", value)
-                }
+                onChange={(value) => updateInput("participation_dropoff_rate", value)}
                 min={0}
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.participation_dropoff_rate)}
               />
               <SliderInput
-                label="Annual effect decay"
+                label="Effect decay"
                 value={inputs.effect_decay_rate}
                 onChange={(value) => updateInput("effect_decay_rate", value)}
                 min={0}
@@ -1343,9 +1149,7 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-risk"]}
         >
-          <span className="text-sm font-medium text-slate-900">
-            Risk and pathway
-          </span>
+          <span className="text-sm font-medium text-slate-900">Risk and pathway</span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1356,12 +1160,9 @@ export default function SafeStepApp() {
 
         {openSections["advanced-risk"] ? (
           <div className="border-t border-slate-200 p-4">
-            <p className="mb-4 text-xs leading-5 text-slate-600">
-              Use these to change pathway severity, admission risk, and bed use.
-            </p>
             <div className="grid gap-4 xl:grid-cols-2">
               <SliderInput
-                label="Falls leading to admission"
+                label="Admission rate after fall"
                 value={inputs.admission_rate_after_fall}
                 onChange={(value) => updateInput("admission_rate_after_fall", value)}
                 min={0}
@@ -1387,9 +1188,7 @@ export default function SafeStepApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-economics"]}
         >
-          <span className="text-sm font-medium text-slate-900">
-            Cost inputs and threshold
-          </span>
+          <span className="text-sm font-medium text-slate-900">Cost inputs and threshold</span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1400,23 +1199,17 @@ export default function SafeStepApp() {
 
         {openSections["advanced-economics"] ? (
           <div className="border-t border-slate-200 p-4">
-            <p className="mb-4 text-xs leading-5 text-slate-600">
-              Use these to change how avoided impact is valued and interpreted.
-            </p>
             <div className="grid gap-4 xl:grid-cols-2">
               <SelectInput
                 label="Costing method"
                 value={inputs.costing_method}
-                options={COSTING_METHOD_OPTIONS}
+                options={COSTING_METHOD_OPTIONS as readonly CostingMethod[]}
                 onChange={(value) => updateInput("costing_method", value)}
-                help="Defines how avoided impact is valued."
               />
               <NumberInput
                 label="Cost-effectiveness threshold"
                 value={inputs.cost_effectiveness_threshold}
-                onChange={(value) =>
-                  updateInput("cost_effectiveness_threshold", value)
-                }
+                onChange={(value) => updateInput("cost_effectiveness_threshold", value)}
                 step={1000}
               />
               <NumberInput
@@ -1429,14 +1222,12 @@ export default function SafeStepApp() {
                 label="Cost per bed day"
                 value={inputs.cost_per_bed_day}
                 onChange={(value) => updateInput("cost_per_bed_day", value)}
-                step={50}
+                step={25}
               />
               <NumberInput
                 label="QALY loss per serious fall"
                 value={inputs.qaly_loss_per_serious_fall}
-                onChange={(value) =>
-                  updateInput("qaly_loss_per_serious_fall", value)
-                }
+                onChange={(value) => updateInput("qaly_loss_per_serious_fall", value)}
                 step={0.01}
               />
               <NumberInput
@@ -1445,6 +1236,15 @@ export default function SafeStepApp() {
                 onChange={(value) => updateInput("discount_rate", value)}
                 step={0.005}
               />
+              <div className="xl:col-span-2">
+                <SelectInput
+                  label="Comparator"
+                  value={comparatorMode}
+                  options={COMPARATOR_OPTIONS as readonly ScenarioName[]}
+                  onChange={(value) => setComparatorMode(value)}
+                  help="Use this to compare the current case with a nearby alternative framing."
+                />
+              </div>
             </div>
           </div>
         ) : null}
@@ -1454,73 +1254,142 @@ export default function SafeStepApp() {
 
   const assumptionsReview = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      <AssumptionReviewCard
-        label="Targeting mode"
-        value={inputs.targeting_mode}
-        note="Primary determinant of who is reached and how concentrated risk is."
-      />
-      <AssumptionReviewCard
-        label="Eligible population"
-        value={formatNumber(inputs.eligible_population)}
-      />
-      <AssumptionReviewCard
-        label="Annual fall risk"
-        value={formatPercent(inputs.annual_fall_risk)}
-      />
-      <AssumptionReviewCard
-        label="Reduction in falls"
-        value={formatPercent(inputs.relative_risk_reduction)}
-      />
-      <AssumptionReviewCard
-        label="Cost per participant"
-        value={formatCurrency(inputs.intervention_cost_per_person)}
-      />
-      <AssumptionReviewCard
-        label="Costing method"
-        value={inputs.costing_method}
-      />
-      <AssumptionReviewCard
-        label="Time horizon"
-        value={`${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"}`}
-      />
-      <AssumptionReviewCard
-        label="Discount rate"
-        value={formatPercent(inputs.discount_rate)}
-      />
-      <AssumptionReviewCard
-        label="Threshold"
-        value={formatCurrency(inputs.cost_effectiveness_threshold)}
-      />
+      {ASSUMPTION_ORDER.map((key) => {
+        const meta = ASSUMPTION_META[key as AssumptionKey];
+        const value = inputs[key as keyof SafeStepInputs] as string | number;
+        return (
+          <AssumptionReviewCard
+            key={key}
+            label={meta.label}
+            value={meta.formatter(value)}
+            note={meta.description}
+          />
+        );
+      })}
+    </div>
+  );
+
+  const sensitivityTop3 = (
+    <div className="grid gap-3 md:grid-cols-3">
+      {topDrivers.map((driver, index) => (
+        <AssumptionReviewCard
+          key={driver.parameter_key}
+          label={`Driver ${index + 1}`}
+          value={driver.parameter_label}
+          note={`Largest ICER swing: ${formatCurrency(driver.max_abs_icer_change)}`}
+        />
+      ))}
     </div>
   );
 
   const mobileCharts = (
     <div className="space-y-4 lg:hidden">
-      <FallsAvoidedChart yearlyResults={results.yearly_results} />
+      <CostVsSavingsChart yearlyResults={results.yearly_results} />
 
-      <MobileAccordion title="Cost vs savings">
-        <CostVsSavingsChart yearlyResults={results.yearly_results} />
+      <MobileAccordion title="Falls avoided">
+        <FallsAvoidedChart yearlyResults={results.yearly_results} />
       </MobileAccordion>
 
-      <MobileAccordion title="Uncertainty">
+      <MobileAccordion title="Bounded uncertainty">
         <BoundedUncertaintyChart
           uncertaintyRows={uncertainty}
           threshold={inputs.cost_effectiveness_threshold}
         />
+      </MobileAccordion>
+
+      <MobileAccordion title="One-way sensitivity">
+        <TornadoSensitivityChart sensitivity={sensitivity} />
       </MobileAccordion>
     </div>
   );
 
   const desktopCharts = (
-    <div className="hidden lg:grid lg:grid-cols-2 lg:gap-4">
-      <FallsAvoidedChart yearlyResults={results.yearly_results} />
+    <div className="space-y-4">
       <CostVsSavingsChart yearlyResults={results.yearly_results} />
-      <div className="lg:col-span-2">
-        <BoundedUncertaintyChart
-          uncertaintyRows={uncertainty}
-          threshold={inputs.cost_effectiveness_threshold}
-        />
-      </div>
+      <FallsAvoidedChart yearlyResults={results.yearly_results} />
+      <BoundedUncertaintyChart
+        uncertaintyRows={uncertainty}
+        threshold={inputs.cost_effectiveness_threshold}
+      />
+      <TornadoSensitivityChart sensitivity={sensitivity} />
+    </div>
+  );
+
+  const comparatorSummary = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <AssumptionReviewCard label="Comparator" value={comparatorMode} />
+      <AssumptionReviewCard
+        label="Falls avoided delta"
+        value={formatNumber(comparatorResults.falls_avoided_total - results.falls_avoided_total)}
+      />
+      <AssumptionReviewCard
+        label="Admissions avoided delta"
+        value={formatNumber(
+          comparatorResults.admissions_avoided_total - results.admissions_avoided_total,
+        )}
+      />
+      <AssumptionReviewCard
+        label="Discounted net cost delta"
+        value={formatCurrency(
+          comparatorResults.discounted_net_cost_total - results.discounted_net_cost_total,
+        )}
+      />
+    </div>
+  );
+
+  const recommendationPanel = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <MiniInsight label="Case type" value={currentCaseType} />
+      <MiniInsight
+        label="What this suggests"
+        value={recommendationSummary.current_case_suggests}
+      />
+      <MiniInsight
+        label="What is driving it"
+        value={recommendationSummary.driving_result}
+      />
+      <MiniInsight
+        label="What looks fragile"
+        value={recommendationSummary.fragile_point}
+      />
+      <MiniInsight
+        label="Validate next"
+        value={recommendationSummary.validate_next}
+      />
+    </div>
+  );
+
+  const analysisMetricsMobile = (
+    <div className="grid grid-cols-1 gap-3">
+      <MetricCard
+        label="Bed days avoided"
+        value={formatNumber(results.bed_days_avoided_total)}
+      />
+      <MetricCard
+        label="QALYs gained"
+        value={results.discounted_qalys_total.toFixed(2)}
+      />
+      <MetricCard
+        label="Programme cost"
+        value={formatCurrency(results.discounted_programme_cost_total)}
+      />
+    </div>
+  );
+
+  const analysisMetricsDesktop = (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <MetricCard
+        label="Bed days avoided"
+        value={formatNumber(results.bed_days_avoided_total)}
+      />
+      <MetricCard
+        label="QALYs gained"
+        value={results.discounted_qalys_total.toFixed(2)}
+      />
+      <MetricCard
+        label="Programme cost"
+        value={formatCurrency(results.discounted_programme_cost_total)}
+      />
     </div>
   );
 
@@ -1539,20 +1408,28 @@ export default function SafeStepApp() {
         </p>
       </div>
 
-      <div className="sticky top-[72px] z-20 mb-4 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
-        <div className="grid grid-cols-3 items-start gap-2.5">
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+        <p className="text-sm font-medium text-slate-900">Scope and use note</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          SafeStep is an exploratory scenario sandbox. It is designed to test how
+          changes in risk, effect, uptake, persistence, and delivery cost might
+          influence potential clinical and economic value. It does not replace
+          formal evaluation, forecasting, or business case development.
+        </p>
+      </div>
+
+      <div className="sticky top-[72px] z-20 mb-5 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
+        <div className="grid grid-cols-3 items-start gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               Signal
             </p>
             <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
-              {getMobileDecisionStatus(decisionStatus)}
+              {decisionStatus}
             </p>
           </div>
           <div className="min-w-0 text-right">
-            <p className="text-[11px] text-slate-500">
-              {getMobileNetCostLabel(results)}
-            </p>
+            <p className="text-[11px] text-slate-500">{netCostLabel}</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
               {formatCurrency(Math.abs(results.discounted_net_cost_total))}
             </p>
@@ -1566,7 +1443,7 @@ export default function SafeStepApp() {
         </div>
       </div>
 
-      <div className="mb-5 lg:hidden">
+      <div className="mb-4 lg:hidden">
         <button
           type="button"
           onClick={handleExportReport}
@@ -1577,20 +1454,18 @@ export default function SafeStepApp() {
         </button>
       </div>
 
-      <div className="sticky top-[72px] z-20 mb-4 hidden rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:block">
-        <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-start gap-4">
+      <div className="sticky top-[72px] z-20 mb-5 hidden rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:block">
+        <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-start gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               Signal
             </p>
             <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
-              {getMobileDecisionStatus(decisionStatus)}
+              {decisionStatus}
             </p>
           </div>
           <div className="min-w-0 text-right">
-            <p className="text-[11px] text-slate-500">
-              {getMobileNetCostLabel(results)}
-            </p>
+            <p className="text-[11px] text-slate-500">{netCostLabel}</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
               {formatCurrency(Math.abs(results.discounted_net_cost_total))}
             </p>
@@ -1601,7 +1476,6 @@ export default function SafeStepApp() {
               {formatCurrency(results.discounted_cost_per_qaly)}
             </p>
           </div>
-
           <button
             type="button"
             onClick={handleExportReport}
@@ -1613,7 +1487,7 @@ export default function SafeStepApp() {
         </div>
       </div>
 
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+      <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
         <MobileTabButton
           active={mobileTab === "summary"}
           onClick={() => setMobileTab("summary")}
@@ -1637,7 +1511,7 @@ export default function SafeStepApp() {
         </MobileTabButton>
       </div>
 
-      <div className="mb-4 hidden gap-2 overflow-x-auto pb-1 lg:flex">
+      <div className="mb-5 hidden gap-2 overflow-x-auto pb-1 lg:flex">
         <MobileTabButton
           active={mobileTab === "summary"}
           onClick={() => setMobileTab("summary")}
@@ -1665,7 +1539,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "summary" && "hidden")}>
           <SectionCard
             title="Headline view"
-            description="Start with the current signal and the main outputs."
+            description="Start with the current decision signal and the main economic outputs."
             dense
           >
             {summaryMetrics}
@@ -1686,26 +1560,24 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Apply a starting template first, then fine-tune the case."
             action={
               <button
                 type="button"
                 onClick={resetToBaseCase}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 <RotateCcw className="h-4 w-4" />
-                Reset to base case
+                Reset
               </button>
             }
             dense
           >
             <div className="space-y-4">
-              {presetSelector}
+              {presetControl}
 
               <div className={SUBCARD}>
-                <p className="mb-3 text-sm font-semibold text-slate-900">
-                  Quick assumptions
-                </p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
                 {quickAssumptionNotice}
                 <div className="mt-4">{assumptionsQuick}</div>
               </div>
@@ -1728,9 +1600,7 @@ export default function SafeStepApp() {
                   />
                 </button>
 
-                {showAdvancedMobile ? (
-                  <div className="mt-4">{advancedSections}</div>
-                ) : null}
+                {showAdvancedMobile ? <div className="mt-4">{advancedSections}</div> : null}
               </div>
             </div>
           </SectionCard>
@@ -1739,7 +1609,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, and the next checks."
+            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -1762,38 +1632,14 @@ export default function SafeStepApp() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3">
-                <MetricCard
-                  label="Bed days avoided"
-                  value={formatNumber(results.bed_days_avoided_total)}
-                />
-                <MetricCard
-                  label="QALYs gained"
-                  value={results.discounted_qalys_gained_total.toFixed(2)}
-                />
-              </div>
+              {analysisMetricsMobile}
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Decision summary</h3>
-                <div className="mt-3 space-y-3">
-                  <MiniInsight label="Case type" value={recommendationSummary.case_type} />
-                  <MiniInsight
-                    label="What current case suggests"
-                    value={recommendationSummary.what_current_case_suggests}
-                  />
-                  <MiniInsight
-                    label="What is driving the result"
-                    value={recommendationSummary.what_is_driving_result}
-                  />
-                  <MiniInsight
-                    label="What looks fragile"
-                    value={recommendationSummary.what_looks_fragile}
-                  />
-                  <MiniInsight
-                    label="What should be validated next"
-                    value={recommendationSummary.what_should_be_validated_next}
-                  />
-                </div>
+                <h3 className={SECTION_KICKER}>Recommendation summary</h3>
+                <div className="mt-3">{recommendationPanel}</div>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {recommendationSummary.recommendation_line}
+                </p>
               </div>
 
               <div>
@@ -1810,8 +1656,18 @@ export default function SafeStepApp() {
                 </div>
               </div>
 
-              <MobileAccordion title="Review current assumptions">
-                <div>{assumptionsReview}</div>
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
+                <div className="mt-3">{sensitivityTop3}</div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
+                <div className="mt-3">{comparatorSummary}</div>
+              </div>
+
+              <MobileAccordion title="Assumption review">
+                {assumptionsReview}
               </MobileAccordion>
             </div>
           </SectionCard>
@@ -1822,11 +1678,30 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "summary" && "hidden")}>
           <SectionCard
             title="Headline view"
-            description="Start with the current signal and the main outputs."
+            description="Start with the current decision signal and the main economic outputs."
             dense
           >
             {summaryMetrics}
-            <div className="mt-3">{desktopSecondaryMetrics}</div>
+
+            <div className="mt-3 grid gap-3 lg:grid-cols-4">
+              <MetricCard
+                label="Bed days avoided"
+                value={formatNumber(results.bed_days_avoided_total)}
+              />
+              <MetricCard
+                label="Programme cost"
+                value={formatCurrency(results.discounted_programme_cost_total)}
+              />
+              <MetricCard
+                label="Gross savings"
+                value={formatCurrency(results.discounted_gross_savings_total)}
+              />
+              <MetricCard
+                label="QALYs gained"
+                value={results.discounted_qalys_total.toFixed(2)}
+              />
+            </div>
+
             <div className="mt-4">{interpretationPanel}</div>
           </SectionCard>
 
@@ -1844,51 +1719,31 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Quick assumptions first. Advanced settings stay below."
+            description="Apply a starting template first, then fine-tune the case."
             action={
               <button
                 type="button"
                 onClick={resetToBaseCase}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 <RotateCcw className="h-4 w-4" />
-                Reset to base case
+                Reset
               </button>
             }
             dense
           >
             <div className="space-y-4">
-              {presetSelector}
+              {presetControl}
 
               <div className={SUBCARD}>
-                <p className="mb-3 text-sm font-semibold text-slate-900">
-                  Quick assumptions
-                </p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
                 {quickAssumptionNotice}
                 <div className="mt-4">{assumptionsQuick}</div>
               </div>
 
               <div className={SUBCARD}>
-                <button
-                  type="button"
-                  onClick={() => setShowAdvancedMobile((v) => !v)}
-                  className="flex w-full items-center justify-between gap-4 text-left"
-                  aria-expanded={showAdvancedMobile}
-                >
-                  <span className="text-sm font-medium text-slate-900">
-                    Show advanced assumptions
-                  </span>
-                  <ChevronDown
-                    className={cx(
-                      "h-4 w-4 text-slate-500 transition-transform",
-                      showAdvancedMobile && "rotate-180",
-                    )}
-                  />
-                </button>
-
-                {showAdvancedMobile ? (
-                  <div className="mt-4">{advancedSections}</div>
-                ) : null}
+                <p className="mb-3 text-sm font-semibold text-slate-900">Advanced assumptions</p>
+                {advancedSections}
               </div>
             </div>
           </SectionCard>
@@ -1897,7 +1752,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, and the next checks."
+            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -1920,51 +1775,19 @@ export default function SafeStepApp() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                <MetricCard
-                  label="Bed days avoided"
-                  value={formatNumber(results.bed_days_avoided_total)}
-                />
-                <MetricCard
-                  label="QALYs gained"
-                  value={results.discounted_qalys_gained_total.toFixed(2)}
-                />
-                <MetricCard
-                  label="Programme cost"
-                  value={formatCurrency(results.discounted_programme_cost_total)}
-                />
-                <MetricCard
-                  label="Gross savings"
-                  value={formatCurrency(results.discounted_gross_savings_total)}
-                />
-              </div>
+              {analysisMetricsDesktop}
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Decision summary</h3>
-                <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                  <MiniInsight label="Case type" value={recommendationSummary.case_type} />
-                  <MiniInsight
-                    label="What current case suggests"
-                    value={recommendationSummary.what_current_case_suggests}
-                  />
-                  <MiniInsight
-                    label="What is driving the result"
-                    value={recommendationSummary.what_is_driving_result}
-                  />
-                  <MiniInsight
-                    label="What looks fragile"
-                    value={recommendationSummary.what_looks_fragile}
-                  />
-                  <MiniInsight
-                    label="What should be validated next"
-                    value={recommendationSummary.what_should_be_validated_next}
-                  />
-                </div>
+                <h3 className={SECTION_KICKER}>Recommendation summary</h3>
+                <div className="mt-3">{recommendationPanel}</div>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {recommendationSummary.recommendation_line}
+                </p>
               </div>
 
               <div>
                 <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
-                <div className="mt-3 grid gap-3 xl:grid-cols-3">
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
                   {uncertainty.map((row) => (
                     <AssumptionReviewCard
                       key={row.case}
@@ -1976,16 +1799,19 @@ export default function SafeStepApp() {
                 </div>
               </div>
 
-              <MobileAccordion title="Review current assumptions">
-                <div>{assumptionsReview}</div>
-              </MobileAccordion>
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
+                <div className="mt-3">{sensitivityTop3}</div>
+              </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Interpretation</h3>
-                <div className="mt-3 grid gap-3 xl:grid-cols-2">
-                  <p className={SECTION_BODY}>{interpretation.what_model_suggests}</p>
-                  <p className={SECTION_BODY}>{interpretation.what_to_validate_next}</p>
-                </div>
+                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
+                <div className="mt-3">{comparatorSummary}</div>
+              </div>
+
+              <div>
+                <h3 className={SECTION_KICKER}>Assumption review</h3>
+                <div className="mt-3">{assumptionsReview}</div>
               </div>
             </div>
           </SectionCard>
