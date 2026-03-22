@@ -320,7 +320,7 @@ function buildPlainEnglishResults(
     {
       body: `${netCostLabel} is estimated at ${formatCurrency(
         Math.abs(results.discounted_net_cost_total),
-      )}, with a discounted cost per QALY of ${formatCurrency(
+      )},with a discounted cost per QALY of ${formatCurrency(
         results.discounted_cost_per_qaly,
       )} against a threshold of ${formatCurrency(
         inputs.cost_effectiveness_threshold,
