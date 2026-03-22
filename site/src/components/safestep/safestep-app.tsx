@@ -24,7 +24,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { DEFAULT_INPUTS } from "@/lib/safestep/defaults";
+import { defaultInputs as DEFAULT_INPUTS } from "@/lib/safestep/defaults";
 import {
   buildComparatorCase,
   runBoundedUncertainty,
@@ -34,22 +34,18 @@ import {
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/safestep/formatters";
 import { ASSUMPTION_META, ASSUMPTION_ORDER } from "@/lib/safestep/metadata";
 import {
-  COMPARATOR_OPTIONS,
   COSTING_METHOD_OPTIONS,
-  SCENARIO_OPTIONS,
   TARGETING_MODE_OPTIONS,
 } from "@/lib/safestep/scenarios";
 import {
   generateInterpretation,
   getDecisionStatus,
-  getMainDriverText,
   getNetCostLabel,
 } from "@/lib/safestep/summaries";
 import type {
   AssumptionKey,
   CostingMethod,
   ModelResult,
-  ParameterSensitivityRow,
   SafeStepInputs,
   ScenarioName,
   SensitivitySummary,
@@ -80,6 +76,14 @@ const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
   "Higher-risk targeting",
   "Tighter high-risk targeting",
   "Custom",
+] as const;
+
+const COMPARATOR_OPTIONS: readonly ScenarioName[] = [
+  "Lower-cost delivery",
+  "Stronger effect",
+  "Higher-risk targeting",
+  "Tighter high-risk targeting",
+  "Targeted and stronger effect",
 ] as const;
 
 const PANEL_SHELL =
