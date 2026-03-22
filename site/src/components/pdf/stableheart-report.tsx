@@ -685,7 +685,7 @@ export function StableHeartReportDocument({
           ) : null}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} break>
           <Text style={styles.sectionTitle}>
             Scenario and comparator interpretation
           </Text>
