@@ -7,6 +7,8 @@ import type {
   Inputs as StableHeartInputs,
   ModelResults as StableHeartModelResults,
   UncertaintyRow as StableHeartUncertaintyRow,
+  SensitivitySummary as StableHeartSensitivitySummary,
+  OneWaySensitivityRow,
 } from "@/lib/stableheart/types";
 import {
   generateInterpretation,
@@ -15,23 +17,12 @@ import {
   getNetCostLabel,
 } from "@/lib/stableheart/summaries";
 
-type OneWaySensitivityRow = {
-  parameter: string;
-  lowCaseValue?: number | string;
-  highCaseValue?: number | string;
-  lowCaseResult?: number;
-  highCaseResult?: number;
-  swing?: number;
-  note?: string;
-  rank?: number;
-};
-
 type BuildReportArgs = {
   inputs: StableHeartInputs;
   results: StableHeartModelResults;
   uncertainty: StableHeartUncertaintyRow[];
   exportedAt: string;
-  oneWaySensitivity?: OneWaySensitivityRow[];
+  oneWaySensitivity?: StableHeartSensitivitySummary;
 };
 
 type ReportMetric = {
@@ -217,29 +208,22 @@ function formatParameterValue(
 }
 
 function buildTopSensitivityDrivers(
-  oneWaySensitivity?: OneWaySensitivityRow[],
+  rows?: OneWaySensitivityRow[],
 ): ReportSensitivityDriver[] {
-  if (!oneWaySensitivity?.length) return [];
+  if (!rows?.length) return [];
 
-  return [...oneWaySensitivity]
+  return [...rows]
     .sort((a, b) => (b.swing ?? 0) - (a.swing ?? 0))
     .slice(0, 3)
     .map((row, index) => ({
       rank: row.rank ?? index + 1,
       label: prettifyParameterName(row.parameter),
-      lowCase:
-        row.lowCaseResult !== undefined
-          ? formatCurrency(row.lowCaseResult)
-          : formatParameterValue(row.parameter, row.lowCaseValue),
-      highCase:
-        row.highCaseResult !== undefined
-          ? formatCurrency(row.highCaseResult)
-          : formatParameterValue(row.parameter, row.highCaseValue),
-      swing:
-        row.swing !== undefined ? formatCurrency(row.swing) : "—",
+      lowCase: formatParameterValue(row.parameter, row.lowCaseValue),
+      highCase: formatParameterValue(row.parameter, row.highCaseValue),
+      swing: row.swing !== undefined ? formatCurrency(row.swing) : "—",
       note:
         row.note ??
-        `Low/high cases reflect the change in discounted cost per QALY when this parameter is varied one way.`,
+        "Low/high cases reflect the change in discounted cost per QALY when this parameter is varied one way.",
     }));
 }
 
@@ -528,7 +512,7 @@ export function buildStableHeartReportData({
   results,
   uncertainty,
   exportedAt,
-  oneWaySensitivity = [],
+  oneWaySensitivity,
 }: BuildReportArgs): StableHeartReportData {
   const decisionStatus = getDecisionStatus(
     results,
@@ -537,20 +521,23 @@ export function buildStableHeartReportData({
   const interpretation = generateInterpretation(results, inputs, uncertainty);
   const overallSignal = getSignalLabel(decisionStatus);
   const fallbackMainDriver = getMainDriverText(inputs);
-  const topSensitivityDrivers = buildTopSensitivityDrivers(oneWaySensitivity);
-  const fragilityText = buildFragilityText(
-    interpretation,
-    uncertainty,
-    topSensitivityDrivers,
-  );
+
+  const sensitivityRows = oneWaySensitivity?.rows ?? [];
+  const topSensitivityDrivers = buildTopSensitivityDrivers(sensitivityRows);
+
+  const fragilityText =
+    oneWaySensitivity?.fragilityStatement ??
+    buildFragilityText(interpretation, uncertainty, topSensitivityDrivers);
 
   const mainDependencyText =
-    topSensitivityDrivers.length > 0
-      ? buildSensitivityLead(
-          topSensitivityDrivers,
-          `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`,
-        )
-      : `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`;
+    oneWaySensitivity?.mainDriver
+      ? `The result is most sensitive to ${oneWaySensitivity.mainDriver.toLowerCase()}.`
+      : topSensitivityDrivers.length > 0
+        ? buildSensitivityLead(
+            topSensitivityDrivers,
+            `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`,
+          )
+        : `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`;
 
   return {
     cover: {
