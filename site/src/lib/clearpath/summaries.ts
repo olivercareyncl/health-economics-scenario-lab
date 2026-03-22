@@ -1,7 +1,9 @@
 import type {
   Inputs,
   ModelResults,
+  ParameterSensitivityRow,
   ScenarioComparisonRow,
+  SensitivitySummary,
   UncertaintyRow,
 } from "@/lib/clearpath/types";
 
@@ -31,7 +33,16 @@ export function getNetCostLabel(results: ModelResults): string {
   return "Discounted net cost";
 }
 
-export function getMainDriverText(inputs: Inputs): string {
+export function getMainDriverText(
+  inputs: Inputs,
+  sensitivity?: SensitivitySummary,
+): string {
+  const primaryDriver = sensitivity?.primary_driver;
+
+  if (primaryDriver) {
+    return primaryDriver.parameter_label.toLowerCase();
+  }
+
   if (inputs.targeting_mode !== "Broad population") {
     return "targeting and concentration of later diagnosis";
   }
@@ -88,6 +99,53 @@ export function assessUncertaintyRobustness(
   return "The case remains above threshold across the bounded cases.";
 }
 
+function buildSensitivityLead(topDrivers: ParameterSensitivityRow[]): string {
+  const labels = topDrivers
+    .slice(0, 3)
+    .map((driver) => driver.parameter_label.toLowerCase());
+
+  if (!labels.length) {
+    return "The result is most likely to move when the core pathway, effect, and cost assumptions change.";
+  }
+
+  if (labels.length === 1) {
+    return `The result is most sensitive to ${labels[0]}.`;
+  }
+
+  if (labels.length === 2) {
+    return `The result is most sensitive to ${labels[0]} and ${labels[1]}.`;
+  }
+
+  return `The result is most sensitive to ${labels[0]}, ${labels[1]}, and ${labels[2]}.`;
+}
+
+function buildFragilityFromSensitivity(
+  uncertaintyRows: UncertaintyRow[],
+  sensitivity?: SensitivitySummary,
+): string {
+  const low = uncertaintyRows.find((row) => row.case === "Low");
+  const high = uncertaintyRows.find((row) => row.case === "High");
+  const topDrivers = sensitivity?.top_drivers ?? [];
+
+  if (!low || !high) {
+    return "The result should be interpreted cautiously because bounded uncertainty has not been fully characterised.";
+  }
+
+  if (low.decision_status !== high.decision_status) {
+    if (topDrivers.length > 0) {
+      return `The bounded range crosses decision categories, and one-way sensitivity suggests the case is particularly exposed to ${topDrivers[0].parameter_label.toLowerCase()}.`;
+    }
+
+    return "The bounded range crosses decision categories, so moderate changes in shift size, reach, or delivery cost could change the conclusion.";
+  }
+
+  if (topDrivers.length > 0) {
+    return `The bounded range is more stable, but the result still moves most when ${topDrivers[0].parameter_label.toLowerCase()} and related core assumptions are varied.`;
+  }
+
+  return "The bounded uncertainty range is directionally stable, but the case still depends on realistic assumptions about effect persistence, reach, and delivery cost.";
+}
+
 export function generateOverallSignal(
   results: ModelResults,
   inputs: Inputs,
@@ -114,16 +172,20 @@ export function generateStructuredRecommendation(
   inputs: Inputs,
   results: ModelResults,
   uncertaintyRows: UncertaintyRow[],
+  sensitivity?: SensitivitySummary,
 ) {
   const threshold = inputs.cost_effectiveness_threshold;
   const robustness = assessUncertaintyRobustness(uncertaintyRows, threshold);
-  const mainDependency = getMainDriverText(inputs);
+  const mainDependency = getMainDriverText(inputs, sensitivity);
+  const topDrivers = sensitivity?.top_drivers ?? [];
 
   let mainFragility: string;
 
   if (inputs.costing_method === "Combined illustrative view") {
     mainFragility =
       "The result is sensitive to how value is counted, especially if treatment and acute savings overlap.";
+  } else if (topDrivers.length > 0) {
+    mainFragility = buildFragilityFromSensitivity(uncertaintyRows, sensitivity);
   } else if (inputs.targeting_mode === "Broad population") {
     mainFragility =
       "The result may depend on whether broad implementation is diluting value that would look stronger in a higher-risk subgroup.";
@@ -136,7 +198,14 @@ export function generateStructuredRecommendation(
 
   let bestNextStep: string;
 
-  if (inputs.targeting_mode === "Broad population") {
+  if (topDrivers.length > 0) {
+    const first = topDrivers[0].parameter_label.toLowerCase();
+    const second = topDrivers[1]?.parameter_label.toLowerCase();
+
+    bestNextStep = second
+      ? `Validate local ${first} and ${second} before using the result in a live decision conversation.`
+      : `Validate local ${first} before using the result in a live decision conversation.`;
+  } else if (inputs.targeting_mode === "Broad population") {
     bestNextStep =
       "Test whether a more targeted implementation improves value without losing too much impact.";
   } else if (inputs.costing_method === "Combined illustrative view") {
@@ -160,8 +229,10 @@ export function generateStructuredRecommendation(
 export function generateDecisionReadiness(
   inputs: Inputs,
   results: ModelResults,
+  sensitivity?: SensitivitySummary,
 ) {
   const validateNext: string[] = [];
+  const topDrivers = sensitivity?.top_drivers ?? [];
 
   if (inputs.costing_method === "Combined illustrative view") {
     validateNext.push(
@@ -183,7 +254,17 @@ export function generateDecisionReadiness(
     );
   }
 
-  if (inputs.achievable_reduction_in_late_diagnosis <= 0.07) {
+  if (topDrivers.length > 0) {
+    validateNext.push(
+      `Validate the local realism of ${topDrivers[0].parameter_label.toLowerCase()}.`,
+    );
+
+    if (topDrivers[1]) {
+      validateNext.push(
+        `Then validate ${topDrivers[1].parameter_label.toLowerCase()} under locally credible assumptions.`,
+      );
+    }
+  } else if (inputs.achievable_reduction_in_late_diagnosis <= 0.07) {
     validateNext.push(
       "Check whether the assumed reduction in late diagnosis is realistic for the intervention being considered.",
     );
@@ -249,9 +330,10 @@ export function generateOverviewSummary(
   results: ModelResults,
   inputs: Inputs,
   uncertaintyRows: UncertaintyRow[],
+  sensitivity?: SensitivitySummary,
 ): string {
   const threshold = inputs.cost_effectiveness_threshold;
-  const mainDriver = getMainDriverText(inputs);
+  const mainDriver = getMainDriverText(inputs, sensitivity);
   const uncertaintyText = assessUncertaintyRobustness(
     uncertaintyRows,
     threshold,
@@ -282,6 +364,7 @@ export function generateInterpretation(
   results: ModelResults,
   inputs: Inputs,
   uncertaintyRows: UncertaintyRow[],
+  sensitivity?: SensitivitySummary,
 ) {
   const threshold = inputs.cost_effectiveness_threshold;
   const horizon = inputs.time_horizon_years;
@@ -290,36 +373,44 @@ export function generateInterpretation(
     uncertaintyRows,
     threshold,
   );
-  const dependency = getMainDriverText(inputs);
-  const readiness = generateDecisionReadiness(inputs, results);
+  const dependency = getMainDriverText(inputs, sensitivity);
+  const readiness = generateDecisionReadiness(inputs, results, sensitivity);
+  const topDrivers = sensitivity?.top_drivers ?? [];
 
   let whatModelSuggests: string;
 
   if (results.discounted_net_cost_total < 0) {
     whatModelSuggests =
-      `ClearPath suggests the intervention generates measurable pathway benefit and a discounted net saving over ${horizon} year${horizon !== 1 ? "s" : ""}. ` +
-      "The current case is promising, but still depends on assumptions that remain partly illustrative.";
+      `ClearPath suggests the intervention generates measurable pathway benefit and a discounted net saving over ${horizon} year${
+        horizon !== 1 ? "s" : ""
+      }. The current case is promising, but still depends on assumptions that remain partly illustrative.`;
   } else if (
     results.discounted_cost_per_qaly > 0 &&
     results.discounted_cost_per_qaly <= threshold
   ) {
     whatModelSuggests =
-      `ClearPath suggests the intervention delivers measurable pathway and outcome benefit and appears cost-effective over ${horizon} year${horizon !== 1 ? "s" : ""}, ` +
-      "although it does not appear cost-saving. The result looks promising, but still assumption-dependent.";
+      `ClearPath suggests the intervention delivers measurable pathway and outcome benefit and appears cost-effective over ${horizon} year${
+        horizon !== 1 ? "s" : ""
+      }, although it does not appear cost-saving. The result looks promising, but still assumption-dependent.`;
   } else {
     whatModelSuggests =
-      `ClearPath suggests the intervention delivers measurable benefit over ${horizon} year${horizon !== 1 ? "s" : ""}, ` +
-      "but the discounted economic case remains above the current threshold.";
+      `ClearPath suggests the intervention delivers measurable benefit over ${horizon} year${
+        horizon !== 1 ? "s" : ""
+      }, but the discounted economic case remains above the current threshold.`;
   }
 
   const whatDrivesResult =
-    `The current result depends most strongly on ${dependency}, as well as the chosen costing method, the quality of targeting, and whether intervention reach and effect persist over time.`;
+    topDrivers.length > 0
+      ? `${buildSensitivityLead(topDrivers)} In practical terms, the result depends most strongly on ${dependency}, as well as the chosen costing method, the quality of targeting, and whether intervention reach and effect persist over time.`
+      : `The current result depends most strongly on ${dependency}, as well as the chosen costing method, the quality of targeting, and whether intervention reach and effect persist over time.`;
 
   let whatLooksFragile: string;
 
   if (inputs.costing_method === "Combined illustrative view") {
     whatLooksFragile =
       "The economic signal may be fragile because the combined costing approach is intentionally illustrative and may overstate value if local cost components overlap.";
+  } else if (topDrivers.length > 0) {
+    whatLooksFragile = buildFragilityFromSensitivity(uncertaintyRows, sensitivity);
   } else if (inputs.targeting_mode === "Broad population") {
     whatLooksFragile =
       "The case may be fragile because broad implementation can dilute value if the highest-opportunity patients are only a subset of the incident population.";
