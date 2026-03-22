@@ -294,6 +294,39 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
   },
 
+  uncertaintyGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 10,
+  },
+  uncertaintyCard: {
+    width: "31.5%",
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 86,
+  },
+  uncertaintyCardTitle: {
+    fontSize: 8.4,
+    fontWeight: 700,
+    color: "#0f172a",
+    textTransform: "uppercase",
+    marginBottom: 5,
+  },
+  uncertaintyCardValue: {
+    fontSize: 10.5,
+    fontWeight: 700,
+    color: "#0f172a",
+    marginBottom: 5,
+  },
+  uncertaintyCardNote: {
+    fontSize: 8.4,
+    color: "#475569",
+    lineHeight: 1.4,
+  },
+
   sensitivityDriverBox: {
     marginTop: 10,
     padding: 9,
@@ -441,6 +474,24 @@ function renderAssumptionTable(
   );
 }
 
+function renderUncertaintyColumns(
+  items: Array<{ label: string; value: string; note?: string }>,
+) {
+  return (
+    <View style={styles.uncertaintyGrid}>
+      {items.map((item) => (
+        <View key={item.label} style={styles.uncertaintyCard}>
+          <Text style={styles.uncertaintyCardTitle}>{item.label}</Text>
+          <Text style={styles.uncertaintyCardValue}>{item.value}</Text>
+          {item.note ? (
+            <Text style={styles.uncertaintyCardNote}>{item.note}</Text>
+          ) : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function RepeatingHeader({ module }: { module: string }) {
   return (
     <View style={styles.header} fixed>
@@ -578,7 +629,7 @@ export function StableHeartReportDocument({
           </Text>
 
           <View style={[styles.sectionTight, { marginTop: 10 }]}>
-            {renderInfoRows(
+            {renderUncertaintyColumns(
               data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
                 label: row.label,
                 value: row.value,
@@ -589,38 +640,47 @@ export function StableHeartReportDocument({
 
           <View style={[styles.sectionTight, { marginTop: 12 }]}>
             <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
-            {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
+            {renderBulletBlocks(
+              data.uncertaintyAndSensitivity.sensitivitySummary,
+            )}
           </View>
 
           {data.uncertaintyAndSensitivity.topSensitivityDrivers?.length ? (
             <View style={[styles.sectionTight, { marginTop: 12 }]}>
               <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
-              {data.uncertaintyAndSensitivity.topSensitivityDrivers.map((driver) => (
-                <View key={`${driver.rank}-${driver.label}`} style={styles.sensitivityDriverBox}>
-                  <Text style={styles.sensitivityDriverTitle}>
-                    {driver.rank ? `${driver.rank}. ` : ""}
-                    {driver.label}
-                  </Text>
-                  {driver.lowCase ? (
-                    <Text style={styles.sensitivityDriverMeta}>
-                      Low case: {driver.lowCase}
+              {data.uncertaintyAndSensitivity.topSensitivityDrivers.map(
+                (driver) => (
+                  <View
+                    key={`${driver.rank}-${driver.label}`}
+                    style={styles.sensitivityDriverBox}
+                  >
+                    <Text style={styles.sensitivityDriverTitle}>
+                      {driver.rank ? `${driver.rank}. ` : ""}
+                      {driver.label}
                     </Text>
-                  ) : null}
-                  {driver.highCase ? (
-                    <Text style={styles.sensitivityDriverMeta}>
-                      High case: {driver.highCase}
-                    </Text>
-                  ) : null}
-                  {driver.swing ? (
-                    <Text style={styles.sensitivityDriverMeta}>
-                      ICER swing: {driver.swing}
-                    </Text>
-                  ) : null}
-                  {driver.note ? (
-                    <Text style={styles.sensitivityDriverMeta}>{driver.note}</Text>
-                  ) : null}
-                </View>
-              ))}
+                    {driver.lowCase ? (
+                      <Text style={styles.sensitivityDriverMeta}>
+                        Low case: {driver.lowCase}
+                      </Text>
+                    ) : null}
+                    {driver.highCase ? (
+                      <Text style={styles.sensitivityDriverMeta}>
+                        High case: {driver.highCase}
+                      </Text>
+                    ) : null}
+                    {driver.swing ? (
+                      <Text style={styles.sensitivityDriverMeta}>
+                        ICER swing: {driver.swing}
+                      </Text>
+                    ) : null}
+                    {driver.note ? (
+                      <Text style={styles.sensitivityDriverMeta}>
+                        {driver.note}
+                      </Text>
+                    ) : null}
+                  </View>
+                ),
+              )}
             </View>
           ) : null}
         </View>
@@ -687,10 +747,7 @@ export function StableHeartReportDocument({
           </Text>
 
           {data.assumptions.sections.map((section) => (
-            <View
-              key={section.title}
-              break={section.title === "Cost assumptions"}
-            >
+            <View key={section.title} break={section.title === "Cost assumptions"}>
               <Text style={styles.subSectionTitle}>{section.title}</Text>
               {renderAssumptionTable(section.rows)}
             </View>
