@@ -109,14 +109,13 @@ function getPresetPatch(
 
     case "Higher-risk population":
       return {
-        targeting_mode: higherRiskTarget,
+        targeting_mode: "High-risk targeting",
         eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.8),
         baseline_recurrent_event_rate: 0.28,
         admission_probability_per_event: 0.42,
         intervention_reach_rate: 0.55,
         sustained_engagement_rate: 0.68,
       };
-
 
     case "Lower-cost delivery":
       return {
