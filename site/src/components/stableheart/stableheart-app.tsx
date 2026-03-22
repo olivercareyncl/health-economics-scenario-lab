@@ -78,22 +78,18 @@ const SECTION_KICKER =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 
 type PresetKey =
-  | "Base case"
-  | "Conservative case"
-  | "Optimistic case"
-  | "Secondary prevention focus"
-  | "Lower-cost delivery"
+  | "Default"
   | "Higher-risk population"
-  | "Custom";
+  | "Lower-cost delivery"
+  | "Stronger effect"
+  | "Edited setup";
 
 const PRESET_OPTIONS: readonly PresetKey[] = [
-  "Base case",
-  "Conservative case",
-  "Optimistic case",
-  "Secondary prevention focus",
-  "Lower-cost delivery",
+  "Default",
   "Higher-risk population",
-  "Custom",
+  "Lower-cost delivery",
+  "Stronger effect",
+  "Edited setup",
 ] as const;
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -101,147 +97,61 @@ function cx(...classes: Array<string | false | null | undefined>) {
 }
 
 function getPresetPatch(
-  preset: Exclude<PresetKey, "Custom">,
+  preset: Exclude<PresetKey, "Edited setup">,
 ): Partial<Inputs> {
-  const baseTarget = TARGETING_MODE_OPTIONS[0] as TargetingMode;
-  const secondaryTarget = (TARGETING_MODE_OPTIONS[1] ??
-    TARGETING_MODE_OPTIONS[0]) as TargetingMode;
   const higherRiskTarget = (TARGETING_MODE_OPTIONS[2] ??
     TARGETING_MODE_OPTIONS[1] ??
     TARGETING_MODE_OPTIONS[0]) as TargetingMode;
 
-  const baseCosting = COSTING_METHOD_OPTIONS[0] as CostingMethod;
-  const fullerCosting = (COSTING_METHOD_OPTIONS[1] ??
-    COSTING_METHOD_OPTIONS[0]) as CostingMethod;
-
   switch (preset) {
-    case "Base case":
+    case "Default":
       return { ...DEFAULT_INPUTS };
 
-    case "Conservative case":
+    case "Higher-risk population":
       return {
-        targeting_mode: baseTarget,
-        intervention_reach_rate: 0.4,
-        sustained_engagement_rate: 0.58,
-        risk_reduction_in_recurrent_events: 0.12,
-        intervention_cost_per_patient_reached: 260,
-        baseline_recurrent_event_rate: 0.16,
-        admission_probability_per_event: 0.3,
-        annual_effect_decay_rate: 0.14,
-        annual_participation_dropoff_rate: 0.12,
-        qaly_gain_per_event_avoided: 0.05,
-        costing_method: baseCosting,
-      };
-
-    case "Optimistic case":
-      return {
-        targeting_mode: baseTarget,
-        intervention_reach_rate: 0.68,
-        sustained_engagement_rate: 0.78,
-        risk_reduction_in_recurrent_events: 0.26,
-        intervention_cost_per_patient_reached: 160,
-        baseline_recurrent_event_rate: 0.22,
-        admission_probability_per_event: 0.38,
-        annual_effect_decay_rate: 0.05,
-        annual_participation_dropoff_rate: 0.05,
-        qaly_gain_per_event_avoided: 0.09,
-        costing_method: fullerCosting,
-      };
-
-    case "Secondary prevention focus":
-      return {
-        targeting_mode: secondaryTarget,
+        targeting_mode: higherRiskTarget,
         eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.8),
-        intervention_reach_rate: 0.66,
-        sustained_engagement_rate: 0.74,
-        risk_reduction_in_recurrent_events: 0.24,
-        baseline_recurrent_event_rate: 0.25,
-        admission_probability_per_event: 0.41,
-        qaly_gain_per_event_avoided: 0.08,
+        baseline_recurrent_event_rate: 0.28,
+        admission_probability_per_event: 0.42,
+        intervention_reach_rate: 0.55,
+        sustained_engagement_rate: 0.68,
       };
 
     case "Lower-cost delivery":
       return {
         intervention_cost_per_patient_reached: 140,
-        intervention_reach_rate: 0.62,
-        sustained_engagement_rate: 0.68,
-        annual_effect_decay_rate: 0.07,
-        annual_participation_dropoff_rate: 0.07,
-        costing_method: fullerCosting,
+        intervention_reach_rate: DEFAULT_INPUTS.intervention_reach_rate,
+        sustained_engagement_rate: DEFAULT_INPUTS.sustained_engagement_rate,
+        risk_reduction_in_recurrent_events:
+          DEFAULT_INPUTS.risk_reduction_in_recurrent_events,
+        annual_effect_decay_rate: DEFAULT_INPUTS.annual_effect_decay_rate,
+        annual_participation_dropoff_rate:
+          DEFAULT_INPUTS.annual_participation_dropoff_rate,
       };
 
-    case "Higher-risk population":
+    case "Stronger effect":
       return {
-        targeting_mode: higherRiskTarget,
-        eligible_population: Math.round(DEFAULT_INPUTS.eligible_population * 0.75),
-        intervention_reach_rate: 0.58,
-        sustained_engagement_rate: 0.7,
-        baseline_recurrent_event_rate: 0.3,
-        admission_probability_per_event: 0.44,
-        risk_reduction_in_recurrent_events: 0.23,
-        qaly_gain_per_event_avoided: 0.09,
+        risk_reduction_in_recurrent_events: 0.24,
+        sustained_engagement_rate: 0.74,
+        annual_effect_decay_rate: 0.06,
+        annual_participation_dropoff_rate: 0.06,
       };
   }
 }
 
 function getPresetDescription(preset: PresetKey) {
   switch (preset) {
-    case "Base case":
-      return "Restores the default workshop configuration.";
-    case "Conservative case":
-      return "Lower effect, weaker persistence, and higher delivery cost.";
-    case "Optimistic case":
-      return "Stronger effect, better persistence, and more favourable cost profile.";
-    case "Secondary prevention focus":
-      return "Concentrates the offer where recurrent cardiovascular risk is already established.";
-    case "Lower-cost delivery":
-      return "Tests whether the case strengthens under a leaner delivery model.";
+    case "Default":
+      return "Balanced starting assumptions for a general workshop discussion.";
     case "Higher-risk population":
-      return "Concentrates value in a smaller group with higher baseline event risk.";
-    case "Custom":
-      return "Inputs have been edited away from a named preset.";
+      return "Starting point with higher baseline recurrent event risk and admission probability.";
+    case "Lower-cost delivery":
+      return "Starting point for testing a leaner delivery cost profile.";
+    case "Stronger effect":
+      return "Starting point with a stronger assumed reduction in recurrent events and slightly better persistence.";
+    case "Edited setup":
+      return "Inputs have been changed from the selected starting template.";
   }
-}
-
-function deriveCaseType(
-  preset: PresetKey,
-  inputs: Inputs,
-): string {
-  if (preset !== "Custom") {
-    switch (preset) {
-      case "Base case":
-        return "Broad proactive management case";
-      case "Conservative case":
-        return "Conservative delivery case";
-      case "Optimistic case":
-        return "Optimistic improvement case";
-      case "Secondary prevention focus":
-        return "Secondary prevention case";
-      case "Lower-cost delivery":
-        return "Lower-cost delivery case";
-      case "Higher-risk population":
-        return "Higher-risk population case";
-      default:
-        return "Current scenario case";
-    }
-  }
-
-  if (inputs.intervention_cost_per_patient_reached <= 150) {
-    return "Lower-cost delivery case";
-  }
-
-  if (
-    inputs.baseline_recurrent_event_rate >= 0.26 ||
-    inputs.admission_probability_per_event >= 0.42
-  ) {
-    return "Higher-risk population case";
-  }
-
-  if (inputs.sustained_engagement_rate >= 0.72) {
-    return "Secondary prevention-style case";
-  }
-
-  return "Broad proactive management case";
 }
 
 function buildRecommendationSummary(
@@ -249,7 +159,6 @@ function buildRecommendationSummary(
   results: ModelResults,
   uncertaintyRows: UncertaintyRow[],
   preset: PresetKey,
-  caseType: string,
   sensitivity: SensitivitySummary,
 ) {
   const interpretation = generateInterpretation(results, inputs, uncertaintyRows);
@@ -264,10 +173,10 @@ function buildRecommendationSummary(
 
   const currentCaseSuggests =
     decisionStatus === "Appears cost-saving"
-      ? `${caseType} currently suggests avoided recurrent events with a net saving signal.`
+      ? "The current setup suggests avoided recurrent events with a net saving signal."
       : decisionStatus === "Appears cost-effective"
-        ? `${caseType} currently suggests a plausible value case at the present threshold.`
-        : `${caseType} currently suggests operational benefit, but the economic case remains above threshold.`;
+        ? "The current setup suggests a plausible value case at the present threshold."
+        : "The current setup suggests operational benefit, but the economic case remains above threshold.";
 
   const drivingResult =
     topDrivers.length > 0
@@ -297,9 +206,9 @@ function buildRecommendationSummary(
       : interpretation.what_to_validate_next;
 
   const recommendationLine =
-    preset === "Custom"
-      ? "This is currently a custom workshop case. Use the named presets to benchmark whether the current setup is unusually strict or favourable."
-      : `This is currently framed as a ${caseType.toLowerCase()}. Use comparator mode to judge whether a nearby alternative looks materially stronger.`;
+    preset === "Edited setup"
+      ? "This is currently an edited setup. Use the starting templates to benchmark whether your assumptions are unusually strict or favourable."
+      : `This setup started from the ${preset.toLowerCase()} template. Adjust the assumptions to reflect your local intervention design.`;
 
   return {
     current_case_suggests: currentCaseSuggests,
@@ -939,7 +848,7 @@ export default function StableHeartApp() {
     "advanced-outcomes": false,
   });
   const [comparatorMode, setComparatorMode] = useState<ComparatorOption>("Lower-cost delivery");
-  const [selectedPreset, setSelectedPreset] = useState<PresetKey>("Base case");
+  const [selectedPreset, setSelectedPreset] = useState<PresetKey>("Default");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
@@ -962,11 +871,6 @@ export default function StableHeartApp() {
     [results, inputs, uncertainty],
   );
 
-  const currentCaseType = useMemo(
-    () => deriveCaseType(selectedPreset, inputs),
-    [selectedPreset, inputs],
-  );
-
   const recommendationSummary = useMemo(
     () =>
       buildRecommendationSummary(
@@ -974,10 +878,9 @@ export default function StableHeartApp() {
         results,
         uncertainty,
         selectedPreset,
-        currentCaseType,
         sensitivity,
       ),
-    [inputs, results, uncertainty, selectedPreset, currentCaseType, sensitivity],
+    [inputs, results, uncertainty, selectedPreset, sensitivity],
   );
 
   const primaryDriver = sensitivity.primary_driver;
@@ -1013,10 +916,10 @@ export default function StableHeartApp() {
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
-    setSelectedPreset("Custom");
+    setSelectedPreset("Edited setup");
   };
 
-  const applyPreset = (preset: Exclude<PresetKey, "Custom">) => {
+  const applyPreset = (preset: Exclude<PresetKey, "Edited setup">) => {
     const patch = getPresetPatch(preset);
     setInputs((prev) => ({ ...prev, ...patch }));
     setSelectedPreset(preset);
@@ -1025,7 +928,7 @@ export default function StableHeartApp() {
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
     setComparatorMode("Lower-cost delivery");
-    setSelectedPreset("Base case");
+    setSelectedPreset("Default");
     setShowAdvancedMobile(false);
     setOpenSections({
       "advanced-baseline": false,
@@ -1071,27 +974,27 @@ export default function StableHeartApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Use a preset to frame the workshop case, then fine-tune the key assumptions below.
+      Use a starting template to set up the sandbox, then tailor the assumptions below.
     </div>
   );
 
   const presetControl = (
     <div className={SUBCARD}>
-      <p className="mb-3 text-sm font-semibold text-slate-900">Scenario preset</p>
+      <p className="mb-3 text-sm font-semibold text-slate-900">Starting template</p>
       <div className="grid gap-4 xl:grid-cols-2">
         <SelectInput<PresetKey>
-          label="Preset"
+          label="Template"
           value={selectedPreset}
           options={PRESET_OPTIONS}
           onChange={(value) => {
-            if (value === "Custom") return;
+            if (value === "Edited setup") return;
             applyPreset(value);
           }}
-          help="Applies a coherent scenario configuration without resetting the full app."
+          help="Choose a starting template, then adjust inputs to reflect your local intervention design."
         />
         <AssumptionReviewCard
-          label="Current case type"
-          value={currentCaseType}
+          label="Current setup"
+          value={selectedPreset}
           note={getPresetDescription(selectedPreset)}
         />
       </div>
@@ -1425,8 +1328,7 @@ export default function StableHeartApp() {
   );
 
   const recommendationPanel = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <MiniInsight label="Case type" value={currentCaseType} />
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <MiniInsight
         label="What this suggests"
         value={recommendationSummary.current_case_suggests}
@@ -1631,7 +1533,7 @@ export default function StableHeartApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Apply a workshop preset first, then fine-tune the case."
+            description="Choose a starting template, then tailor the assumptions to your local intervention."
             action={
               <button
                 type="button"
@@ -1639,7 +1541,7 @@ export default function StableHeartApp() {
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 <RotateCcw className="h-4 w-4" />
-                Reset
+                Reset to default
               </button>
             }
             dense
@@ -1818,7 +1720,7 @@ export default function StableHeartApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Apply a workshop preset first, then fine-tune the case."
+            description="Choose a starting template, then tailor the assumptions to your local intervention."
             action={
               <button
                 type="button"
@@ -1826,7 +1728,7 @@ export default function StableHeartApp() {
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 <RotateCcw className="h-4 w-4" />
-                Reset
+                Reset to default
               </button>
             }
             dense
