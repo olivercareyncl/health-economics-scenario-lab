@@ -22,7 +22,7 @@ type BuildReportArgs = {
   results: StableHeartModelResults;
   uncertainty: StableHeartUncertaintyRow[];
   exportedAt: string;
-  oneWaySensitivity?: StableHeartSensitivitySummary;
+  oneWaySensitivity?: StableHeartSensitivitySummary | null;
 };
 
 type ReportMetric = {
@@ -136,14 +136,57 @@ function getSignalLabel(decisionStatus: string): string {
   return "Weak";
 }
 
+function cleanDecisionStatus(status: string): string {
+  const trimmed = status.trim();
+  if (/^appears\s+/i.test(trimmed)) return trimmed;
+  return `Appears ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
+}
+
+function prettifyParameterName(parameter: keyof StableHeartInputs | string): string {
+  switch (parameter) {
+    case "baseline_recurrent_event_rate":
+      return "Baseline recurrent event rate";
+    case "risk_reduction_in_recurrent_events":
+      return "Risk reduction in recurrent events";
+    case "intervention_cost_per_patient_reached":
+      return "Intervention cost per patient";
+    case "sustained_engagement_rate":
+      return "Sustained engagement";
+    case "intervention_reach_rate":
+      return "Intervention reach";
+    case "admission_probability_per_event":
+      return "Admission probability per event";
+    case "average_length_of_stay":
+      return "Average length of stay";
+    case "qaly_gain_per_event_avoided":
+      return "QALY gain per event avoided";
+    case "annual_effect_decay_rate":
+      return "Annual effect decay";
+    case "annual_participation_dropoff_rate":
+      return "Annual participation drop-off";
+    case "cost_per_cardiovascular_event":
+      return "Cost per cardiovascular event";
+    case "cost_per_admission":
+      return "Cost per admission";
+    case "cost_per_bed_day":
+      return "Cost per bed day";
+    case "eligible_population":
+      return "Eligible population";
+    default:
+      return String(parameter)
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+}
+
 function formatParameterValue(
-  parameterKey: keyof StableHeartInputs,
+  parameter: keyof StableHeartInputs | string,
   value: number | string | undefined,
 ): string {
   if (value === undefined || value === null) return "—";
   if (typeof value === "string") return value;
 
-  switch (parameterKey) {
+  switch (parameter) {
     case "baseline_recurrent_event_rate":
     case "risk_reduction_in_recurrent_events":
     case "sustained_engagement_rate":
@@ -157,7 +200,6 @@ function formatParameterValue(
     case "cost_per_cardiovascular_event":
     case "cost_per_admission":
     case "cost_per_bed_day":
-    case "cost_effectiveness_threshold":
       return formatCurrency(value);
 
     case "average_length_of_stay":
@@ -165,9 +207,6 @@ function formatParameterValue(
 
     case "qaly_gain_per_event_avoided":
       return value.toFixed(3);
-
-    case "discount_rate":
-      return `${(value * 100).toFixed(1)}%`;
 
     default:
       return Number.isInteger(value) ? formatNumber(value) : value.toFixed(2);
@@ -184,12 +223,12 @@ function buildTopSensitivityDrivers(
     .slice(0, 3)
     .map((row, index) => ({
       rank: index + 1,
-      label: row.parameter_label,
+      label: row.parameter_label || prettifyParameterName(row.parameter_key),
       lowCase: `${row.low_value_label} → ${formatCurrency(row.low_icer)}`,
       highCase: `${row.high_value_label} → ${formatCurrency(row.high_icer)}`,
       swing: formatCurrency(row.max_abs_icer_change),
       note:
-        "Shows how discounted cost per QALY changes when this parameter is varied one way while others are held constant.",
+        "Low and high cases show how discounted cost per QALY changes when this parameter is varied in one direction at a time.",
     }));
 }
 
@@ -199,23 +238,17 @@ function buildSensitivityLead(
 ): string {
   if (!topSensitivityDrivers.length) return fallback;
 
-  const first = topSensitivityDrivers[0]?.label;
-  const second = topSensitivityDrivers[1]?.label;
-  const third = topSensitivityDrivers[2]?.label;
+  const labels = topSensitivityDrivers.map((driver) => driver.label.toLowerCase());
 
-  if (first && second && third) {
-    return `The result is most sensitive to ${first.toLowerCase()}, ${second.toLowerCase()}, and ${third.toLowerCase()}.`;
+  if (labels.length === 1) {
+    return `The result is most sensitive to ${labels[0]}.`;
   }
 
-  if (first && second) {
-    return `The result is most sensitive to ${first.toLowerCase()} and ${second.toLowerCase()}.`;
+  if (labels.length === 2) {
+    return `The result is most sensitive to ${labels[0]} and ${labels[1]}.`;
   }
 
-  if (first) {
-    return `The result is most sensitive to ${first.toLowerCase()}.`;
-  }
-
-  return fallback;
+  return `The result is most sensitive to ${labels[0]}, ${labels[1]}, and ${labels[2]}.`;
 }
 
 function buildOverview(
@@ -277,10 +310,13 @@ function buildFragilityText(
 
   if (low.decision_status !== high.decision_status) {
     if (topSensitivityDrivers.length > 0) {
-      return `The bounded uncertainty range crosses decision categories, and one-way sensitivity suggests the result is particularly exposed to ${topSensitivityDrivers
+      const labels = topSensitivityDrivers
         .slice(0, 3)
-        .map((driver) => driver.label.toLowerCase())
-        .join(", ")}.`;
+        .map((driver) => driver.label.toLowerCase());
+
+      return `The bounded uncertainty range crosses decision categories, and one-way sensitivity suggests the result is particularly exposed to ${labels.join(
+        ", ",
+      )}.`;
     }
 
     return "The bounded uncertainty range crosses decision categories, so moderate changes in baseline risk, achieved effect, or delivery cost could change the conclusion.";
@@ -325,7 +361,9 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current case appears ${decisionStatus.toLowerCase().replace("appears ", "")}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to baseline event risk, sustained engagement, achieved effect size, and delivery cost realism.`,
+      body: `Taken together, the current signal is ${cleanDecisionStatus(
+        decisionStatus,
+      ).toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to baseline event risk, sustained engagement, achieved effect size, and delivery cost realism.`,
     },
   ];
 }
@@ -478,31 +516,43 @@ export function buildStableHeartReportData({
   results,
   uncertainty,
   exportedAt,
-  oneWaySensitivity,
+  oneWaySensitivity = null,
 }: BuildReportArgs): StableHeartReportData {
   const decisionStatus = getDecisionStatus(
     results,
     inputs.cost_effectiveness_threshold,
   );
-  const interpretation = generateInterpretation(results, inputs, uncertainty);
+
+  const interpretation = generateInterpretation(
+    results,
+    inputs,
+    uncertainty,
+    oneWaySensitivity ?? undefined,
+  );
+
   const overallSignal = getSignalLabel(decisionStatus);
-  const fallbackMainDriver = getMainDriverText(inputs);
+  const fallbackMainDriver = getMainDriverText(
+    inputs,
+    oneWaySensitivity ?? undefined,
+  );
 
   const sensitivityRows = oneWaySensitivity?.rows ?? [];
   const topSensitivityDrivers = buildTopSensitivityDrivers(sensitivityRows);
 
   const fragilityText =
-    oneWaySensitivity?.primary_driver
-      ? buildFragilityText(interpretation, uncertainty, topSensitivityDrivers)
-      : buildFragilityText(interpretation, uncertainty, []);
+    oneWaySensitivity?.fragilityStatement ??
+    buildFragilityText(interpretation, uncertainty, topSensitivityDrivers);
 
   const mainDependencyText =
-    topSensitivityDrivers.length > 0
+    oneWaySensitivity?.primary_driver != null
       ? buildSensitivityLead(
           topSensitivityDrivers,
           `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`,
         )
       : `The result is mainly driven by ${fallbackMainDriver}, delivery cost, and the realism of sustained patient engagement.`;
+
+  const primaryDriverLabel =
+    oneWaySensitivity?.primary_driver?.parameter_label?.toLowerCase();
 
   return {
     cover: {
@@ -526,7 +576,9 @@ export function buildStableHeartReportData({
       mainDependency: mainDependencyText,
       mainFragility: fragilityText,
       bestNextStep:
-        "Validate local recurrent event risk, realistic engagement, likely implementation cost, and the strength of the link between avoided events and avoided admissions and bed use.",
+        primaryDriverLabel != null
+          ? `Validate local ${primaryDriverLabel}, realistic engagement, likely implementation cost, and the strength of the link between avoided events and avoided admissions and bed use.`
+          : "Validate local recurrent event risk, realistic engagement, likely implementation cost, and the strength of the link between avoided events and avoided admissions and bed use.",
     },
 
     scenario: buildScenarioSection(inputs),
