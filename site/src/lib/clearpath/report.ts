@@ -17,6 +17,7 @@ import {
 import type {
   Inputs,
   ModelResults,
+  SensitivitySummary,
   UncertaintyRow,
 } from "@/lib/clearpath/types";
 
@@ -24,6 +25,7 @@ type BuildReportArgs = {
   inputs: Inputs;
   results: ModelResults;
   uncertainty: UncertaintyRow[];
+  sensitivity: SensitivitySummary;
   exportedAt: string;
 };
 
@@ -112,7 +114,8 @@ function getSignalLabel(decisionStatus: string): string {
   const normalised = decisionStatus.toLowerCase();
 
   if (
-    normalised.includes("support") ||
+    normalised.includes("cost-saving") ||
+    normalised.includes("cost effective") ||
     normalised.includes("cost-effective") ||
     normalised.includes("promising") ||
     normalised.includes("favourable")
@@ -132,7 +135,7 @@ function getSignalLabel(decisionStatus: string): string {
 }
 
 function buildPurposeQuestion(inputs: Inputs): string {
-  return `This run explores whether an earlier-diagnosis approach in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly reduce downstream emergency pressure, admissions, bed use, and economic burden over ${inputs.time_horizon_years} years under the current assumptions.`;
+  return `This run explores whether an earlier-diagnosis approach in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly reduce downstream emergency pressure, admissions, bed use, and economic burden over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
 }
 
 function buildScenarioSection(inputs: Inputs): ClearPathReportData["scenario"] {
@@ -163,7 +166,9 @@ function buildPlainEnglishResults(
     {
       body: `Under the current assumptions, the model shifts ${formatNumber(
         results.cases_shifted_total,
-      )} cases earlier over ${inputs.time_horizon_years} years.`,
+      )} cases earlier over ${inputs.time_horizon_years} year${
+        inputs.time_horizon_years === 1 ? "" : "s"
+      }.`,
     },
     {
       body: `That shift is associated with ${formatNumber(
@@ -234,7 +239,9 @@ function buildAssumptionSections(
         },
         {
           assumption: "Time horizon",
-          value: `${inputs.time_horizon_years} years`,
+          value: `${inputs.time_horizon_years} year${
+            inputs.time_horizon_years === 1 ? "" : "s"
+          }`,
           rationale:
             "Longer horizons allow more downstream pathway and economic effects to accumulate, which can materially improve the observed value case.",
         },
@@ -263,7 +270,9 @@ function buildAssumptionSections(
         },
         {
           assumption: "Average length of stay",
-          value: formatNumber(inputs.average_length_of_stay),
+          value: `${inputs.average_length_of_stay.toFixed(
+            Number.isInteger(inputs.average_length_of_stay) ? 0 : 1,
+          )} days`,
           rationale:
             "Converts avoided admissions into avoided bed use and associated hospital pressure.",
         },
@@ -342,16 +351,62 @@ function buildAssumptionSections(
   ];
 }
 
+function buildSensitivitySummary(
+  sensitivity: SensitivitySummary,
+): string[] {
+  const top = sensitivity.top_drivers;
+
+  if (top.length === 0) {
+    return [
+      "One-way sensitivity has not highlighted a clear set of dominant drivers yet.",
+      "At this stage, the case should still be treated as dependent on the core assumptions around shift, reach, and delivery cost.",
+      "Further validation should focus on the most decision-relevant pathway and cost inputs locally.",
+    ];
+  }
+
+  const first = top[0]?.parameter_label.toLowerCase();
+  const second = top[1]?.parameter_label.toLowerCase();
+  const third = top[2]?.parameter_label.toLowerCase();
+
+  const line1 = second
+    ? `The result is most sensitive to ${first} and ${second}.`
+    : `The result is most sensitive to ${first}.`;
+
+  const line2 = third
+    ? `In practical terms, the case is strongest when ${first}, ${second}, and ${third} remain favourable under locally credible assumptions.`
+    : `In practical terms, the case is strongest when ${first} remains favourable under locally credible assumptions.`;
+
+  const line3 = `The case weakens fastest when the assumed pathway shift is smaller than expected, delivery becomes more expensive, or downstream emergency and inpatient benefits are less pronounced locally.`;
+
+  return [line1, line2, line3];
+}
+
 export function buildClearPathReportData({
   inputs,
   results,
   uncertainty,
+  sensitivity,
   exportedAt,
 }: BuildReportArgs): ClearPathReportData {
-  const interpretation = generateInterpretation(results, inputs, uncertainty);
+  const interpretation = generateInterpretation(
+    results,
+    inputs,
+    uncertainty,
+    sensitivity,
+  );
   const overallSignal = generateOverallSignal(results, inputs, uncertainty);
-  const structured = generateStructuredRecommendation(inputs, results, uncertainty);
-  const overview = generateOverviewSummary(results, inputs, uncertainty);
+  const structured = generateStructuredRecommendation(
+    inputs,
+    results,
+    uncertainty,
+    sensitivity,
+  );
+  const overview = generateOverviewSummary(
+    results,
+    inputs,
+    uncertainty,
+    sensitivity,
+  );
 
   const decisionStatus = getDecisionStatus(
     results,
@@ -360,18 +415,14 @@ export function buildClearPathReportData({
 
   const signalLabel = getSignalLabel(decisionStatus);
   const netCostLabel = getNetCostLabel(results);
-  const mainDriver = getMainDriverText(inputs);
+  const mainDriver = getMainDriverText(inputs, sensitivity);
 
   const uncertaintyReadout = assessUncertaintyRobustness(
     uncertainty,
     inputs.cost_effectiveness_threshold,
   );
 
-  const sensitivitySummary = [
-    `The strength of the case is likely to move most when assumptions change around the achievable reduction in late diagnosis, intervention reach, intervention cost per case reached, and the size of downstream pathway benefit.`,
-    `In practical terms, the result is strongest when the programme can reach the right population at manageable cost and produce a credible shift away from later diagnosis.`,
-    `The case weakens when the assumed shift earlier is modest, delivery costs are higher than expected, or the emergency and bed-use benefits are less pronounced locally.`,
-  ];
+  const sensitivitySummary = buildSensitivitySummary(sensitivity);
 
   return {
     cover: {
