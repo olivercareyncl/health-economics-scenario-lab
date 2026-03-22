@@ -138,8 +138,15 @@ function getSignalLabel(decisionStatus: string): string {
 
 function cleanDecisionStatus(status: string): string {
   const trimmed = status.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower === "above current threshold") {
+    return "remains above the current threshold";
+  }
+
   if (/^appears\s+/i.test(trimmed)) return trimmed;
-  return `Appears ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
+
+  return `appears ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
 }
 
 function prettifyParameterName(parameter: keyof StableHeartInputs | string): string {
@@ -320,7 +327,7 @@ function buildPlainEnglishResults(
     {
       body: `${netCostLabel} is estimated at ${formatCurrency(
         Math.abs(results.discounted_net_cost_total),
-      )},with a discounted cost per QALY of ${formatCurrency(
+      )}, with a discounted cost per QALY of ${formatCurrency(
         results.discounted_cost_per_qaly,
       )} against a threshold of ${formatCurrency(
         inputs.cost_effectiveness_threshold,
