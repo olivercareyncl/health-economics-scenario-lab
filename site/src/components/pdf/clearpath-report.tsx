@@ -556,7 +556,9 @@ export function ClearPathReportDocument({
           ])}
         </View>
 
-        <View style={styles.section}>
+        <View break />
+
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
           {renderMetricCards(data.headlineMetrics)}
         </View>
@@ -635,6 +637,7 @@ export function ClearPathReportDocument({
             },
           ])}
         </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Local evidence needed next</Text>
           {renderBulletBlocks(data.localEvidenceNeeded.items)}
