@@ -46,6 +46,7 @@ import {
 import {
   ASSUMPTION_META,
   ASSUMPTION_ORDER,
+  getAssumptionConfidenceSummary,
 } from "@/lib/frailtyforward/metadata";
 import {
   COMPARATOR_OPTIONS,
@@ -53,7 +54,15 @@ import {
   TARGETING_MODE_OPTIONS,
 } from "@/lib/frailtyforward/scenarios";
 import {
+  buildSensitivityTakeaways,
+  runOneWaySensitivity,
+  SENSITIVITY_VARIABLES,
+  type SensitivityRow,
+} from "@/lib/frailtyforward/sensitivity";
+import {
+  assessUncertaintyRobustness,
   generateInterpretation,
+  generateDecisionReadiness,
   getDecisionStatus,
   getMainDriverText,
   getNetCostLabel,
@@ -188,6 +197,11 @@ function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function formatSignedCurrency(value: number) {
+  const abs = formatCurrency(Math.abs(value));
+  return value < 0 ? `-${abs}` : abs;
+}
+
 function getCaseType(
   inputs: Inputs,
   selectedPreset: PresetOption,
@@ -197,7 +211,10 @@ function getCaseType(
     return PRESET_DEFINITIONS[selectedPreset].caseType;
   }
 
-  if (inputs.support_cost_per_patient <= DEFAULT_INPUTS.support_cost_per_patient * 0.8) {
+  if (
+    inputs.support_cost_per_patient <=
+    DEFAULT_INPUTS.support_cost_per_patient * 0.8
+  ) {
     return "Lower-cost delivery case";
   }
 
@@ -211,7 +228,8 @@ function getCaseType(
   }
 
   if (
-    inputs.reduction_in_crisis_event_rate >= inputs.reduction_in_admission_rate &&
+    inputs.reduction_in_crisis_event_rate >=
+      inputs.reduction_in_admission_rate &&
     inputs.reduction_in_crisis_event_rate >= inputs.reduction_in_length_of_stay
   ) {
     return "Crisis prevention case";
@@ -401,7 +419,6 @@ function ImpactChart({
                 axisLine={false}
                 fontSize={12}
                 interval={0}
-                angle={0}
               />
               <YAxis
                 tickFormatter={(value) => formatNumber(Number(value))}
@@ -489,6 +506,78 @@ function BoundedUncertaintyChart({
         <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
           Dashed orange = threshold
         </span>
+      </div>
+    </div>
+  );
+}
+
+function SensitivityChart({
+  sensitivityRows,
+}: {
+  sensitivityRows: SensitivityRow[];
+}) {
+  const data = sensitivityRows
+    .slice(0, 6)
+    .map((row) => ({
+      label: row.label,
+      lowDelta: row.low_delta,
+      highDelta: row.high_delta,
+      baseOutcome: row.base_outcome,
+      lowInput: row.low_input,
+      highInput: row.high_input,
+    }))
+    .reverse();
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          One-way sensitivity
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Largest drivers of movement in discounted cost per QALY.
+        </p>
+      </div>
+
+      <div className="h-[360px] w-full lg:h-[420px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 8, right: 18, left: 8, bottom: 0 }}
+            barCategoryGap={10}
+          >
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={180}
+            />
+            <Tooltip
+              formatter={(value: number, name: string) => [
+                formatSignedCurrency(value),
+                name === "lowDelta" ? "Low case delta" : "High case delta",
+              ]}
+            />
+            <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
+            <Legend
+              wrapperStyle={{ fontSize: "12px" }}
+              formatter={(value) => (value === "lowDelta" ? "Low case" : "High case")}
+            />
+            <Bar dataKey="lowDelta" name="lowDelta" radius={[0, 6, 6, 0]} />
+            <Bar dataKey="highDelta" name="highDelta" radius={[0, 6, 6, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -787,9 +876,24 @@ export default function FrailtyForwardApp() {
     DEFAULT_COMPARATOR_MODE,
   );
   const [selectedPreset, setSelectedPreset] = useState<PresetOption>("Base case");
+  const [isExporting, setIsExporting] = useState(false);
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
+  const sensitivityRows = useMemo(
+    () =>
+      runOneWaySensitivity(
+        inputs,
+        [...SENSITIVITY_VARIABLES],
+        0.2,
+        "discounted_cost_per_qaly",
+      ),
+    [inputs],
+  );
+  const sensitivityTakeaways = useMemo(
+    () => buildSensitivityTakeaways(sensitivityRows),
+    [sensitivityRows],
+  );
 
   const comparatorResults = useMemo(() => {
     const comparatorInputs = buildComparatorCase(
@@ -818,6 +922,22 @@ export default function FrailtyForwardApp() {
     [inputs, selectedPreset, mainDriver],
   );
 
+  const uncertaintyRobustness = useMemo(
+    () =>
+      assessUncertaintyRobustness(
+        uncertainty,
+        inputs.cost_effectiveness_threshold,
+      ),
+    [uncertainty, inputs.cost_effectiveness_threshold],
+  );
+
+  const decisionReadiness = useMemo(
+    () => generateDecisionReadiness(inputs, results),
+    [inputs, results],
+  );
+
+  const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
+
   const recommendationPanel = useMemo(() => {
     const presetDescription = PRESET_DEFINITIONS[selectedPreset].description;
 
@@ -832,6 +952,8 @@ export default function FrailtyForwardApp() {
 
   const handleExportReport = async () => {
     try {
+      setIsExporting(true);
+
       const response = await fetch("/api/export/frailtyforward", {
         method: "POST",
         headers: {
@@ -855,6 +977,9 @@ export default function FrailtyForwardApp() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error(error);
+      alert("Failed to export report.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -910,28 +1035,16 @@ export default function FrailtyForwardApp() {
   );
 
   const interpretationPanel = (
-    <div className="grid gap-3 lg:grid-cols-3">
-      <MiniInsight
-        label="Conclusion"
-        value={recommendationPanel.whatModelSuggests}
-      />
-      <MiniInsight
-        label="Main driver"
-        value={recommendationPanel.whatDrivesResult}
-      />
-      <MiniInsight
-        label="Fragility"
-        value={recommendationPanel.whatLooksFragile}
-      />
+    <div className="grid gap-3 lg:grid-cols-4">
+      <MiniInsight label="Overall signal" value={decisionStatus} />
+      <MiniInsight label="Current case type" value={recommendationPanel.currentCaseType} />
+      <MiniInsight label="Main driver" value={recommendationPanel.whatDrivesResult} />
+      <MiniInsight label="Fragility" value={recommendationPanel.whatLooksFragile} />
     </div>
   );
 
   const recommendationSummary = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <MiniInsight
-        label="Current case"
-        value={recommendationPanel.currentCaseType}
-      />
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <MiniInsight
         label="What this suggests"
         value={recommendationPanel.whatModelSuggests}
@@ -1267,10 +1380,23 @@ export default function FrailtyForwardApp() {
             key={key}
             label={meta.label}
             value={meta.formatter(value)}
-            note={meta.description}
+            note={`${meta.source_type} · ${meta.confidence}`}
           />
         );
       })}
+    </div>
+  );
+
+  const sensitivityTopDrivers = (
+    <div className="grid gap-3 md:grid-cols-3">
+      {sensitivityRows.slice(0, 3).map((row, index) => (
+        <AssumptionReviewCard
+          key={row.variable}
+          label={`Driver ${index + 1}`}
+          value={row.label}
+          note={`Largest ICER swing: ${formatCurrency(row.swing)}`}
+        />
+      ))}
     </div>
   );
 
@@ -1292,6 +1418,10 @@ export default function FrailtyForwardApp() {
           threshold={inputs.cost_effectiveness_threshold}
         />
       </MobileAccordion>
+
+      <MobileAccordion title="One-way sensitivity">
+        <SensitivityChart sensitivityRows={sensitivityRows} />
+      </MobileAccordion>
     </div>
   );
 
@@ -1304,6 +1434,7 @@ export default function FrailtyForwardApp() {
         uncertaintyRows={uncertainty}
         threshold={inputs.cost_effectiveness_threshold}
       />
+      <SensitivityChart sensitivityRows={sensitivityRows} />
     </div>
   );
 
@@ -1330,7 +1461,7 @@ export default function FrailtyForwardApp() {
       />
       <AssumptionReviewCard
         label="Discounted net cost delta"
-        value={formatCurrency(
+        value={formatSignedCurrency(
           comparatorResults.discounted_net_cost_total -
             results.discounted_net_cost_total,
         )}
@@ -1351,6 +1482,17 @@ export default function FrailtyForwardApp() {
           Explore how earlier frailty support might change crisis events,
           admissions, bed use, and value under different assumptions about
           reach, effectiveness, persistence, and delivery cost.
+        </p>
+      </div>
+
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+        <p className="text-sm font-medium text-slate-900">Scope and use note</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          FrailtyForward is an exploratory scenario sandbox. It is designed to
+          test how changes in frailty risk, support reach, crisis reduction,
+          admission reduction, persistence, and delivery cost might influence
+          pathway and economic value. It does not replace formal evaluation,
+          forecasting, or business case development.
         </p>
       </div>
 
@@ -1383,10 +1525,11 @@ export default function FrailtyForwardApp() {
         <button
           type="button"
           onClick={handleExportReport}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          disabled={isExporting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FileDown className="h-4 w-4" />
-          Export report
+          {isExporting ? "Exporting..." : "Export report"}
         </button>
       </div>
 
@@ -1415,10 +1558,11 @@ export default function FrailtyForwardApp() {
           <button
             type="button"
             onClick={handleExportReport}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            disabled={isExporting}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FileDown className="h-4 w-4" />
-            Export report
+            {isExporting ? "Exporting..." : "Export report"}
           </button>
         </div>
       </div>
@@ -1549,7 +1693,7 @@ export default function FrailtyForwardApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, recommendation readout, uncertainty, and the next checks."
+            description="Review the current case, sensitivity, uncertainty, and practical next checks."
             dense
           >
             <div className="space-y-5">
@@ -1564,12 +1708,18 @@ export default function FrailtyForwardApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export report
+                    {isExporting ? "Exporting..." : "Export report"}
                   </button>
                 </div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision recommendation</h3>
+                <div className="mt-3">{recommendationSummary}</div>
               </div>
 
               <div className="grid grid-cols-1 gap-3">
@@ -1582,11 +1732,7 @@ export default function FrailtyForwardApp() {
                   value={formatNumber(results.bed_days_avoided_total)}
                 />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Recommendation readout</h3>
-                <div className="mt-3">{recommendationSummary}</div>
+                <MetricCard label="Current case type" value={currentCaseType} />
               </div>
 
               <div className={SUBCARD}>
@@ -1609,7 +1755,7 @@ export default function FrailtyForwardApp() {
 
               <div>
                 <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
-                <div className="mt-3 grid gap-3">
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   {uncertainty.map((row) => (
                     <AssumptionReviewCard
                       key={row.case}
@@ -1622,8 +1768,38 @@ export default function FrailtyForwardApp() {
               </div>
 
               <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Top parameter drivers</h3>
+                <div className="mt-3">{sensitivityTopDrivers}</div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Sensitivity interpretation</h3>
+                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
+                  {sensitivityTakeaways.map((takeaway) => (
+                    <p key={takeaway}>{takeaway}</p>
+                  ))}
+                </div>
+              </div>
+
+              <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
                 <div className="mt-3">{comparatorSummary}</div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision readiness</h3>
+                <div className="mt-3 space-y-2.5 text-sm leading-6 text-slate-700">
+                  {decisionReadiness.validate_next.slice(0, 3).map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Confidence summary</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {confidenceSummary.summary_text}
+                </p>
               </div>
 
               <MobileAccordion title="Assumption review">
@@ -1728,7 +1904,7 @@ export default function FrailtyForwardApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
+            description="Review the current case, sensitivity, comparator view, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -1743,15 +1919,16 @@ export default function FrailtyForwardApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export report
+                    {isExporting ? "Exporting..." : "Export report"}
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                 <MetricCard
                   label="Admissions avoided"
                   value={formatNumber(results.admissions_avoided_total)}
@@ -1761,10 +1938,11 @@ export default function FrailtyForwardApp() {
                   value={formatNumber(results.bed_days_avoided_total)}
                 />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+                <MetricCard label="Current case type" value={currentCaseType} />
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Recommendation readout</h3>
+                <h3 className={SECTION_KICKER}>Decision recommendation</h3>
                 <div className="mt-3">{recommendationSummary}</div>
               </div>
 
@@ -1800,9 +1978,45 @@ export default function FrailtyForwardApp() {
                 </div>
               </div>
 
+              <div>
+                <h3 className={SECTION_KICKER}>Sensitivity</h3>
+                <div className="mt-3">
+                  <SensitivityChart sensitivityRows={sensitivityRows} />
+                </div>
+                <div className="mt-3">{sensitivityTopDrivers}</div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Sensitivity interpretation</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  {sensitivityTakeaways.map((takeaway) => (
+                    <MiniInsight key={takeaway} label="Takeaway" value={takeaway} />
+                  ))}
+                </div>
+              </div>
+
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
                 <div className="mt-3">{comparatorSummary}</div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <MiniInsight label="Uncertainty readout" value={uncertaintyRobustness} />
+                  <MiniInsight
+                    label="Interpretation summary"
+                    value={interpretation.what_model_suggests}
+                  />
+                  <MiniInsight
+                    label="First validation point"
+                    value={decisionReadiness.validate_next[0] ?? "Validate the highest-leverage local assumptions."}
+                  />
+                  <MiniInsight
+                    label="Confidence summary"
+                    value={confidenceSummary.summary_text}
+                  />
+                </div>
               </div>
 
               <div>
