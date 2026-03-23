@@ -102,3 +102,23 @@ export type AssumptionMeta = {
   source_type: string;
   confidence: "High confidence" | "Medium confidence" | "Low confidence";
 };
+
+export type SensitivityRow = {
+  variable: string;
+  label: string;
+  base_input: number;
+  low_input: number;
+  high_input: number;
+  base_outcome: number;
+  low_outcome: number;
+  high_outcome: number;
+  low_delta: number;
+  high_delta: number;
+  swing: number;
+};
+
+export type SensitivitySummary = {
+  rows: SensitivityRow[];
+  primary_driver: SensitivityRow | null;
+  top_drivers: SensitivityRow[];
+};
