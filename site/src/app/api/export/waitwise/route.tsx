@@ -5,7 +5,10 @@ import { WaitWiseReportDocument } from "@/components/pdf/waitwise-report";
 import { DEFAULT_INPUTS } from "@/lib/waitwise/defaults";
 import { runBoundedUncertainty, runModel } from "@/lib/waitwise/calculations";
 import { buildWaitWiseReportData } from "@/lib/waitwise/report";
-import { runParameterSensitivity } from "@/lib/waitwise/sensitivity";
+import {
+  runOneWaySensitivity,
+  SENSITIVITY_VARIABLES,
+} from "@/lib/waitwise/sensitivity";
 import type { Inputs } from "@/lib/waitwise/types";
 
 export async function POST(request: Request) {
@@ -19,7 +22,12 @@ export async function POST(request: Request) {
 
     const results = runModel(inputs);
     const uncertainty = runBoundedUncertainty(inputs);
-    const sensitivity = runParameterSensitivity(inputs);
+    const sensitivity = runOneWaySensitivity(
+      inputs,
+      SENSITIVITY_VARIABLES,
+      0.2,
+      "discounted_cost_per_qaly",
+    );
 
     const reportData = buildWaitWiseReportData({
       inputs,
