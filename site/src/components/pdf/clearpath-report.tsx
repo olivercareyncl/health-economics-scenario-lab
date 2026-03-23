@@ -293,6 +293,74 @@ const styles = StyleSheet.create({
     lineHeight: 1.4,
   },
 
+  uncertaintyGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 10,
+  },
+  uncertaintyCard: {
+    width: "31.5%",
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 92,
+  },
+  uncertaintyLabel: {
+    fontSize: 8.1,
+    color: "#64748b",
+    textTransform: "uppercase",
+    marginBottom: 4,
+    lineHeight: 1.2,
+  },
+  uncertaintyValue: {
+    fontSize: 10.8,
+    fontWeight: 700,
+    color: "#0f172a",
+    lineHeight: 1.25,
+    marginBottom: 4,
+  },
+  uncertaintyNote: {
+    fontSize: 8.2,
+    color: "#475569",
+    lineHeight: 1.35,
+  },
+
+  driverGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 8,
+  },
+  driverCard: {
+    width: "31.5%",
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 88,
+  },
+  driverLabel: {
+    fontSize: 8.1,
+    color: "#64748b",
+    textTransform: "uppercase",
+    marginBottom: 4,
+    lineHeight: 1.2,
+  },
+  driverValue: {
+    fontSize: 9.8,
+    fontWeight: 700,
+    color: "#0f172a",
+    lineHeight: 1.35,
+    marginBottom: 4,
+  },
+  driverNote: {
+    fontSize: 8.2,
+    color: "#475569",
+    lineHeight: 1.35,
+  },
+
   caveatBox: {
     marginTop: 12,
     padding: 9,
@@ -442,6 +510,42 @@ function renderAssumptionTable(
   );
 }
 
+function renderUncertaintyCards(
+  items: Array<{ label: string; value: string; note?: string }>,
+) {
+  return (
+    <View style={styles.uncertaintyGrid}>
+      {items.map((item) => (
+        <View key={item.label} style={styles.uncertaintyCard}>
+          <Text style={styles.uncertaintyLabel}>{cleanText(item.label)}</Text>
+          <Text style={styles.uncertaintyValue}>{cleanValue(item.value)}</Text>
+          {item.note ? (
+            <Text style={styles.uncertaintyNote}>{cleanText(item.note)}</Text>
+          ) : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function renderTopDriverCards(
+  items: Array<{ label: string; value: string; note?: string }>,
+) {
+  return (
+    <View style={styles.driverGrid}>
+      {items.map((item) => (
+        <View key={item.label} style={styles.driverCard}>
+          <Text style={styles.driverLabel}>{cleanText(item.label)}</Text>
+          <Text style={styles.driverValue}>{cleanValue(item.value)}</Text>
+          {item.note ? (
+            <Text style={styles.driverNote}>{cleanText(item.note)}</Text>
+          ) : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function RepeatingHeader({ module }: { module: string }) {
   return (
     <View style={styles.header} fixed>
@@ -575,19 +679,20 @@ export function ClearPathReportDocument({
           </Text>
 
           <View style={[styles.sectionTight, { marginTop: 10 }]}>
-            {renderInfoRows(
-              data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
-                label: row.label,
-                value: row.value,
-                note: row.note,
-              })),
-            )}
+            {renderUncertaintyCards(data.uncertaintyAndSensitivity.uncertaintyRows)}
           </View>
 
           <View style={[styles.sectionTight, { marginTop: 12 }]}>
             <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
             {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
           </View>
+
+          {data.uncertaintyAndSensitivity.topDriverRows?.length ? (
+            <View style={[styles.sectionTight, { marginTop: 12 }]}>
+              <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
+              {renderTopDriverCards(data.uncertaintyAndSensitivity.topDriverRows)}
+            </View>
+          ) : null}
         </View>
 
         <Footer />
