@@ -312,6 +312,41 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
   },
 
+  threeColGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  threeColCard: {
+    width: "31.5%",
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 98,
+  },
+  threeColLabel: {
+    fontSize: 8.2,
+    fontWeight: 700,
+    color: "#0f172a",
+    textTransform: "uppercase",
+    marginBottom: 4,
+    lineHeight: 1.25,
+  },
+  threeColValue: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#0f172a",
+    lineHeight: 1.3,
+    marginBottom: 4,
+  },
+  threeColNote: {
+    fontSize: 8.2,
+    color: "#475569",
+    lineHeight: 1.4,
+  },
+
   footer: {
     position: "absolute",
     left: 34,
@@ -344,7 +379,9 @@ function renderInfoRows(
       <View key={item.label} style={rowStyle}>
         <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
         <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
-        {item.note ? <Text style={styles.rowNote}>{cleanText(item.note)}</Text> : null}
+        {item.note ? (
+          <Text style={styles.rowNote}>{cleanText(item.note)}</Text>
+        ) : null}
       </View>
     );
   });
@@ -425,7 +462,9 @@ function renderAssumptionTable(
         return (
           <View key={`${row.assumption}-${index}`} style={rowStyle}>
             <View style={styles.colAssumption}>
-              <Text style={styles.tableCellLabel}>{cleanText(row.assumption)}</Text>
+              <Text style={styles.tableCellLabel}>
+                {cleanText(row.assumption)}
+              </Text>
             </View>
             <View style={styles.colValue}>
               <Text style={styles.tableCellValue}>{cleanValue(row.value)}</Text>
@@ -438,6 +477,24 @@ function renderAssumptionTable(
           </View>
         );
       })}
+    </View>
+  );
+}
+
+function renderThreeColCards(
+  items: Array<{ label: string; value: string; note?: string }>,
+) {
+  return (
+    <View style={styles.threeColGrid}>
+      {items.map((item) => (
+        <View key={item.label} style={styles.threeColCard}>
+          <Text style={styles.threeColLabel}>{cleanText(item.label)}</Text>
+          <Text style={styles.threeColValue}>{cleanValue(item.value)}</Text>
+          {item.note ? (
+            <Text style={styles.threeColNote}>{cleanText(item.note)}</Text>
+          ) : null}
+        </View>
+      ))}
     </View>
   );
 }
@@ -476,7 +533,7 @@ export function WaitWiseReportDocument({
 
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>WaitWise scenario brief</Text>
+            <Text style={styles.title}>Waiting list scenario brief</Text>
             <Text style={styles.subtitle}>
               Exploratory assessment of potential pathway and economic value
             </Text>
@@ -556,7 +613,9 @@ export function WaitWiseReportDocument({
           ])}
         </View>
 
-        <View style={styles.section}>
+        <View break />
+
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
           {renderMetricCards(data.headlineMetrics)}
         </View>
@@ -566,14 +625,14 @@ export function WaitWiseReportDocument({
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} break>
           <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
           <Text style={styles.paragraph}>
             {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
           </Text>
 
           <View style={[styles.sectionTight, { marginTop: 10 }]}>
-            {renderInfoRows(
+            {renderThreeColCards(
               data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
                 label: row.label,
                 value: row.value,
@@ -586,6 +645,13 @@ export function WaitWiseReportDocument({
             <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
             {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
           </View>
+
+          {data.uncertaintyAndSensitivity.topDrivers?.length ? (
+            <View style={[styles.sectionTight, { marginTop: 12 }]}>
+              <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
+              {renderThreeColCards(data.uncertaintyAndSensitivity.topDrivers)}
+            </View>
+          ) : null}
         </View>
 
         <Footer />
@@ -658,10 +724,7 @@ export function WaitWiseReportDocument({
           {data.assumptions.sections.map((section) => (
             <View
               key={section.title}
-              break={
-                section.title === "Escalation and pathway assumptions" ||
-                section.title === "Cost assumptions"
-              }
+              break={section.title === "Cost assumptions"}
             >
               <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
