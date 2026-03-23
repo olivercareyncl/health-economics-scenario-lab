@@ -119,6 +119,11 @@ function formatAssumptionValue(
   return formatter(value);
 }
 
+function formatSignedCurrency(value: number) {
+  const formatted = formatCurrency(Math.abs(value));
+  return value < 0 ? `-${formatted}` : formatted;
+}
+
 function getPresetPatch(
   preset: Exclude<ScenarioPreset, "Custom">,
 ): Partial<Inputs> {
@@ -289,7 +294,7 @@ function CurrencyTooltip({
         {payload.map((item, index) => (
           <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
             <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-            {formatCurrency(item.value ?? 0)}
+            {formatSignedCurrency(item.value ?? 0)}
           </p>
         ))}
       </div>
@@ -893,7 +898,7 @@ function SensitivityChart({
                     ? `Low case (${entry.payload?.lowValueLabel ?? "—"})`
                     : `High case (${entry.payload?.highValueLabel ?? "—"})`;
 
-                return [formatCurrency(scenarioIcer), label];
+                return [formatSignedCurrency(scenarioIcer), label];
               }}
               labelFormatter={(label) => String(label)}
             />
@@ -1060,7 +1065,9 @@ function ComparatorDeltaChart({
                     <p className="text-sm font-medium text-slate-900">{label}</p>
                     <p className="mt-2 text-sm text-slate-600">
                       <span className="font-medium text-slate-800">Delta:</span>{" "}
-                      {row?.isCurrency ? formatCurrency(value) : formatNumber(value)}
+                      {row?.isCurrency
+                        ? formatSignedCurrency(value)
+                        : formatNumber(value)}
                     </p>
                   </div>
                 );
@@ -1622,10 +1629,10 @@ export default function ClearPathApp() {
     <div className="grid gap-3 md:grid-cols-3">
       {sensitivity.top_drivers.slice(0, 3).map((driver, index) => (
         <AssumptionReviewCard
-          key={driver.parameter_key}
+          key={String(driver.parameter_key)}
           label={`Driver ${index + 1}`}
           value={driver.parameter_label}
-          note={`Largest ICER swing: ${formatCurrency(driver.max_abs_icer_change)}`}
+          note={`Largest ICER swing: ${formatSignedCurrency(driver.max_abs_icer_change)}`}
         />
       ))}
     </div>
@@ -1894,7 +1901,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, uncertainty, sensitivity, and practical next checks."
+            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -1918,15 +1925,6 @@ export default function ClearPathApp() {
                 </div>
               </div>
 
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Strategic summary</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
-                  {overviewSummary}
-                </p>
-              </div>
-
-              {recommendationPanel}
-
               <div className="grid grid-cols-1 gap-3">
                 <MetricCard label="Current case type" value={caseTypeLabel} />
                 <MetricCard
@@ -1941,23 +1939,8 @@ export default function ClearPathApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Threshold readout</h3>
-                <div className="mt-3 grid gap-3">
-                  <AssumptionReviewCard
-                    label="Max intervention cost per case"
-                    value={formatCurrency(results.break_even_cost_per_case)}
-                  />
-                  <AssumptionReviewCard
-                    label="Required late diagnosis reduction"
-                    value={formatPercent(
-                      results.break_even_reduction_in_late_diagnosis,
-                    )}
-                  />
-                  <AssumptionReviewCard
-                    label="Break-even horizon"
-                    value={results.break_even_horizon}
-                  />
-                </div>
+                <h3 className={SECTION_KICKER}>Recommendation summary</h3>
+                <div className="mt-3">{recommendationPanel}</div>
               </div>
 
               <div>
@@ -1980,10 +1963,29 @@ export default function ClearPathApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Confidence summary</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {confidenceSummary.summary_text}
-                </p>
+                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
+                <div className="mt-4">
+                  <SelectInput
+                    label="Compare current selection with"
+                    value={comparatorMode}
+                    options={COMPARATOR_OPTIONS}
+                    onChange={(value) => setComparatorMode(value)}
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  {comparatorDeltas.slice(0, 3).map((row) => (
+                    <AssumptionReviewCard
+                      key={row.label}
+                      label={row.label}
+                      value={
+                        row.isCurrency
+                          ? formatSignedCurrency(row.delta)
+                          : formatNumber(row.delta)
+                      }
+                    />
+                  ))}
+                </div>
               </div>
 
               <MobileAccordion title="Assumption review">
@@ -2057,7 +2059,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, uncertainty, sensitivity, scenarios, comparator view, and validation prompts."
+            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
             dense
           >
             <div className="space-y-5">
@@ -2081,16 +2083,7 @@ export default function ClearPathApp() {
                 </div>
               </div>
 
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Strategic summary</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
-                  {overviewSummary}
-                </p>
-              </div>
-
-              {recommendationPanel}
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 <MetricCard label="Current case type" value={caseTypeLabel} />
                 <MetricCard
                   label="Admissions avoided"
@@ -2104,28 +2097,13 @@ export default function ClearPathApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Threshold readout</h3>
-                <div className="mt-3 grid gap-3 md:grid-cols-3">
-                  <AssumptionReviewCard
-                    label="Max intervention cost per case"
-                    value={formatCurrency(results.break_even_cost_per_case)}
-                  />
-                  <AssumptionReviewCard
-                    label="Required late diagnosis reduction"
-                    value={formatPercent(
-                      results.break_even_reduction_in_late_diagnosis,
-                    )}
-                  />
-                  <AssumptionReviewCard
-                    label="Break-even horizon"
-                    value={results.break_even_horizon}
-                  />
-                </div>
+                <h3 className={SECTION_KICKER}>Recommendation summary</h3>
+                <div className="mt-3">{recommendationPanel}</div>
               </div>
 
               <div>
                 <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
-                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <div className="mt-3 grid gap-3 xl:grid-cols-3">
                   {uncertainty.map((row) => (
                     <AssumptionReviewCard
                       key={row.case}
@@ -2137,29 +2115,14 @@ export default function ClearPathApp() {
                 </div>
               </div>
 
-              <div>
-                <h3 className={SECTION_KICKER}>Sensitivity</h3>
-                <div className="mt-3">
-                  <SensitivityChart sensitivity={sensitivity} />
-                </div>
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
                 <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
-              <div>
-                <h3 className={SECTION_KICKER}>Scenario comparison</h3>
-                <div className="mt-3 grid gap-4 xl:grid-cols-2">
-                  <ScenarioNetCostChart scenarioRows={scenarioRows} />
-                  <ScenarioOutcomeChart scenarioRows={scenarioRows} />
-                </div>
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm leading-6 text-slate-700">
-                    {scenarioStrengths}
-                  </p>
-                </div>
-              </div>
-
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator</h3>
+                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
+
                 <div className="mt-4">
                   <SelectInput
                     label="Compare current selection with"
@@ -2169,14 +2132,14 @@ export default function ClearPathApp() {
                   />
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  {comparatorDeltas.slice(0, 3).map((row) => (
-                    <MetricCard
+                <div className="mt-4 grid gap-3 xl:grid-cols-4">
+                  {comparatorDeltas.map((row) => (
+                    <AssumptionReviewCard
                       key={row.label}
-                      label={`${row.label} delta`}
+                      label={row.label}
                       value={
                         row.isCurrency
-                          ? formatCurrency(row.delta)
+                          ? formatSignedCurrency(row.delta)
                           : formatNumber(row.delta)
                       }
                     />
@@ -2211,10 +2174,28 @@ export default function ClearPathApp() {
                 ) : null}
               </div>
 
+              <div>
+                <h3 className={SECTION_KICKER}>Assumption review</h3>
+                <div className="mt-3">{assumptionsReview}</div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Scenario comparison</h3>
+                <div className="mt-3 grid gap-4 xl:grid-cols-2">
+                  <ScenarioNetCostChart scenarioRows={scenarioRows} />
+                  <ScenarioOutcomeChart scenarioRows={scenarioRows} />
+                </div>
+                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm leading-6 text-slate-700">
+                    {scenarioStrengths}
+                  </p>
+                </div>
+              </div>
+
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Decision readout</h3>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <MiniInsight label="Current case type" value={caseTypeLabel} />
+                  <MiniInsight label="Overall summary" value={overviewSummary} />
                   <MiniInsight
                     label="Uncertainty readout"
                     value={uncertaintyRobustness}
@@ -2228,11 +2209,6 @@ export default function ClearPathApp() {
                     value={confidenceSummary.summary_text}
                   />
                 </div>
-              </div>
-
-              <div>
-                <h3 className={SECTION_KICKER}>Assumption review</h3>
-                <div className="mt-3">{assumptionsReview}</div>
               </div>
             </div>
           </SectionCard>
