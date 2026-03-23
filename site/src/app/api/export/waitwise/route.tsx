@@ -22,12 +22,19 @@ export async function POST(request: Request) {
 
     const results = runModel(inputs);
     const uncertainty = runBoundedUncertainty(inputs);
-    const sensitivity = runOneWaySensitivity(
+
+    const sensitivityRows = runOneWaySensitivity(
       inputs,
       SENSITIVITY_VARIABLES,
       0.2,
       "discounted_cost_per_qaly",
     );
+
+    const sensitivity = {
+      rows: sensitivityRows,
+      primary_driver: sensitivityRows[0] ?? null,
+      top_drivers: sensitivityRows.slice(0, 5),
+    };
 
     const reportData = buildWaitWiseReportData({
       inputs,
