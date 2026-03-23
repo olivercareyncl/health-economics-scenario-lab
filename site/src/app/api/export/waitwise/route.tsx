@@ -2,9 +2,13 @@ import { NextResponse } from "next/server";
 import { renderToStream } from "@react-pdf/renderer";
 
 import { WaitWiseReportDocument } from "@/components/pdf/waitwise-report";
-import { buildWaitWiseReportData } from "@/lib/waitwise/report";
 import { DEFAULT_INPUTS } from "@/lib/waitwise/defaults";
-import { runBoundedUncertainty, runModel } from "@/lib/waitwise/calculations";
+import {
+  runBoundedUncertainty,
+  runModel,
+  runParameterSensitivity,
+} from "@/lib/waitwise/calculations";
+import { buildWaitWiseReportData } from "@/lib/waitwise/report";
 import type { Inputs } from "@/lib/waitwise/types";
 
 export async function POST(request: Request) {
@@ -18,11 +22,13 @@ export async function POST(request: Request) {
 
     const results = runModel(inputs);
     const uncertainty = runBoundedUncertainty(inputs);
+    const sensitivity = runParameterSensitivity(inputs);
 
     const reportData = buildWaitWiseReportData({
       inputs,
       results,
       uncertainty,
+      sensitivity,
       exportedAt: new Date().toISOString(),
     });
 
@@ -34,6 +40,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="waitwise-report.pdf"',
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {
@@ -41,7 +48,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        error: "Failed to generate WaitWise PDF",
+        error: "Failed to generate WaitWise PDF report",
         detail:
           error instanceof Error ? error.message : "Unknown export error",
       },
