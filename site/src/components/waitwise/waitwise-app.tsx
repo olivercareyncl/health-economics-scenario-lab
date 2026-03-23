@@ -24,50 +24,51 @@ import {
   YAxis,
 } from "recharts";
 
-import { DEFAULT_INPUTS } from "@/lib/clearpath/defaults";
+import { DEFAULT_INPUTS } from "@/lib/waitwise/defaults";
 import {
   buildComparatorCase,
+  clampRate,
   runBoundedUncertainty,
   runModel,
-  runParameterSensitivity,
-} from "@/lib/clearpath/calculations";
+} from "@/lib/waitwise/calculations";
 import {
-  buildCasesShiftedChartData,
+  buildBacklogReductionChartData,
   buildComparatorDeltaChartData,
   buildCumulativeCostChartData,
   buildImpactBarChartData,
   buildScenarioNetCostChartData,
   buildScenarioOutcomeChartData,
+  buildTornadoChartData,
   buildUncertaintyChartData,
   compactCurrencyAxis,
-} from "@/lib/clearpath/charts";
+} from "@/lib/waitwise/charts";
 import {
   formatCurrency,
   formatNumber,
   formatPercent,
   formatRatio,
-} from "@/lib/clearpath/formatters";
+} from "@/lib/waitwise/formatters";
 import {
   ASSUMPTION_META,
   ASSUMPTION_ORDER,
   getAssumptionConfidenceSummary,
-} from "@/lib/clearpath/metadata";
+} from "@/lib/waitwise/metadata";
 import {
   COMPARATOR_OPTIONS,
   COSTING_METHOD_OPTIONS,
   SCENARIO_MAP,
   TARGETING_MODE_OPTIONS,
-} from "@/lib/clearpath/scenarios";
+} from "@/lib/waitwise/scenarios";
 import {
   assessUncertaintyRobustness,
   generateInterpretation,
   generateOverviewSummary,
-  generateOverallSignal,
   generateStructuredRecommendation,
   getDecisionStatus,
+  getMainDriverText,
   getNetCostLabel,
   summariseScenarioStrengths,
-} from "@/lib/clearpath/summaries";
+} from "@/lib/waitwise/summaries";
 import type {
   AssumptionSectionKey,
   ComparatorOption,
@@ -76,28 +77,61 @@ import type {
   MobileTab,
   ModelResults,
   ScenarioComparisonRow,
-  SensitivitySummary,
+  SensitivityRow,
   TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
-} from "@/lib/clearpath/types";
+} from "@/lib/waitwise/types";
 
 type ScenarioPreset =
   | "Base case"
+  | "Demand reduction focus"
+  | "Throughput boost"
+  | "Long-wait targeting"
   | "Lower-cost delivery"
-  | "Stronger shift"
-  | "Higher-risk targeting"
-  | "Tighter high-risk targeting"
+  | "Targeted and stronger effect"
   | "Custom";
+
+type SensitivitySummary = {
+  rows: SensitivityRow[];
+  primary_driver: SensitivityRow | null;
+  top_drivers: SensitivityRow[];
+};
 
 const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
   "Base case",
+  "Demand reduction focus",
+  "Throughput boost",
+  "Long-wait targeting",
   "Lower-cost delivery",
-  "Stronger shift",
-  "Higher-risk targeting",
-  "Tighter high-risk targeting",
+  "Targeted and stronger effect",
   "Custom",
 ] as const;
+
+const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
+  "demand_reduction_effect",
+  "throughput_increase_effect",
+  "escalation_reduction_effect",
+  "intervention_cost_per_patient_reached",
+  "monthly_escalation_rate",
+  "qaly_gain_per_escalation_avoided",
+  "cost_per_admission",
+  "cost_per_escalation",
+  "effect_decay_rate",
+  "participation_dropoff_rate",
+];
+
+const RATE_VARIABLES = new Set<keyof Inputs>([
+  "intervention_reach_rate",
+  "demand_reduction_effect",
+  "throughput_increase_effect",
+  "escalation_reduction_effect",
+  "effect_decay_rate",
+  "participation_dropoff_rate",
+  "monthly_escalation_rate",
+  "admission_rate_after_escalation",
+  "discount_rate",
+]);
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -112,88 +146,42 @@ function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function formatAssumptionValue(
-  formatter: (value: string | number) => string,
-  value: string | number,
-) {
-  return formatter(value);
+function normaliseCurrencyDisplay(value: string) {
+  return value.replace(/^£-/, "-£");
 }
 
-function formatSignedCurrency(value: number) {
-  const formatted = formatCurrency(Math.abs(value));
-  return value < 0 ? `-${formatted}` : formatted;
+function formatAssumptionValue(
+  formatter: (value: number | string) => string,
+  value: number | string,
+) {
+  return normaliseCurrencyDisplay(formatter(value));
 }
 
 function getPresetPatch(
   preset: Exclude<ScenarioPreset, "Custom">,
 ): Partial<Inputs> {
-  switch (preset) {
-    case "Base case":
-      return { ...DEFAULT_INPUTS };
-
-    case "Lower-cost delivery":
-      return {
-        intervention_cost_per_case_reached:
-          DEFAULT_INPUTS.intervention_cost_per_case_reached * 0.8,
-        intervention_reach_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.intervention_reach_rate * 1.02,
-        ),
-      };
-
-    case "Stronger shift":
-      return {
-        achievable_reduction_in_late_diagnosis: Math.min(
-          0.5,
-          DEFAULT_INPUTS.achievable_reduction_in_late_diagnosis * 1.3,
-        ),
-        effect_decay_rate: Math.max(0, DEFAULT_INPUTS.effect_decay_rate * 0.85),
-        participation_dropoff_rate: Math.max(
-          0,
-          DEFAULT_INPUTS.participation_dropoff_rate * 0.9,
-        ),
-      };
-
-    case "Higher-risk targeting":
-      return {
-        targeting_mode: "Higher-risk targeting",
-        current_late_diagnosis_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.current_late_diagnosis_rate * 1.05,
-        ),
-        intervention_reach_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.intervention_reach_rate * 1.03,
-        ),
-      };
-
-    case "Tighter high-risk targeting":
-      return {
-        targeting_mode: "Tighter high-risk targeting",
-        current_late_diagnosis_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.current_late_diagnosis_rate * 1.08,
-        ),
-        intervention_reach_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.intervention_reach_rate * 1.05,
-        ),
-      };
+  if (preset === "Base case") {
+    return { ...DEFAULT_INPUTS };
   }
+
+  const scenarioBuilder = SCENARIO_MAP[preset];
+  return scenarioBuilder ? scenarioBuilder(DEFAULT_INPUTS) : { ...DEFAULT_INPUTS };
 }
 
 function getPresetDescription(preset: ScenarioPreset) {
   switch (preset) {
     case "Base case":
       return "Neutral starting template for workshop use.";
+    case "Demand reduction focus":
+      return "Tests a case where value is driven more by lower inflow into the list.";
+    case "Throughput boost":
+      return "Tests a case where value is driven more by better operational throughput.";
+    case "Long-wait targeting":
+      return "Focuses value into patients waiting longest, where escalation risk is more concentrated.";
     case "Lower-cost delivery":
-      return "Tests whether value improves under leaner delivery.";
-    case "Stronger shift":
-      return "Tests a stronger and slightly more persistent shift to earlier diagnosis.";
-    case "Higher-risk targeting":
-      return "Focuses value into a more at-risk group with more concentrated later diagnosis.";
-    case "Tighter high-risk targeting":
-      return "Smaller, higher-opportunity group with tighter targeting logic.";
+      return "Tests whether leaner delivery materially improves the value case.";
+    case "Targeted and stronger effect":
+      return "Combines higher-risk targeting with somewhat stronger intervention effects.";
     case "Custom":
       return "Inputs have been edited away from a named template.";
   }
@@ -203,37 +191,108 @@ function deriveCaseType(preset: ScenarioPreset, inputs: Inputs): string {
   if (preset !== "Custom") {
     switch (preset) {
       case "Base case":
-        return "Broad earlier-diagnosis case";
+        return "Broad waiting-list case";
+      case "Demand reduction focus":
+        return "Demand-reduction case";
+      case "Throughput boost":
+        return "Throughput-boost case";
+      case "Long-wait targeting":
+        return "Long-wait targeting case";
       case "Lower-cost delivery":
         return "Lower-cost delivery case";
-      case "Stronger shift":
-        return "Stronger-shift case";
-      case "Higher-risk targeting":
-        return "Higher-risk targeting case";
-      case "Tighter high-risk targeting":
-        return "Tighter high-risk targeting case";
+      case "Targeted and stronger effect":
+        return "Targeted and stronger-effect case";
       default:
         return "Current scenario case";
     }
   }
 
-  if (inputs.targeting_mode === "Tighter high-risk targeting") {
-    return "Tighter high-risk targeting case";
+  if (inputs.targeting_mode === "Long-wait targeting") {
+    return "Long-wait targeting case";
   }
 
   if (inputs.targeting_mode === "Higher-risk targeting") {
     return "Higher-risk targeting case";
   }
 
-  if (inputs.intervention_cost_per_case_reached <= 320) {
+  if (
+    inputs.throughput_increase_effect >
+      inputs.demand_reduction_effect + 0.02 &&
+    inputs.throughput_increase_effect >
+      inputs.escalation_reduction_effect + 0.02
+  ) {
+    return "Throughput-boost case";
+  }
+
+  if (
+    inputs.demand_reduction_effect >
+      inputs.throughput_increase_effect + 0.02 &&
+    inputs.demand_reduction_effect >
+      inputs.escalation_reduction_effect + 0.02
+  ) {
+    return "Demand-reduction case";
+  }
+
+  if (inputs.intervention_cost_per_patient_reached <= 150) {
     return "Lower-cost delivery case";
   }
 
-  if (inputs.achievable_reduction_in_late_diagnosis >= 0.1) {
-    return "Stronger-shift case";
+  return "Broad waiting-list case";
+}
+
+function runOneWaySensitivity(
+  baseInputs: Inputs,
+  variables: Array<keyof Inputs>,
+  variation = 0.2,
+): SensitivityRow[] {
+  const baseResults = runModel(baseInputs);
+  const baseOutcome = Number(baseResults.discounted_cost_per_qaly);
+
+  const rows: SensitivityRow[] = [];
+
+  for (const variable of variables) {
+    const baseInput = Number(baseInputs[variable]);
+    const isRate = RATE_VARIABLES.has(variable);
+
+    let lowInput = baseInput * (1 - variation);
+    let highInput = baseInput * (1 + variation);
+
+    if (isRate) {
+      lowInput = clampRate(lowInput);
+      highInput = clampRate(highInput);
+    }
+
+    const lowInputs: Inputs = { ...baseInputs, [variable]: lowInput };
+    const highInputs: Inputs = { ...baseInputs, [variable]: highInput };
+
+    const lowOutcome = Number(runModel(lowInputs).discounted_cost_per_qaly);
+    const highOutcome = Number(runModel(highInputs).discounted_cost_per_qaly);
+
+    rows.push({
+      variable: String(variable),
+      label: ASSUMPTION_META[variable].label,
+      base_input: baseInput,
+      low_input: lowInput,
+      high_input: highInput,
+      base_outcome: baseOutcome,
+      low_outcome: lowOutcome,
+      high_outcome: highOutcome,
+      low_delta: lowOutcome - baseOutcome,
+      high_delta: highOutcome - baseOutcome,
+      swing: Math.abs(highOutcome - lowOutcome),
+    });
   }
 
-  return "Broad earlier-diagnosis case";
+  return rows.sort((a, b) => b.swing - a.swing);
+}
+
+function buildSensitivitySummary(rows: SensitivityRow[]): SensitivitySummary {
+  const topDrivers = rows.slice(0, 5);
+  return {
+    rows,
+    primary_driver: topDrivers[0] ?? null,
+    top_drivers: topDrivers,
+  };
 }
 
 function buildScenarioComparison(
@@ -250,11 +309,11 @@ function buildScenarioComparison(
       participation_dropoff_rate: baseInputs.participation_dropoff_rate,
       costing_method: baseInputs.costing_method,
       cost_effectiveness_threshold: baseInputs.cost_effectiveness_threshold,
-      cost_per_emergency_admission: baseInputs.cost_per_emergency_admission,
+      cost_per_escalation: baseInputs.cost_per_escalation,
+      cost_per_admission: baseInputs.cost_per_admission,
       cost_per_bed_day: baseInputs.cost_per_bed_day,
-      treatment_cost_early: baseInputs.treatment_cost_early,
-      treatment_cost_late: baseInputs.treatment_cost_late,
-      qaly_gain_per_case_shifted: baseInputs.qaly_gain_per_case_shifted,
+      qaly_gain_per_escalation_avoided:
+        baseInputs.qaly_gain_per_escalation_avoided,
     };
 
     const scenarioResults = runModel(scenarioInputs);
@@ -262,9 +321,8 @@ function buildScenarioComparison(
     return {
       scenario: scenarioName,
       targeting: scenarioInputs.targeting_mode,
-      cases_shifted_earlier: scenarioResults.cases_shifted_total,
-      emergency_presentations_avoided:
-        scenarioResults.emergency_presentations_avoided_total,
+      waiting_list_reduction: scenarioResults.waiting_list_reduction_total,
+      escalations_avoided: scenarioResults.escalations_avoided_total,
       programme_cost: scenarioResults.programme_cost_total,
       discounted_net_cost: scenarioResults.discounted_net_cost_total,
       discounted_cost_per_qaly: scenarioResults.discounted_cost_per_qaly,
@@ -294,7 +352,7 @@ function CurrencyTooltip({
         {payload.map((item, index) => (
           <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
             <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-            {formatSignedCurrency(item.value ?? 0)}
+            {normaliseCurrencyDisplay(formatCurrency(item.value ?? 0))}
           </p>
         ))}
       </div>
@@ -605,6 +663,49 @@ function SelectInput<T extends string>({
   );
 }
 
+function BacklogReductionChart({
+  yearlyResults,
+}: {
+  yearlyResults: YearlyResultRow[];
+}) {
+  const data = buildBacklogReductionChartData(yearlyResults);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Backlog reduction
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Annual waiting list reduction across the selected horizon.
+        </p>
+      </div>
+
+      <div className="h-52 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => formatNumber(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={56}
+            />
+            <Tooltip content={<NumberTooltip />} />
+            <Bar
+              dataKey="waitingListReduction"
+              name="Waiting list reduction"
+              radius={[8, 8, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 function CostVsSavingsChart({
   yearlyResults,
 }: {
@@ -660,63 +761,17 @@ function CostVsSavingsChart({
   );
 }
 
-function CasesShiftedChart({
-  yearlyResults,
-}: {
-  yearlyResults: YearlyResultRow[];
-}) {
-  const data = buildCasesShiftedChartData(yearlyResults);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Cases shifted earlier
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Annual shift from later to earlier diagnosis across the selected horizon.
-        </p>
-      </div>
-
-      <div className="h-52 w-full lg:h-64 xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => formatNumber(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={56}
-            />
-            <Tooltip content={<NumberTooltip />} />
-            <Bar
-              dataKey="casesShiftedEarlier"
-              name="Cases shifted earlier"
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
 function PathwayImpactChart({
   results,
 }: {
   results: ModelResults;
 }) {
-  const rawData = buildImpactBarChartData(results);
-  const data = rawData.map((row) => ({
+  const data = buildImpactBarChartData(results).map((row) => ({
     label: row.label,
     shortLabel:
-      row.label === "Emergency presentations avoided"
-        ? "Emergency presentations"
-        : row.label === "Cases shifted earlier"
-          ? "Cases shifted"
-          : row.label,
+      row.label === "Waiting list reduction"
+        ? "Backlog reduction"
+        : row.label,
     value: row.value,
   }));
 
@@ -836,14 +891,7 @@ function SensitivityChart({
 }: {
   sensitivity: SensitivitySummary;
 }) {
-  const data = sensitivity.top_drivers.map((row) => ({
-    parameter: row.parameter_label,
-    lowDelta: row.low_delta,
-    highDelta: row.high_delta,
-    baseIcer: row.base_icer,
-    lowValueLabel: row.low_value_label,
-    highValueLabel: row.high_value_label,
-  }));
+  const data = buildTornadoChartData(sensitivity.top_drivers);
 
   return (
     <div className={SUBCARD}>
@@ -873,34 +921,17 @@ function SensitivityChart({
             />
             <YAxis
               type="category"
-              dataKey="parameter"
+              dataKey="label"
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={190}
+              width={200}
             />
             <Tooltip
-              formatter={(
-                value: number,
-                name: string,
-                entry: {
-                  payload?: {
-                    baseIcer?: number;
-                    lowValueLabel?: string;
-                    highValueLabel?: string;
-                  };
-                },
-              ) => {
-                const baseIcer = entry.payload?.baseIcer ?? 0;
-                const scenarioIcer = baseIcer + value;
-                const label =
-                  name === "lowDelta"
-                    ? `Low case (${entry.payload?.lowValueLabel ?? "—"})`
-                    : `High case (${entry.payload?.highValueLabel ?? "—"})`;
-
-                return [formatSignedCurrency(scenarioIcer), label];
-              }}
-              labelFormatter={(label) => String(label)}
+              formatter={(value: number, name: string) => [
+                normaliseCurrencyDisplay(formatCurrency(value)),
+                name === "lowDelta" ? "Low case delta" : "High case delta",
+              ]}
             />
             <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
             <Legend
@@ -985,7 +1016,7 @@ function ScenarioOutcomeChart({
           Scenario pathway impact
         </h3>
         <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Cases shifted earlier and emergency presentations avoided by scenario.
+          Waiting list reduction and escalations avoided by scenario.
         </p>
       </div>
 
@@ -1004,13 +1035,13 @@ function ScenarioOutcomeChart({
             <Tooltip content={<NumberTooltip />} />
             <Legend wrapperStyle={{ fontSize: "12px" }} />
             <Bar
-              dataKey="casesShiftedEarlier"
-              name="Cases shifted earlier"
+              dataKey="waitingListReduction"
+              name="Waiting list reduction"
               radius={[8, 8, 0, 0]}
             />
             <Bar
-              dataKey="emergencyPresentationsAvoided"
-              name="Emergency presentations avoided"
+              dataKey="escalationsAvoided"
+              name="Escalations avoided"
               radius={[8, 8, 0, 0]}
             />
           </BarChart>
@@ -1066,7 +1097,7 @@ function ComparatorDeltaChart({
                     <p className="mt-2 text-sm text-slate-600">
                       <span className="font-medium text-slate-800">Delta:</span>{" "}
                       {row?.isCurrency
-                        ? formatSignedCurrency(value)
+                        ? normaliseCurrencyDisplay(formatCurrency(value))
                         : formatNumber(value)}
                     </p>
                   </div>
@@ -1081,27 +1112,33 @@ function ComparatorDeltaChart({
   );
 }
 
-export default function ClearPathApp() {
+export default function WaitWiseApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
   const [showComparatorDesktop, setShowComparatorDesktop] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [openSections, setOpenSections] = useState<
-    Record<AssumptionSectionKey, boolean>
-  >({
-    "advanced-pathway": false,
-    "advanced-costs": false,
-    "advanced-outcomes": false,
-  });
+  const [selectedPreset, setSelectedPreset] = useState<ScenarioPreset>("Base case");
   const [comparatorMode, setComparatorMode] = useState<ComparatorOption>(
     COMPARATOR_OPTIONS[0],
   );
-  const [presetMode, setPresetMode] = useState<ScenarioPreset>("Base case");
+  const [openSections, setOpenSections] = useState<
+    Record<AssumptionSectionKey, boolean>
+  >({
+    "advanced-delivery": false,
+    "advanced-pathway": false,
+    "advanced-economics": false,
+  });
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
-  const sensitivity = useMemo(() => runParameterSensitivity(inputs), [inputs]);
+  const sensitivityRows = useMemo(
+    () => runOneWaySensitivity(inputs, SENSITIVITY_VARIABLES),
+    [inputs],
+  );
+  const sensitivity = useMemo(
+    () => buildSensitivitySummary(sensitivityRows),
+    [sensitivityRows],
+  );
 
   const decisionStatus = useMemo(
     () => getDecisionStatus(results, inputs.cost_effectiveness_threshold),
@@ -1109,25 +1146,24 @@ export default function ClearPathApp() {
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
+  const currentCaseType = useMemo(
+    () => deriveCaseType(selectedPreset, inputs),
+    [selectedPreset, inputs],
+  );
 
   const interpretation = useMemo(
-    () => generateInterpretation(results, inputs, uncertainty, sensitivity),
-    [results, inputs, uncertainty, sensitivity],
+    () => generateInterpretation(results, inputs, uncertainty),
+    [results, inputs, uncertainty],
   );
 
   const overviewSummary = useMemo(
-    () => generateOverviewSummary(results, inputs, uncertainty, sensitivity),
-    [results, inputs, uncertainty, sensitivity],
-  );
-
-  const overallSignal = useMemo(
-    () => generateOverallSignal(results, inputs, uncertainty),
+    () => generateOverviewSummary(results, inputs, uncertainty),
     [results, inputs, uncertainty],
   );
 
   const structuredRecommendation = useMemo(
-    () => generateStructuredRecommendation(inputs, results, uncertainty, sensitivity),
-    [inputs, results, uncertainty, sensitivity],
+    () => generateStructuredRecommendation(inputs, results, uncertainty),
+    [inputs, results, uncertainty],
   );
 
   const uncertaintyRobustness = useMemo(
@@ -1165,18 +1201,9 @@ export default function ClearPathApp() {
 
   const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
 
-  const caseTypeLabel = useMemo(
-    () => deriveCaseType(presetMode, inputs),
-    [presetMode, inputs],
-  );
-
-  const presetDescription = getPresetDescription(presetMode);
-
   const handleExportReport = async () => {
     try {
-      setIsExporting(true);
-
-      const response = await fetch("/api/export/clearpath", {
+      const response = await fetch("/api/export/waitwise", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1185,49 +1212,44 @@ export default function ClearPathApp() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate report");
+        throw new Error("Failed to export report");
       }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "clearpath-report.pdf";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "waitwise-report.pdf";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error(error);
-      alert("Failed to export report.");
-    } finally {
-      setIsExporting(false);
+      console.error("WaitWise export failed:", error);
     }
   };
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
-    setPresetMode("Custom");
+    setSelectedPreset("Custom");
   };
 
   const applyPreset = (preset: Exclude<ScenarioPreset, "Custom">) => {
     const patch = getPresetPatch(preset);
     setInputs((prev) => ({ ...prev, ...patch }));
-    setPresetMode(preset);
+    setSelectedPreset(preset);
   };
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
-    setPresetMode("Base case");
+    setSelectedPreset("Base case");
     setComparatorMode(COMPARATOR_OPTIONS[0]);
     setShowAdvancedMobile(false);
     setShowComparatorDesktop(false);
     setOpenSections({
+      "advanced-delivery": false,
       "advanced-pathway": false,
-      "advanced-costs": false,
-      "advanced-outcomes": false,
+      "advanced-economics": false,
     });
   };
 
@@ -1238,20 +1260,24 @@ export default function ClearPathApp() {
   const summaryMetrics = (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <MetricCard
-        label="Cases shifted earlier"
-        value={formatNumber(results.cases_shifted_total)}
+        label="Waiting list reduction"
+        value={formatNumber(results.waiting_list_reduction_total)}
       />
       <MetricCard
-        label="Emergency presentations avoided"
-        value={formatNumber(results.emergency_presentations_avoided_total)}
+        label="Escalations avoided"
+        value={formatNumber(results.escalations_avoided_total)}
       />
       <MetricCard
         label={netCostLabel}
-        value={formatCurrency(Math.abs(results.discounted_net_cost_total))}
+        value={normaliseCurrencyDisplay(
+          formatCurrency(Math.abs(results.discounted_net_cost_total)),
+        )}
       />
       <MetricCard
         label="Discounted cost per QALY"
-        value={formatCurrency(results.discounted_cost_per_qaly)}
+        value={normaliseCurrencyDisplay(
+          formatCurrency(results.discounted_cost_per_qaly),
+        )}
         tone="strong"
       />
     </div>
@@ -1261,20 +1287,25 @@ export default function ClearPathApp() {
     <div className="grid gap-3 xl:grid-cols-3">
       <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
       <MetricCard
-        label="Max intervention cost per case"
-        value={formatCurrency(results.break_even_cost_per_case)}
+        label="Max intervention cost per patient"
+        value={normaliseCurrencyDisplay(
+          formatCurrency(results.break_even_cost_per_patient),
+        )}
       />
       <MetricCard
-        label="Required late diagnosis reduction"
-        value={formatPercent(results.break_even_reduction_in_late_diagnosis)}
+        label="Required intervention effect"
+        value={formatPercent(results.break_even_effect_required)}
       />
     </div>
   );
 
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-4">
-      <MiniInsight label="Overall signal" value={overallSignal} />
-      <MiniInsight label="Current case type" value={caseTypeLabel} />
+      <MiniInsight label="Current case type" value={currentCaseType} />
+      <MiniInsight
+        label="What this suggests"
+        value={interpretation.what_model_suggests}
+      />
       <MiniInsight
         label="Main dependency"
         value={structuredRecommendation.main_dependency}
@@ -1301,7 +1332,7 @@ export default function ClearPathApp() {
         value={structuredRecommendation.main_fragility}
       />
       <MiniInsight
-        label="What to validate next"
+        label="Validate next"
         value={structuredRecommendation.best_next_step}
       />
     </div>
@@ -1309,7 +1340,7 @@ export default function ClearPathApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Use a starting template first, then fine-tune burden, shift, reach, and delivery assumptions.
+      Use a starting template first, then fine-tune reach, intervention effects, and delivery cost.
     </div>
   );
 
@@ -1318,7 +1349,7 @@ export default function ClearPathApp() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,320px)_1fr] xl:items-end">
         <SelectInput
           label="Starting template"
-          value={presetMode}
+          value={selectedPreset}
           options={SCENARIO_PRESET_OPTIONS}
           onChange={(value) => {
             if (value === "Custom") return;
@@ -1331,8 +1362,8 @@ export default function ClearPathApp() {
             Template summary
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-700">
-            <span className="font-medium text-slate-900">{presetMode}:</span>{" "}
-            {presetDescription}
+            <span className="font-medium text-slate-900">{selectedPreset}:</span>{" "}
+            {getPresetDescription(selectedPreset)}
           </p>
         </div>
       </div>
@@ -1340,78 +1371,100 @@ export default function ClearPathApp() {
   );
 
   const assumptionsQuick = (
-    <div className="grid gap-4 lg:gap-3 xl:grid-cols-2">
-      <SelectInput
-        label="Targeting mode"
-        value={inputs.targeting_mode}
-        options={TARGETING_MODE_OPTIONS as readonly TargetingMode[]}
-        onChange={(value) => updateInput("targeting_mode", value)}
-        help="Changes concentration of later diagnosis and achievable shift."
-      />
+    <div className="space-y-5">
+      {presetControl}
 
-      <NumberInput
-        label="Annual incident cases"
-        value={inputs.annual_incident_cases}
-        onChange={(value) => updateInput("annual_incident_cases", value)}
-        step={50}
-        help="Baseline flow of cases entering the pathway."
-      />
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Core setup
+        </p>
+        <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-2">
+          <SelectInput
+            label="Targeting mode"
+            value={inputs.targeting_mode}
+            options={TARGETING_MODE_OPTIONS as readonly TargetingMode[]}
+            onChange={(value) => updateInput("targeting_mode", value)}
+            help="Changes where value is concentrated."
+          />
+          <NumberInput
+            label="Starting waiting list"
+            value={inputs.starting_waiting_list_size}
+            onChange={(value) => updateInput("starting_waiting_list_size", value)}
+            step={100}
+            help="Baseline backlog size."
+          />
+          <SliderInput
+            label="Intervention reach"
+            value={inputs.intervention_reach_rate}
+            onChange={(value) => updateInput("intervention_reach_rate", value)}
+            min={0}
+            max={1}
+            step={0.01}
+            display={formatPercent(inputs.intervention_reach_rate)}
+            help="Share of the list effectively reached."
+          />
+          <NumberInput
+            label="Intervention cost per patient"
+            value={inputs.intervention_cost_per_patient_reached}
+            onChange={(value) =>
+              updateInput("intervention_cost_per_patient_reached", value)
+            }
+            step={10}
+            help="Main delivery cost lever."
+          />
+          <div className="xl:col-span-2">
+            <SelectInput
+              label="Time horizon"
+              value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
+              options={["1", "3", "5"]}
+              onChange={(value) =>
+                updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
+              }
+              help="Longer horizons often improve the economic picture."
+            />
+          </div>
+        </div>
+      </div>
 
-      <SliderInput
-        label="Current late diagnosis rate"
-        value={inputs.current_late_diagnosis_rate}
-        onChange={(value) => updateInput("current_late_diagnosis_rate", value)}
-        min={0}
-        max={1}
-        step={0.01}
-        display={formatPercent(inputs.current_late_diagnosis_rate)}
-        help="Share of cases currently diagnosed later."
-      />
-
-      <SliderInput
-        label="Achievable reduction in late diagnosis"
-        value={inputs.achievable_reduction_in_late_diagnosis}
-        onChange={(value) =>
-          updateInput("achievable_reduction_in_late_diagnosis", value)
-        }
-        min={0}
-        max={0.5}
-        step={0.01}
-        display={formatPercent(inputs.achievable_reduction_in_late_diagnosis)}
-        help="Absolute reduction achieved by the intervention."
-      />
-
-      <SliderInput
-        label="Intervention reach"
-        value={inputs.intervention_reach_rate}
-        onChange={(value) => updateInput("intervention_reach_rate", value)}
-        min={0}
-        max={1}
-        step={0.01}
-        display={formatPercent(inputs.intervention_reach_rate)}
-        help="Share of cases effectively reached."
-      />
-
-      <NumberInput
-        label="Intervention cost per case"
-        value={inputs.intervention_cost_per_case_reached}
-        onChange={(value) =>
-          updateInput("intervention_cost_per_case_reached", value)
-        }
-        step={25}
-        help="Main delivery cost lever."
-      />
-
-      <div className="xl:col-span-2">
-        <SelectInput
-          label="Time horizon"
-          value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
-          options={["1", "3", "5"]}
-          onChange={(value) =>
-            updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
-          }
-          help="Longer horizons often improve the economic picture."
-        />
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Intervention effects
+        </p>
+        <p className="mt-1.5 text-xs leading-5 text-slate-600">
+          These are the main levers shaping where value comes from.
+        </p>
+        <div className="mt-3 grid gap-4">
+          <SliderInput
+            label="Demand reduction effect"
+            value={inputs.demand_reduction_effect}
+            onChange={(value) => updateInput("demand_reduction_effect", value)}
+            min={0}
+            max={0.5}
+            step={0.01}
+            display={formatPercent(inputs.demand_reduction_effect)}
+            help="Lowers new demand entering the list."
+          />
+          <SliderInput
+            label="Throughput increase effect"
+            value={inputs.throughput_increase_effect}
+            onChange={(value) => updateInput("throughput_increase_effect", value)}
+            min={0}
+            max={0.5}
+            step={0.01}
+            display={formatPercent(inputs.throughput_increase_effect)}
+            help="Raises the number of patients processed."
+          />
+          <SliderInput
+            label="Escalation reduction effect"
+            value={inputs.escalation_reduction_effect}
+            onChange={(value) => updateInput("escalation_reduction_effect", value)}
+            min={0}
+            max={0.5}
+            step={0.01}
+            display={formatPercent(inputs.escalation_reduction_effect)}
+            help="Reduces deterioration while patients wait."
+          />
+        </div>
       </div>
     </div>
   );
@@ -1421,159 +1474,35 @@ export default function ClearPathApp() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         <button
           type="button"
-          onClick={() => toggleSection("advanced-pathway")}
+          onClick={() => toggleSection("advanced-delivery")}
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
-          aria-expanded={openSections["advanced-pathway"]}
+          aria-expanded={openSections["advanced-delivery"]}
         >
           <span className="text-sm font-medium text-slate-900">
-            Pathway assumptions
+            Flow and persistence
           </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
-              openSections["advanced-pathway"] && "rotate-180",
+              openSections["advanced-delivery"] && "rotate-180",
             )}
           />
         </button>
 
-        {openSections["advanced-pathway"] ? (
+        {openSections["advanced-delivery"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
-              <SliderInput
-                label="Emergency presentation rate, later diagnosis"
-                value={inputs.late_emergency_presentation_rate}
-                onChange={(value) =>
-                  updateInput("late_emergency_presentation_rate", value)
-                }
-                min={0}
-                max={1}
-                step={0.01}
-                display={formatPercent(inputs.late_emergency_presentation_rate)}
-              />
-              <SliderInput
-                label="Emergency presentation rate, earlier diagnosis"
-                value={inputs.early_emergency_presentation_rate}
-                onChange={(value) =>
-                  updateInput("early_emergency_presentation_rate", value)
-                }
-                min={0}
-                max={1}
-                step={0.01}
-                display={formatPercent(inputs.early_emergency_presentation_rate)}
-              />
               <NumberInput
-                label="Admissions per emergency presentation"
-                value={inputs.admissions_per_emergency_presentation}
-                onChange={(value) =>
-                  updateInput("admissions_per_emergency_presentation", value)
-                }
-                step={0.1}
-              />
-              <NumberInput
-                label="Average length of stay"
-                value={inputs.average_length_of_stay}
-                onChange={(value) => updateInput("average_length_of_stay", value)}
-                step={0.5}
-              />
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <button
-          type="button"
-          onClick={() => toggleSection("advanced-costs")}
-          className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
-          aria-expanded={openSections["advanced-costs"]}
-        >
-          <span className="text-sm font-medium text-slate-900">
-            Cost assumptions
-          </span>
-          <ChevronDown
-            className={cx(
-              "h-4 w-4 text-slate-500 transition-transform",
-              openSections["advanced-costs"] && "rotate-180",
-            )}
-          />
-        </button>
-
-        {openSections["advanced-costs"] ? (
-          <div className="border-t border-slate-200 p-4">
-            <div className="grid gap-4 xl:grid-cols-2">
-              <SelectInput
-                label="Costing method"
-                value={inputs.costing_method}
-                options={COSTING_METHOD_OPTIONS as readonly CostingMethod[]}
-                onChange={(value) => updateInput("costing_method", value)}
-              />
-              <NumberInput
-                label="Cost-effectiveness threshold"
-                value={inputs.cost_effectiveness_threshold}
-                onChange={(value) =>
-                  updateInput("cost_effectiveness_threshold", value)
-                }
-                step={1000}
-              />
-              <NumberInput
-                label="Treatment cost, earlier diagnosis"
-                value={inputs.treatment_cost_early}
-                onChange={(value) => updateInput("treatment_cost_early", value)}
-                step={500}
-              />
-              <NumberInput
-                label="Treatment cost, later diagnosis"
-                value={inputs.treatment_cost_late}
-                onChange={(value) => updateInput("treatment_cost_late", value)}
-                step={500}
-              />
-              <NumberInput
-                label="Cost per emergency admission"
-                value={inputs.cost_per_emergency_admission}
-                onChange={(value) =>
-                  updateInput("cost_per_emergency_admission", value)
-                }
-                step={100}
-              />
-              <NumberInput
-                label="Cost per bed day"
-                value={inputs.cost_per_bed_day}
-                onChange={(value) => updateInput("cost_per_bed_day", value)}
+                label="Monthly inflow"
+                value={inputs.monthly_inflow}
+                onChange={(value) => updateInput("monthly_inflow", value)}
                 step={25}
               />
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <button
-          type="button"
-          onClick={() => toggleSection("advanced-outcomes")}
-          className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
-          aria-expanded={openSections["advanced-outcomes"]}
-        >
-          <span className="text-sm font-medium text-slate-900">
-            Outcome and persistence assumptions
-          </span>
-          <ChevronDown
-            className={cx(
-              "h-4 w-4 text-slate-500 transition-transform",
-              openSections["advanced-outcomes"] && "rotate-180",
-            )}
-          />
-        </button>
-
-        {openSections["advanced-outcomes"] ? (
-          <div className="border-t border-slate-200 p-4">
-            <div className="grid gap-4 xl:grid-cols-2">
               <NumberInput
-                label="QALY gain per case shifted earlier"
-                value={inputs.qaly_gain_per_case_shifted}
-                onChange={(value) =>
-                  updateInput("qaly_gain_per_case_shifted", value)
-                }
-                step={0.01}
+                label="Baseline throughput"
+                value={inputs.baseline_monthly_throughput}
+                onChange={(value) => updateInput("baseline_monthly_throughput", value)}
+                step={25}
               />
               <SliderInput
                 label="Annual effect decay"
@@ -1594,6 +1523,124 @@ export default function ClearPathApp() {
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.participation_dropoff_rate)}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <button
+          type="button"
+          onClick={() => toggleSection("advanced-pathway")}
+          className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
+          aria-expanded={openSections["advanced-pathway"]}
+        >
+          <span className="text-sm font-medium text-slate-900">
+            Escalation and pathway
+          </span>
+          <ChevronDown
+            className={cx(
+              "h-4 w-4 text-slate-500 transition-transform",
+              openSections["advanced-pathway"] && "rotate-180",
+            )}
+          />
+        </button>
+
+        {openSections["advanced-pathway"] ? (
+          <div className="border-t border-slate-200 p-4">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <SliderInput
+                label="Monthly escalation rate"
+                value={inputs.monthly_escalation_rate}
+                onChange={(value) => updateInput("monthly_escalation_rate", value)}
+                min={0}
+                max={0.2}
+                step={0.005}
+                display={formatPercent(inputs.monthly_escalation_rate)}
+              />
+              <SliderInput
+                label="Admission rate after escalation"
+                value={inputs.admission_rate_after_escalation}
+                onChange={(value) =>
+                  updateInput("admission_rate_after_escalation", value)
+                }
+                min={0}
+                max={1}
+                step={0.01}
+                display={formatPercent(inputs.admission_rate_after_escalation)}
+              />
+              <NumberInput
+                label="Average length of stay"
+                value={inputs.average_length_of_stay}
+                onChange={(value) => updateInput("average_length_of_stay", value)}
+                step={0.5}
+              />
+              <NumberInput
+                label="QALY gain per escalation avoided"
+                value={inputs.qaly_gain_per_escalation_avoided}
+                onChange={(value) =>
+                  updateInput("qaly_gain_per_escalation_avoided", value)
+                }
+                step={0.01}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <button
+          type="button"
+          onClick={() => toggleSection("advanced-economics")}
+          className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
+          aria-expanded={openSections["advanced-economics"]}
+        >
+          <span className="text-sm font-medium text-slate-900">
+            Cost inputs and threshold
+          </span>
+          <ChevronDown
+            className={cx(
+              "h-4 w-4 text-slate-500 transition-transform",
+              openSections["advanced-economics"] && "rotate-180",
+            )}
+          />
+        </button>
+
+        {openSections["advanced-economics"] ? (
+          <div className="border-t border-slate-200 p-4">
+            <div className="grid gap-4 xl:grid-cols-2">
+              <SelectInput
+                label="Costing method"
+                value={inputs.costing_method}
+                options={COSTING_METHOD_OPTIONS as readonly CostingMethod[]}
+                onChange={(value) => updateInput("costing_method", value)}
+              />
+              <NumberInput
+                label="Cost-effectiveness threshold"
+                value={inputs.cost_effectiveness_threshold}
+                onChange={(value) =>
+                  updateInput("cost_effectiveness_threshold", value)
+                }
+                step={1000}
+              />
+              <NumberInput
+                label="Cost per escalation"
+                value={inputs.cost_per_escalation}
+                onChange={(value) => updateInput("cost_per_escalation", value)}
+                step={50}
+              />
+              <NumberInput
+                label="Cost per admission"
+                value={inputs.cost_per_admission}
+                onChange={(value) => updateInput("cost_per_admission", value)}
+                step={100}
+              />
+              <NumberInput
+                label="Cost per bed day"
+                value={inputs.cost_per_bed_day}
+                onChange={(value) => updateInput("cost_per_bed_day", value)}
+                step={25}
               />
               <NumberInput
                 label="Discount rate"
@@ -1617,7 +1664,7 @@ export default function ClearPathApp() {
           <AssumptionReviewCard
             key={key}
             label={meta.label}
-            value={formatAssumptionValue(meta.formatter, rawValue as string | number)}
+            value={formatAssumptionValue(meta.formatter, rawValue)}
             note={`${meta.source_type} · ${meta.confidence}`}
           />
         );
@@ -1629,10 +1676,12 @@ export default function ClearPathApp() {
     <div className="grid gap-3 md:grid-cols-3">
       {sensitivity.top_drivers.slice(0, 3).map((driver, index) => (
         <AssumptionReviewCard
-          key={String(driver.parameter_key)}
+          key={`${driver.variable}-${index}`}
           label={`Driver ${index + 1}`}
-          value={driver.parameter_label}
-          note={`Largest ICER swing: ${formatSignedCurrency(driver.max_abs_icer_change)}`}
+          value={driver.label}
+          note={`Largest ICER swing: ${normaliseCurrencyDisplay(
+            formatCurrency(driver.swing),
+          )}`}
         />
       ))}
     </div>
@@ -1642,8 +1691,8 @@ export default function ClearPathApp() {
     <div className="space-y-4 lg:hidden">
       <CostVsSavingsChart yearlyResults={results.yearly_results} />
 
-      <MobileAccordion title="Cases shifted earlier">
-        <CasesShiftedChart yearlyResults={results.yearly_results} />
+      <MobileAccordion title="Backlog reduction">
+        <BacklogReductionChart yearlyResults={results.yearly_results} />
       </MobileAccordion>
 
       <MobileAccordion title="Pathway impact">
@@ -1666,7 +1715,7 @@ export default function ClearPathApp() {
   const desktopCharts = (
     <div className="space-y-4">
       <CostVsSavingsChart yearlyResults={results.yearly_results} />
-      <CasesShiftedChart yearlyResults={results.yearly_results} />
+      <BacklogReductionChart yearlyResults={results.yearly_results} />
       <PathwayImpactChart results={results} />
       <BoundedUncertaintyChart
         uncertaintyRows={uncertainty}
@@ -1683,26 +1732,25 @@ export default function ClearPathApp() {
           Health Economics Scenario Lab
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 md:text-4xl">
-          ClearPath
+          WaitWise
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
-          Explore how earlier diagnosis might reduce emergency pathway pressure,
-          admissions, bed use, and economic burden under different assumptions.
+          Explore how waiting list interventions might reduce backlog pressure,
+          escalations, admissions, bed use, and economic burden under different assumptions.
         </p>
       </div>
 
       <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
         <p className="text-sm font-medium text-slate-900">Scope and use note</p>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          ClearPath is an exploratory scenario sandbox. It is designed to test how
-          changes in late diagnosis burden, achievable shift, reach, persistence,
-          and delivery cost might influence potential pathway and economic value.
-          It does not replace formal evaluation, forecasting, or business case
-          development.
+          WaitWise is an exploratory scenario sandbox. It is designed to test how
+          changes in demand, throughput, escalation risk, persistence, and delivery
+          cost might influence potential operational and economic value. It does not
+          replace formal evaluation, forecasting, or business case development.
         </p>
       </div>
 
-      <div className="sticky top-[72px] z-20 mb-4 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
+      <div className="sticky top-[72px] z-20 mb-5 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
         <div className="grid grid-cols-3 items-start gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -1715,13 +1763,15 @@ export default function ClearPathApp() {
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">{netCostLabel}</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+              {normaliseCurrencyDisplay(
+                formatCurrency(Math.abs(results.discounted_net_cost_total)),
+              )}
             </p>
           </div>
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">Cost/QALY</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {formatCurrency(results.discounted_cost_per_qaly)}
+              {normaliseCurrencyDisplay(formatCurrency(results.discounted_cost_per_qaly))}
             </p>
           </div>
         </div>
@@ -1731,11 +1781,10 @@ export default function ClearPathApp() {
         <button
           type="button"
           onClick={handleExportReport}
-          disabled={isExporting}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
         >
           <FileDown className="h-4 w-4" />
-          {isExporting ? "Exporting..." : "Export report"}
+          Export report
         </button>
       </div>
 
@@ -1752,24 +1801,24 @@ export default function ClearPathApp() {
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">{netCostLabel}</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+              {normaliseCurrencyDisplay(
+                formatCurrency(Math.abs(results.discounted_net_cost_total)),
+              )}
             </p>
           </div>
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">Cost/QALY</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {formatCurrency(results.discounted_cost_per_qaly)}
+              {normaliseCurrencyDisplay(formatCurrency(results.discounted_cost_per_qaly))}
             </p>
           </div>
-
           <button
             type="button"
             onClick={handleExportReport}
-            disabled={isExporting}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <FileDown className="h-4 w-4" />
-            {isExporting ? "Exporting..." : "Export report"}
+            Export report
           </button>
         </div>
       </div>
@@ -1862,8 +1911,6 @@ export default function ClearPathApp() {
             dense
           >
             <div className="space-y-4">
-              {presetControl}
-
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1901,7 +1948,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
+            description="Review the current case, uncertainty, sensitivity, and practical next checks."
             dense
           >
             <div className="space-y-5">
@@ -1916,26 +1963,25 @@ export default function ClearPathApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    disabled={isExporting}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   >
                     <FileDown className="h-4 w-4" />
-                    {isExporting ? "Exporting..." : "Export report"}
+                    Export report
                   </button>
                 </div>
               </div>
 
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Strategic summary</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {overviewSummary}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 gap-3">
-                <MetricCard label="Current case type" value={caseTypeLabel} />
-                <MetricCard
-                  label="Admissions avoided"
-                  value={formatNumber(results.admissions_avoided_total)}
-                />
-                <MetricCard
-                  label="Bed days avoided"
-                  value={formatNumber(results.bed_days_avoided_total)}
-                />
+                <MetricCard label="Current case type" value={currentCaseType} />
                 <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+                <MetricCard label="Break-even horizon" value={results.break_even_horizon} />
               </div>
 
               <div className={SUBCARD}>
@@ -1950,8 +1996,10 @@ export default function ClearPathApp() {
                     <AssumptionReviewCard
                       key={row.case}
                       label={row.case}
-                      value={formatCurrency(row.discounted_cost_per_qaly)}
-                      note={`${formatNumber(row.cases_shifted_total)} cases shifted earlier · ${row.decision_status}`}
+                      value={normaliseCurrencyDisplay(
+                        formatCurrency(row.discounted_cost_per_qaly),
+                      )}
+                      note={`${formatNumber(row.waiting_list_reduction_total)} waiting list reduction · ${row.decision_status}`}
                     />
                   ))}
                 </div>
@@ -1963,29 +2011,10 @@ export default function ClearPathApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-                <div className="mt-4">
-                  <SelectInput
-                    label="Compare current selection with"
-                    value={comparatorMode}
-                    options={COMPARATOR_OPTIONS}
-                    onChange={(value) => setComparatorMode(value)}
-                  />
-                </div>
-
-                <div className="mt-4 grid gap-3">
-                  {comparatorDeltas.slice(0, 3).map((row) => (
-                    <AssumptionReviewCard
-                      key={row.label}
-                      label={row.label}
-                      value={
-                        row.isCurrency
-                          ? formatSignedCurrency(row.delta)
-                          : formatNumber(row.delta)
-                      }
-                    />
-                  ))}
-                </div>
+                <h3 className={SECTION_KICKER}>Confidence summary</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {String(confidenceSummary.summary_text)}
+                </p>
               </div>
 
               <MobileAccordion title="Assumption review">
@@ -2036,8 +2065,6 @@ export default function ClearPathApp() {
             dense
           >
             <div className="space-y-4">
-              {presetControl}
-
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -2059,7 +2086,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
+            description="Review the current case, uncertainty, sensitivity, scenarios, comparator view, and validation prompts."
             dense
           >
             <div className="space-y-5">
@@ -2074,17 +2101,23 @@ export default function ClearPathApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    disabled={isExporting}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   >
                     <FileDown className="h-4 w-4" />
-                    {isExporting ? "Exporting..." : "Export report"}
+                    Export report
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                <MetricCard label="Current case type" value={caseTypeLabel} />
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Strategic summary</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {overviewSummary}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                <MetricCard label="Current case type" value={currentCaseType} />
                 <MetricCard
                   label="Admissions avoided"
                   value={formatNumber(results.admissions_avoided_total)}
@@ -2103,26 +2136,43 @@ export default function ClearPathApp() {
 
               <div>
                 <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
-                <div className="mt-3 grid gap-3 xl:grid-cols-3">
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
                   {uncertainty.map((row) => (
                     <AssumptionReviewCard
                       key={row.case}
                       label={row.case}
-                      value={formatCurrency(row.discounted_cost_per_qaly)}
-                      note={`${formatNumber(row.cases_shifted_total)} cases shifted earlier · ${row.decision_status}`}
+                      value={normaliseCurrencyDisplay(
+                        formatCurrency(row.discounted_cost_per_qaly),
+                      )}
+                      note={`${formatNumber(row.waiting_list_reduction_total)} waiting list reduction · ${row.decision_status}`}
                     />
                   ))}
                 </div>
               </div>
 
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
+              <div>
+                <h3 className={SECTION_KICKER}>Sensitivity</h3>
+                <div className="mt-3">
+                  <SensitivityChart sensitivity={sensitivity} />
+                </div>
                 <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
+              <div>
+                <h3 className={SECTION_KICKER}>Scenario comparison</h3>
+                <div className="mt-3 grid gap-4 xl:grid-cols-2">
+                  <ScenarioNetCostChart scenarioRows={scenarioRows} />
+                  <ScenarioOutcomeChart scenarioRows={scenarioRows} />
+                </div>
+                <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-sm leading-6 text-slate-700">
+                    {scenarioStrengths}
+                  </p>
+                </div>
+              </div>
 
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Comparator</h3>
                 <div className="mt-4">
                   <SelectInput
                     label="Compare current selection with"
@@ -2132,14 +2182,14 @@ export default function ClearPathApp() {
                   />
                 </div>
 
-                <div className="mt-4 grid gap-3 xl:grid-cols-4">
-                  {comparatorDeltas.map((row) => (
-                    <AssumptionReviewCard
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {comparatorDeltas.slice(0, 3).map((row) => (
+                    <MetricCard
                       key={row.label}
-                      label={row.label}
+                      label={`${row.label} delta`}
                       value={
                         row.isCurrency
-                          ? formatSignedCurrency(row.delta)
+                          ? normaliseCurrencyDisplay(formatCurrency(row.delta))
                           : formatNumber(row.delta)
                       }
                     />
@@ -2174,28 +2224,10 @@ export default function ClearPathApp() {
                 ) : null}
               </div>
 
-              <div>
-                <h3 className={SECTION_KICKER}>Assumption review</h3>
-                <div className="mt-3">{assumptionsReview}</div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Scenario comparison</h3>
-                <div className="mt-3 grid gap-4 xl:grid-cols-2">
-                  <ScenarioNetCostChart scenarioRows={scenarioRows} />
-                  <ScenarioOutcomeChart scenarioRows={scenarioRows} />
-                </div>
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm leading-6 text-slate-700">
-                    {scenarioStrengths}
-                  </p>
-                </div>
-              </div>
-
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Decision readout</h3>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <MiniInsight label="Overall summary" value={overviewSummary} />
+                  <MiniInsight label="Current case type" value={currentCaseType} />
                   <MiniInsight
                     label="Uncertainty readout"
                     value={uncertaintyRobustness}
@@ -2206,9 +2238,14 @@ export default function ClearPathApp() {
                   />
                   <MiniInsight
                     label="Confidence summary"
-                    value={confidenceSummary.summary_text}
+                    value={String(confidenceSummary.summary_text)}
                   />
                 </div>
+              </div>
+
+              <div>
+                <h3 className={SECTION_KICKER}>Assumption review</h3>
+                <div className="mt-3">{assumptionsReview}</div>
               </div>
             </div>
           </SectionCard>
