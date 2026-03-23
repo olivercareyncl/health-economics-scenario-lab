@@ -568,7 +568,7 @@ export function ClearPathReportDocument({
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} break>
           <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
           <Text style={styles.paragraph}>
             {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
