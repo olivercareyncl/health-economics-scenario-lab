@@ -89,6 +89,11 @@ export type ClearPathReportData = {
       note: string;
     }>;
     sensitivitySummary: string[];
+    topDriverRows: Array<{
+      label: string;
+      value: string;
+      note: string;
+    }>;
   };
   scenarioAndComparator: {
     scenarioSummary: string;
@@ -376,9 +381,20 @@ function buildSensitivitySummary(
     ? `In practical terms, the case is strongest when ${first}, ${second}, and ${third} remain favourable under locally credible assumptions.`
     : `In practical terms, the case is strongest when ${first} remains favourable under locally credible assumptions.`;
 
-  const line3 = `The case weakens fastest when the assumed pathway shift is smaller than expected, delivery becomes more expensive, or downstream emergency and inpatient benefits are less pronounced locally.`;
+  const line3 =
+    "The case weakens fastest when the assumed pathway shift is smaller than expected, delivery becomes more expensive, or downstream emergency and inpatient benefits are less pronounced locally.";
 
   return [line1, line2, line3];
+}
+
+function buildTopDriverRows(
+  sensitivity: SensitivitySummary,
+): Array<{ label: string; value: string; note: string }> {
+  return sensitivity.top_drivers.slice(0, 3).map((driver, index) => ({
+    label: `Driver ${index + 1}`,
+    value: driver.parameter_label,
+    note: `Largest ICER swing: ${formatCurrency(driver.max_abs_icer_change)}`,
+  }));
 }
 
 export function buildClearPathReportData({
@@ -423,6 +439,7 @@ export function buildClearPathReportData({
   );
 
   const sensitivitySummary = buildSensitivitySummary(sensitivity);
+  const topDriverRows = buildTopDriverRows(sensitivity);
 
   return {
     cover: {
@@ -506,6 +523,7 @@ export function buildClearPathReportData({
         note: `${formatNumber(row.cases_shifted_total)} cases shifted earlier · ${row.decision_status}`,
       })),
       sensitivitySummary,
+      topDriverRows,
     },
 
     scenarioAndComparator: {
