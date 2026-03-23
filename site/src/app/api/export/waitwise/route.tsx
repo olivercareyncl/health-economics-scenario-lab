@@ -3,12 +3,9 @@ import { renderToStream } from "@react-pdf/renderer";
 
 import { WaitWiseReportDocument } from "@/components/pdf/waitwise-report";
 import { DEFAULT_INPUTS } from "@/lib/waitwise/defaults";
-import {
-  runBoundedUncertainty,
-  runModel,
-  runParameterSensitivity,
-} from "@/lib/waitwise/calculations";
+import { runBoundedUncertainty, runModel } from "@/lib/waitwise/calculations";
 import { buildWaitWiseReportData } from "@/lib/waitwise/report";
+import { runParameterSensitivity } from "@/lib/waitwise/sensitivity";
 import type { Inputs } from "@/lib/waitwise/types";
 
 export async function POST(request: Request) {
