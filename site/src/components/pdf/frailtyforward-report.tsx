@@ -33,10 +33,7 @@ function normaliseCurrencyString(value: string) {
 }
 
 function cleanText(value: string) {
-  return value
-    .replace(/\bis appears\b/gi, "appears")
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.replace(/\bis appears\b/gi, "appears").replace(/\s+/g, " ").trim();
 }
 
 function cleanValue(value: string) {
@@ -312,6 +309,20 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
   },
 
+  threeColGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  threeColCard: {
+    width: "31.5%",
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    padding: 9,
+    minHeight: 78,
+  },
+
   footer: {
     position: "absolute",
     left: 34,
@@ -442,6 +453,22 @@ function renderAssumptionTable(
   );
 }
 
+function renderThreeColumnCards(
+  items: Array<{ label: string; value: string; note?: string }>,
+) {
+  return (
+    <View style={styles.threeColGrid}>
+      {items.map((item) => (
+        <View key={item.label} style={styles.threeColCard}>
+          <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
+          <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
+          {item.note ? <Text style={styles.rowNote}>{cleanText(item.note)}</Text> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function RepeatingHeader({ module }: { module: string }) {
   return (
     <View style={styles.header} fixed>
@@ -478,7 +505,7 @@ export function FrailtyForwardReportDocument({
 
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>FrailtyForward scenario brief</Text>
+            <Text style={styles.title}>Frailty support scenario brief</Text>
             <Text style={styles.subtitle}>
               Exploratory assessment of potential pathway and economic value
             </Text>
@@ -558,7 +585,9 @@ export function FrailtyForwardReportDocument({
           ])}
         </View>
 
-        <View style={styles.section}>
+        <View break />
+
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
           {renderMetricCards(data.headlineMetrics)}
         </View>
@@ -568,28 +597,6 @@ export function FrailtyForwardReportDocument({
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
-          <Text style={styles.paragraph}>
-            {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
-          </Text>
-
-          <View style={[styles.sectionTight, { marginTop: 10 }]}>
-            {renderInfoRows(
-              data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
-                label: row.label,
-                value: row.value,
-                note: row.note,
-              })),
-            )}
-          </View>
-
-          <View style={[styles.sectionTight, { marginTop: 12 }]}>
-            <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
-            {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
-          </View>
-        </View>
-
         <Footer />
       </Page>
 
@@ -597,27 +604,26 @@ export function FrailtyForwardReportDocument({
         <RepeatingHeader module={data.cover.module} />
 
         <View style={styles.sectionTight}>
-          <Text style={styles.sectionTitle}>
-            Scenario and comparator interpretation
+          <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
+          <Text style={styles.paragraph}>
+            {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
           </Text>
-          {renderInfoRows([
-            {
-              label: "Scenario readout",
-              value: data.scenarioAndComparator.scenarioSummary,
-            },
-            {
-              label: "Strongest scenario pattern",
-              value: data.scenarioAndComparator.strongestScenario,
-            },
-            {
-              label: "Weakest or most fragile scenario pattern",
-              value: data.scenarioAndComparator.weakestScenario,
-            },
-            {
-              label: "Comparator implication",
-              value: data.scenarioAndComparator.comparatorSummary,
-            },
-          ])}
+
+          <View style={[styles.sectionTight, { marginTop: 10 }]}>
+            {renderThreeColumnCards(
+              data.uncertaintyAndSensitivity.uncertaintyRows,
+            )}
+          </View>
+
+          <View style={[styles.sectionTight, { marginTop: 14 }]}>
+            <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
+            {renderThreeColumnCards(data.uncertaintyAndSensitivity.topDrivers)}
+          </View>
+
+          <View style={[styles.sectionTight, { marginTop: 12 }]}>
+            <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
+            {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -632,15 +638,14 @@ export function FrailtyForwardReportDocument({
               value: data.decisionImplications.mainEvidenceGap,
             },
             {
+              label: "Current case position",
+              value: data.decisionImplications.currentCasePosition,
+            },
+            {
               label: "Recommended next move",
               value: data.decisionImplications.recommendedNextMove,
             },
           ])}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Local evidence needed next</Text>
-          {renderBulletBlocks(data.localEvidenceNeeded.items)}
         </View>
 
         <Footer />
@@ -650,6 +655,11 @@ export function FrailtyForwardReportDocument({
         <RepeatingHeader module={data.cover.module} />
 
         <View style={styles.sectionTight}>
+          <Text style={styles.sectionTitle}>Local evidence needed next</Text>
+          {renderBulletBlocks(data.localEvidenceNeeded.items)}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Assumptions</Text>
           <Text style={styles.assumptionsIntro}>
             The following assumptions define the current scenario run. They shape
@@ -660,10 +670,7 @@ export function FrailtyForwardReportDocument({
           {data.assumptions.sections.map((section) => (
             <View
               key={section.title}
-              break={
-                section.title === "Effect and persistence assumptions" ||
-                section.title === "Cost assumptions"
-              }
+              break={section.title === "Support effect assumptions"}
             >
               <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
