@@ -5,6 +5,8 @@ import {
   formatRatio,
 } from "@/lib/frailtyforward/formatters";
 import {
+  assessUncertaintyRobustness,
+  generateDecisionReadiness,
   generateInterpretation,
   getDecisionStatus,
   getMainDriverText,
@@ -13,6 +15,7 @@ import {
 import type {
   Inputs,
   ModelResults,
+  SensitivitySummary,
   UncertaintyRow,
 } from "@/lib/frailtyforward/types";
 
@@ -20,6 +23,7 @@ type BuildReportArgs = {
   inputs: Inputs;
   results: ModelResults;
   uncertainty: UncertaintyRow[];
+  sensitivity: SensitivitySummary;
   exportedAt: string;
 };
 
@@ -40,6 +44,7 @@ type ReportTableSection = {
 };
 
 type ReportNarrativeBlock = {
+  title?: string;
   body: string;
 };
 
@@ -49,6 +54,8 @@ export type FrailtyForwardReportData = {
     subtitle: string;
     module: string;
     generatedAt: string;
+    decisionStatus: string;
+    signalLabel: string;
   };
   purpose: {
     question: string;
@@ -69,6 +76,9 @@ export type FrailtyForwardReportData = {
   };
   headlineMetrics: ReportMetric[];
   plainEnglishResults: ReportNarrativeBlock[];
+  assumptions: {
+    sections: ReportTableSection[];
+  };
   uncertaintyAndSensitivity: {
     robustnessSummary: string;
     uncertaintyRows: Array<{
@@ -77,26 +87,23 @@ export type FrailtyForwardReportData = {
       note: string;
     }>;
     sensitivitySummary: string[];
-  };
-  scenarioAndComparator: {
-    scenarioSummary: string;
-    strongestScenario: string;
-    weakestScenario: string;
-    comparatorSummary: string;
+    topDrivers: Array<{
+      label: string;
+      value: string;
+      note: string;
+    }>;
   };
   decisionImplications: {
     progressionView: string;
     mainEvidenceGap: string;
+    currentCasePosition: string;
     recommendedNextMove: string;
-  };
-  localEvidenceNeeded: {
-    items: string[];
-  };
-  assumptions: {
-    sections: ReportTableSection[];
   };
   caveats: {
     useNote: string;
+  };
+  localEvidenceNeeded: {
+    items: string[];
   };
 };
 
@@ -124,54 +131,31 @@ function getSignalLabel(decisionStatus: string): string {
   return "Weak";
 }
 
-function buildOverview(
+function buildPurposeQuestion(inputs: Inputs): string {
+  return `This run explores whether a proactive frailty support model in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly reduce crisis events, non-elective admissions, bed use, and economic burden over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
+}
+
+function buildScenarioSection(
   inputs: Inputs,
-  results: ModelResults,
-  decisionStatus: string,
-) {
-  const netCostLabel = getNetCostLabel(results);
-  const signalLabel = getSignalLabel(decisionStatus).toLowerCase();
-
-  return `This frailty support scenario suggests that the programme could stabilise ${formatNumber(
-    results.patients_stabilised_total,
-  )} patients, avoid ${formatNumber(
-    results.crisis_events_avoided_total,
-  )} crisis events, and avoid ${formatNumber(
-    results.admissions_avoided_total,
-  )} admissions over ${inputs.time_horizon_years} year${
-    inputs.time_horizon_years === 1 ? "" : "s"
-  }. ${netCostLabel} is estimated at ${formatCurrency(
-    Math.abs(results.discounted_net_cost_total),
-  )}, with a discounted cost per QALY of ${formatCurrency(
-    results.discounted_cost_per_qaly,
-  )}. Taken together, this points to a ${signalLabel} early-stage value case rather than a definitive conclusion.`;
-}
-
-function buildPurposeQuestion(inputs: Inputs) {
-  return `This run explores whether earlier frailty support in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly reduce crisis events, non-elective admissions, bed use, and downstream economic burden over ${inputs.time_horizon_years} year${
-    inputs.time_horizon_years === 1 ? "" : "s"
-  } under the current assumptions.`;
-}
-
-function buildScenarioSection(inputs: Inputs) {
+): FrailtyForwardReportData["scenario"] {
   return {
-    interventionConcept: `The scenario tests an earlier frailty support approach that aims to reach ${formatPercent(
+    interventionConcept: `The scenario tests a frailty support model that aims to reach ${formatPercent(
       inputs.implementation_reach_rate,
-    )} of the eligible frailty cohort at a delivery cost of ${formatCurrency(
-      inputs.support_cost_per_patient,
-    )} per patient. In practice, this could represent proactive frailty identification, multidisciplinary review, care coordination, community support, or targeted admission avoidance activity.`,
+    )} of the relevant cohort and reduce crisis events by ${formatPercent(
+      inputs.reduction_in_crisis_event_rate,
+    )}, admissions by ${formatPercent(
+      inputs.reduction_in_admission_rate,
+    )}, and length of stay by ${formatPercent(
+      inputs.reduction_in_length_of_stay,
+    )}. In practice, this could represent proactive case management, enhanced multidisciplinary support, community geriatric input, virtual ward style support, or structured monitoring for frail patients.`,
     targetPopulationLogic: `The model assumes an annual frailty cohort of ${formatNumber(
       inputs.annual_frailty_cohort_size,
-    )} with a baseline crisis event rate of ${formatPercent(
+    )}, with a baseline crisis event rate of ${formatPercent(
       inputs.baseline_crisis_event_rate,
-    )}, a baseline non-elective admission rate of ${formatPercent(
+    )} and a baseline non-elective admission rate of ${formatPercent(
       inputs.baseline_non_elective_admission_rate,
-    )}, and a current average length of stay of ${Number(
-      inputs.current_average_length_of_stay,
-    ).toFixed(Number.isInteger(inputs.current_average_length_of_stay) ? 0 : 1)} days. Targeting mode is set to ${
-      inputs.targeting_mode
-    }, which affects how concentrated risk is assumed to be in the supported population.`,
-    economicMechanism: `The value mechanism runs through stabilising patients earlier, reducing crisis events, lowering non-elective admissions, shortening bed use, and improving quality of life. The model then assesses whether these benefits are sufficient to offset delivery cost and produce an acceptable cost per QALY at the selected threshold.`,
+    )}. The targeting mode is set to ${inputs.targeting_mode}, which changes how concentrated the opportunity is assumed to be within the population and therefore how much practical benefit might be achievable.`,
+    economicMechanism: `The value mechanism runs through fewer crisis events, fewer admissions, lower bed use, and health gain from stabilising frail patients earlier and more effectively. The model then assesses whether these effects are enough to offset programme costs and produce an acceptable cost per QALY against the selected threshold.`,
   };
 }
 
@@ -179,9 +163,8 @@ function buildPlainEnglishResults(
   inputs: Inputs,
   results: ModelResults,
   decisionStatus: string,
-) {
-  const netCostLabel = getNetCostLabel(results);
-
+  netCostLabel: string,
+): ReportNarrativeBlock[] {
   return [
     {
       body: `Under the current assumptions, the model stabilises ${formatNumber(
@@ -191,7 +174,7 @@ function buildPlainEnglishResults(
       }.`,
     },
     {
-      body: `That support effect is associated with ${formatNumber(
+      body: `That is associated with ${formatNumber(
         results.crisis_events_avoided_total,
       )} fewer crisis events, ${formatNumber(
         results.admissions_avoided_total,
@@ -209,30 +192,14 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body:
-        decisionStatus === "Above current threshold"
-          ? "Taken together, the current signal remains above the current threshold. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to reach, effect size, persistence, and delivery cost."
-          : `Taken together, the current signal remains ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to reach, effect size, persistence, and delivery cost.`,
+      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the signal remains sensitive to support effect, delivery cost, targeting quality, and persistence over time.`,
     },
   ];
 }
 
-function buildFragilityText(uncertainty: UncertaintyRow[]) {
-  const low = uncertainty.find((row) => row.case === "Low");
-  const high = uncertainty.find((row) => row.case === "High");
-
-  if (!low || !high) {
-    return "The result should be interpreted cautiously because bounded uncertainty has not been fully characterised.";
-  }
-
-  if (low.decision_status === high.decision_status) {
-    return "The bounded uncertainty range is directionally stable, but the case still depends on realistic assumptions about reach, persistence, and delivery cost.";
-  }
-
-  return "The bounded uncertainty range crosses decision boundaries, so modest changes in effect size, reach, or delivery realism could change the conclusion.";
-}
-
-function buildAssumptionSections(inputs: Inputs): ReportTableSection[] {
+function buildAssumptionSections(
+  inputs: Inputs,
+): FrailtyForwardReportData["assumptions"]["sections"] {
   return [
     {
       title: "Core programme assumptions",
@@ -241,25 +208,25 @@ function buildAssumptionSections(inputs: Inputs): ReportTableSection[] {
           assumption: "Targeting mode",
           value: inputs.targeting_mode,
           rationale:
-            "Determines how concentrated need is assumed to be in the supported population and therefore how much value may be captured through targeting.",
+            "Determines how concentrated the opportunity is assumed to be and therefore how plausible it is to achieve meaningful benefit in the selected subgroup.",
         },
         {
           assumption: "Annual frailty cohort size",
           value: formatNumber(inputs.annual_frailty_cohort_size),
           rationale:
-            "Defines the scale of the eligible population and directly affects the size of any operational and economic effect.",
+            "Sets the scale of the addressable population and directly affects the size of any pathway and economic effect.",
         },
         {
           assumption: "Implementation reach",
           value: formatPercent(inputs.implementation_reach_rate),
           rationale:
-            "Controls how much of the frailty cohort is effectively reached by the programme in practice.",
+            "Controls how much of the relevant cohort is effectively reached by the support model in practice.",
         },
         {
           assumption: "Support cost per patient",
           value: formatCurrency(inputs.support_cost_per_patient),
           rationale:
-            "Acts as the main delivery cost lever and strongly influences whether the case remains economically attractive.",
+            "Acts as the main programme cost lever and has a direct influence on whether the case remains economically attractive.",
         },
         {
           assumption: "Time horizon",
@@ -267,7 +234,7 @@ function buildAssumptionSections(inputs: Inputs): ReportTableSection[] {
             inputs.time_horizon_years === 1 ? "" : "s"
           }`,
           rationale:
-            "Longer horizons allow more downstream benefit to accumulate and can materially improve the case.",
+            "Longer horizons allow more downstream pathway and economic effects to accumulate, which can materially improve the observed value case.",
         },
       ],
     },
@@ -278,85 +245,61 @@ function buildAssumptionSections(inputs: Inputs): ReportTableSection[] {
           assumption: "Baseline crisis event rate",
           value: formatPercent(inputs.baseline_crisis_event_rate),
           rationale:
-            "Sets the baseline deterioration burden and therefore the headroom for preventable crisis activity.",
+            "Captures the baseline level of deterioration or crisis risk and therefore the potential for avoidable pressure.",
         },
         {
           assumption: "Baseline non-elective admission rate",
           value: formatPercent(inputs.baseline_non_elective_admission_rate),
           rationale:
-            "Defines the baseline acute admission burden associated with frailty.",
+            "Defines the starting acute admission burden within the selected cohort.",
         },
         {
           assumption: "Current average length of stay",
-          value: `${Number(inputs.current_average_length_of_stay).toFixed(
+          value: `${inputs.current_average_length_of_stay.toFixed(
             Number.isInteger(inputs.current_average_length_of_stay) ? 0 : 1,
           )} days`,
           rationale:
-            "Converts avoided admissions and shorter stays into avoided bed use and operational pressure.",
+            "Converts avoided admissions and stay reductions into avoided bed use and associated hospital pressure.",
         },
       ],
     },
     {
-      title: "Effect and persistence assumptions",
+      title: "Support effect assumptions",
       rows: [
         {
           assumption: "Reduction in crisis event rate",
           value: formatPercent(inputs.reduction_in_crisis_event_rate),
           rationale:
-            "This is one of the main value levers because it determines how much crisis activity is reduced through proactive support.",
+            "One of the main effect levers because it determines how much deterioration is prevented under the support model.",
         },
         {
           assumption: "Reduction in admission rate",
           value: formatPercent(inputs.reduction_in_admission_rate),
           rationale:
-            "Translates stabilisation and crisis prevention into reduced acute hospital activity.",
+            "Defines how much admission pressure is reduced among those reached by the intervention.",
         },
         {
           assumption: "Reduction in length of stay",
           value: formatPercent(inputs.reduction_in_length_of_stay),
           rationale:
-            "Determines the scale of bed-day reduction once admissions occur.",
+            "Determines how much inpatient bed use is reduced when admissions still occur.",
         },
         {
-          assumption: "Annual effect decay",
-          value: formatPercent(inputs.effect_decay_rate),
+          assumption: "QALY gain per patient stabilised",
+          value: inputs.qaly_gain_per_patient_stabilised.toFixed(2),
           rationale:
-            "Represents how quickly programme benefit weakens over time.",
-        },
-        {
-          assumption: "Annual participation drop-off",
-          value: formatPercent(inputs.participation_dropoff_rate),
-          rationale:
-            "Represents erosion in effective reach or continued engagement over time.",
+            "Determines how much health gain is attributed to each patient meaningfully stabilised and therefore strongly influences cost per QALY.",
         },
       ],
     },
     {
-      title: "Cost assumptions",
+      title: "Cost and persistence assumptions",
       rows: [
         {
           assumption: "Costing method",
           value: inputs.costing_method,
           rationale:
-            "Defines how avoided activity is monetised and therefore changes the scale of reported savings.",
-        },
-        {
-          assumption: "Cost per crisis event",
-          value: formatCurrency(inputs.cost_per_crisis_event),
-          rationale:
-            "Monetises avoided crisis activity and is an important contributor to gross savings.",
-        },
-        {
-          assumption: "Cost per admission",
-          value: formatCurrency(inputs.cost_per_admission),
-          rationale:
-            "Monetises avoided non-elective admissions and is a core driver of economic value.",
-        },
-        {
-          assumption: "Cost per bed day",
-          value: formatCurrency(inputs.cost_per_bed_day),
-          rationale:
-            "Monetises avoided bed use and reflects the operational value of shorter or avoided stays.",
+            "Defines the cost framing applied in the model and therefore influences how downstream savings are represented.",
         },
         {
           assumption: "Cost-effectiveness threshold",
@@ -364,20 +307,39 @@ function buildAssumptionSections(inputs: Inputs): ReportTableSection[] {
           rationale:
             "Provides the benchmark used to judge whether the modelled cost per QALY looks acceptable.",
         },
-      ],
-    },
-    {
-      title: "Outcome assumptions",
-      rows: [
         {
-          assumption: "QALY gain per patient stabilised",
-          value: inputs.qaly_gain_per_patient_stabilised.toFixed(3),
+          assumption: "Cost per crisis event",
+          value: formatCurrency(inputs.cost_per_crisis_event),
           rationale:
-            "Determines how much health gain is attributed to each patient stabilised and therefore strongly influences cost per QALY.",
+            "Monetises avoided deterioration or crisis events and is therefore a contributor to gross savings.",
+        },
+        {
+          assumption: "Cost per admission",
+          value: formatCurrency(inputs.cost_per_admission),
+          rationale:
+            "Monetises avoided acute admissions and is therefore a key contributor to gross savings.",
+        },
+        {
+          assumption: "Cost per bed day",
+          value: formatCurrency(inputs.cost_per_bed_day),
+          rationale:
+            "Monetises avoided bed use and reflects the downstream resource effect of frailty support.",
+        },
+        {
+          assumption: "Annual effect decay",
+          value: formatPercent(inputs.effect_decay_rate),
+          rationale:
+            "Represents how much of the intervention effect is assumed to fade over time.",
+        },
+        {
+          assumption: "Annual participation drop-off",
+          value: formatPercent(inputs.participation_dropoff_rate),
+          rationale:
+            "Captures erosion in engagement or programme coverage across the selected time horizon.",
         },
         {
           assumption: "Discount rate",
-          value: `${(inputs.discount_rate * 100).toFixed(1)}%`,
+          value: formatPercent(inputs.discount_rate),
           rationale:
             "Adjusts future costs and benefits into present-value terms and therefore affects the reported economic signal.",
         },
@@ -386,42 +348,113 @@ function buildAssumptionSections(inputs: Inputs): ReportTableSection[] {
   ];
 }
 
+function buildSensitivitySummary(sensitivity: SensitivitySummary): string[] {
+  const top = sensitivity.top_drivers;
+
+  if (top.length === 0) {
+    return [
+      "One-way sensitivity has not highlighted a clear set of dominant drivers yet.",
+      "At this stage, the case should still be treated as dependent on the core assumptions around support effect, reach, and delivery cost.",
+      "Further validation should focus on the most decision-relevant pathway and cost inputs locally.",
+    ];
+  }
+
+  const first = top[0]?.label.toLowerCase();
+  const second = top[1]?.label.toLowerCase();
+  const third = top[2]?.label.toLowerCase();
+
+  const line1 = second
+    ? `The result is most sensitive to ${first} and ${second}.`
+    : `The result is most sensitive to ${first}.`;
+
+  const line2 = third
+    ? `In practical terms, the case is strongest when ${first}, ${second}, and ${third} remain favourable under locally credible assumptions.`
+    : `In practical terms, the case is strongest when ${first} remains favourable under locally credible assumptions.`;
+
+  const line3 =
+    "The case weakens fastest when support effect is smaller than expected, delivery becomes more expensive, or crisis and admission benefits are less pronounced locally.";
+
+  return [line1, line2, line3];
+}
+
+function buildTopDriverRows(sensitivity: SensitivitySummary) {
+  return sensitivity.top_drivers.slice(0, 3).map((driver, index) => ({
+    label: `Driver ${index + 1}`,
+    value: driver.label,
+    note: `Largest ICER swing: ${formatCurrency(driver.swing)}`,
+  }));
+}
+
 export function buildFrailtyForwardReportData({
   inputs,
   results,
   uncertainty,
+  sensitivity,
   exportedAt,
 }: BuildReportArgs): FrailtyForwardReportData {
+  const interpretation = generateInterpretation(results, inputs, uncertainty);
+  const decisionReadiness = generateDecisionReadiness(inputs, results);
   const decisionStatus = getDecisionStatus(
     results,
     inputs.cost_effectiveness_threshold,
   );
-  const overallSignal = getSignalLabel(decisionStatus);
-  const interpretation = generateInterpretation(results, inputs, uncertainty);
+  const signalLabel = getSignalLabel(decisionStatus);
+  const netCostLabel = getNetCostLabel(results);
   const mainDriver = getMainDriverText(inputs);
-  const fragilityText = buildFragilityText(uncertainty);
+
+  const uncertaintyReadout = assessUncertaintyRobustness(
+    uncertainty,
+    inputs.cost_effectiveness_threshold,
+  );
+
+  const sensitivitySummary = buildSensitivitySummary(sensitivity);
+
+  let overallSignal = "";
+  if (results.discounted_net_cost_total < 0) {
+    overallSignal = `Promising for further exploration. The current configuration appears cost-saving. ${uncertaintyReadout}`;
+  } else if (
+    results.discounted_cost_per_qaly > 0 &&
+    results.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
+  ) {
+    overallSignal = `Promising, but still assumption-dependent. The current configuration appears cost-effective rather than cost-saving. ${uncertaintyReadout}`;
+  } else {
+    overallSignal = `Currently weak as a decision case. The support model reduces pressure, but the economics are not yet convincing. ${uncertaintyReadout}`;
+  }
+
+  const overview = `Over ${inputs.time_horizon_years} year${
+    inputs.time_horizon_years === 1 ? "" : "s"
+  }, FrailtyForward suggests the support model could stabilise around ${formatNumber(
+    results.patients_stabilised_total,
+  )} patients, avoid ${formatNumber(
+    results.crisis_events_avoided_total,
+  )} crisis events and ${formatNumber(
+    results.admissions_avoided_total,
+  )} admissions, while producing a decision signal of ${decisionStatus.toLowerCase()}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyReadout}`;
 
   return {
     cover: {
-      title: "FrailtyForward scenario brief",
-      subtitle: "Exploratory assessment of potential pathway and economic value",
+      title: "FrailtyForward scenario report",
+      subtitle:
+        "Exploratory health economic scenario brief for proactive frailty support",
       module: "Health Economics Scenario Lab",
       generatedAt: exportedAt,
+      decisionStatus,
+      signalLabel,
     },
 
     purpose: {
       question: buildPurposeQuestion(inputs),
       context:
-        "FrailtyForward is an exploratory health economic scenario model. It is designed to test whether earlier frailty support could plausibly reduce crisis events, admissions, bed use, and economic burden under a specified set of assumptions before formal evaluation or business case development.",
+        "FrailtyForward is an exploratory health economic scenario model. It is designed to test whether earlier or more proactive frailty support could plausibly reduce crisis events, admissions, bed use, and economic burden under a specified set of assumptions before formal evaluation or business case development.",
     },
 
     executiveSummary: {
-      overview: buildOverview(inputs, results, decisionStatus),
+      overview,
       overallSignal,
       whatModelSuggests: interpretation.what_model_suggests,
-      mainDependency: `The result is mainly driven by ${mainDriver}, implementation reach, and delivery cost.`,
-      mainFragility: interpretation.what_looks_fragile ?? fragilityText,
-      bestNextStep: interpretation.what_to_validate_next,
+      mainDependency: `The case is currently most dependent on ${mainDriver}.`,
+      mainFragility: interpretation.what_looks_fragile,
+      bestNextStep: decisionReadiness.validate_next[0] ?? "Validate the highest-leverage local assumptions.",
     },
 
     scenario: buildScenarioSection(inputs),
@@ -444,7 +477,7 @@ export function buildFrailtyForwardReportData({
         value: formatNumber(results.bed_days_avoided_total),
       },
       {
-        label: getNetCostLabel(results),
+        label: netCostLabel,
         value: formatCurrency(Math.abs(results.discounted_net_cost_total)),
       },
       {
@@ -456,8 +489,8 @@ export function buildFrailtyForwardReportData({
         value: formatRatio(results.roi),
       },
       {
-        label: "Break-even cost per patient",
-        value: formatCurrency(results.break_even_cost_per_patient),
+        label: "Break-even horizon",
+        value: results.break_even_horizon,
       },
     ],
 
@@ -465,60 +498,48 @@ export function buildFrailtyForwardReportData({
       inputs,
       results,
       decisionStatus,
+      netCostLabel,
     ),
-
-    uncertaintyAndSensitivity: {
-      robustnessSummary: fragilityText,
-      uncertaintyRows: uncertainty.map((row) => ({
-        label: row.case,
-        value: formatCurrency(row.discounted_cost_per_qaly),
-        note: `${formatNumber(row.patients_stabilised_total)} patients stabilised · ${row.decision_status}`,
-      })),
-      sensitivitySummary: [
-        "The result is most likely to move when assumptions change around implementation reach, the reduction in crisis events, the reduction in admissions, and support cost per patient.",
-        "In practical terms, the case is strongest when the programme reaches a sufficiently high-risk frailty cohort, stabilises patients early enough to reduce deterioration, and can be delivered at manageable cost.",
-        "The case weakens when reach is modest, effect decays quickly, or reduced crisis activity does not translate into meaningful avoided admissions and bed use.",
-      ],
-    },
-
-    scenarioAndComparator: {
-      scenarioSummary:
-        "The scenario framing suggests value is most likely to emerge where frailty-related deterioration is common enough to generate avoidable crisis activity and hospital use, and where earlier support is delivered with enough reach and persistence to change that trajectory.",
-      strongestScenario:
-        "The strongest scenario pattern is usually the one where crisis prevention is meaningful, admission reduction follows, and support is delivered with high reach and sustained effect.",
-      weakestScenario:
-        "The weakest or most fragile scenario pattern is usually the one where delivery cost is high, implementation reach is modest, or the effect on crisis events and admissions is too small to shift downstream hospital burden.",
-      comparatorSummary:
-        "Comparator interpretation should focus on whether the selected support model materially improves stabilisation and avoided acute activity relative to a more conservative alternative. If gains over comparator are modest, stronger local evidence is likely to be needed before progression.",
-    },
-
-    decisionImplications: {
-      progressionView:
-        "Progression is better supported when the model shows a credible stabilisation effect, a plausible link to reduced crisis and admission activity, and an acceptable cost per QALY under bounded uncertainty.",
-      mainEvidenceGap:
-        "The most important evidence gap is usually the local realism of the assumed support effect and how strongly earlier frailty support translates into fewer crisis events, fewer admissions, and lower bed use.",
-      recommendedNextMove:
-        "The next step should be to validate local frailty cohort size, crisis risk, realistic implementation reach, achievable support effect, and likely delivery cost for the intended service model.",
-    },
-
-    localEvidenceNeeded: {
-      items: [
-        "Local frailty cohort size in the intended target population",
-        "Local crisis or deterioration event rate",
-        "Local non-elective admission rate associated with frailty",
-        "Current average length of stay for the relevant admissions",
-        "Realistic implementation reach for the intended support model",
-        "Likely delivery cost per supported patient",
-      ],
-    },
 
     assumptions: {
       sections: buildAssumptionSections(inputs),
     },
 
+    uncertaintyAndSensitivity: {
+      robustnessSummary: `Bounded uncertainty suggests the current signal should be treated with care rather than as a settled answer. ${uncertaintyReadout}`,
+      uncertaintyRows: uncertainty.map((row) => ({
+        label: row.case,
+        value: formatCurrency(row.discounted_cost_per_qaly),
+        note: `${formatNumber(row.patients_stabilised_total)} patients stabilised · ${row.decision_status}`,
+      })),
+      sensitivitySummary,
+      topDrivers: buildTopDriverRows(sensitivity),
+    },
+
+    decisionImplications: {
+      progressionView:
+        "Progression is better supported when the model shows a credible pathway effect, an acceptable cost per QALY against threshold, and a decision signal that remains directionally positive under bounded uncertainty.",
+      mainEvidenceGap:
+        "The most important evidence gap is usually the local credibility of the assumed crisis and admission reductions and the extent to which that benefit would translate into real service and bed use impact.",
+      currentCasePosition: `At this stage the case looks ${signalLabel.toLowerCase()}. That should be treated as an early decision signal rather than a final answer.`,
+      recommendedNextMove:
+        decisionReadiness.validate_next[0] ??
+        "Validate the key local pathway and implementation assumptions before progression.",
+    },
+
     caveats: {
-      useNote:
-        "This report is exploratory and illustrative. It supports early-stage decision thinking, not formal evaluation, forecasting, or local business case approval. Results depend materially on the selected assumptions and should be interpreted alongside local data, implementation realism, and validation work.",
+      useNote: `This report is exploratory and illustrative. It supports early-stage decision thinking, not formal evaluation, forecasting, or local business case approval. Results depend materially on the selected assumptions and should be interpreted alongside local data, implementation realism, and validation work. ${uncertaintyReadout}`,
+    },
+
+    localEvidenceNeeded: {
+      items: [
+        "Local frailty cohort size in the relevant pathway",
+        "Local crisis event rate in the target cohort",
+        "Local non-elective admission rate in the target cohort",
+        "Local average length of stay for admitted frailty patients",
+        "Realistic implementation reach in the intended operating model",
+        "Likely support cost per patient reached",
+      ],
     },
   };
 }
