@@ -121,4 +121,4 @@ export type SensitivitySummary = {
   rows: SensitivityRow[];
   primary_driver: SensitivityRow | null;
   top_drivers: SensitivityRow[];
-}
+};
