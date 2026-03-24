@@ -1,31 +1,16 @@
-import {
-  formatCurrency,
-  formatNumber,
-  formatPercent,
-  formatRatio,
-} from "@/lib/pathshift/formatters";
-import {
-  assessUncertaintyRobustness,
-  generateInterpretation,
-  generateOverviewSummary,
-  generateOverallSignal,
-  generateStructuredRecommendation,
-  getDecisionStatus,
-  getMainDriverText,
-  getNetCostLabel,
-} from "@/lib/pathshift/summaries";
 import type {
-  Inputs,
-  ModelResults,
+  ModelResult,
+  ParameterSensitivityRow,
+  SafeStepInputs,
   SensitivitySummary,
   UncertaintyRow,
-} from "@/lib/pathshift/types";
+} from "@/lib/safestep/types";
 
 type BuildReportArgs = {
-  inputs: Inputs;
-  results: ModelResults;
+  inputs: SafeStepInputs;
+  results: ModelResult;
   uncertainty: UncertaintyRow[];
-  sensitivity: SensitivitySummary;
+  oneWaySensitivity: SensitivitySummary;
   exportedAt: string;
 };
 
@@ -50,7 +35,7 @@ type ReportNarrativeBlock = {
   body: string;
 };
 
-export type PathShiftReportData = {
+export type SafeStepReportData = {
   cover: {
     title: string;
     subtitle: string;
@@ -88,11 +73,6 @@ export type PathShiftReportData = {
       value: string;
       note: string;
     }>;
-    topParameterDrivers: Array<{
-      label: string;
-      value: string;
-      note: string;
-    }>;
     sensitivitySummary: string[];
   };
   scenarioAndComparator: {
@@ -114,6 +94,50 @@ export type PathShiftReportData = {
     items: string[];
   };
 };
+
+function formatCurrency(value: number): string {
+  const abs = Math.abs(value);
+  const formatted = `£${abs.toLocaleString(undefined, {
+    maximumFractionDigits: 0,
+  })}`;
+  return value < 0 ? `-${formatted}` : formatted;
+}
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatNumber(value: number): string {
+  return value.toLocaleString(undefined, {
+    maximumFractionDigits: 0,
+  });
+}
+
+function formatDecimal(value: number, dp = 2): string {
+  return value.toFixed(dp);
+}
+
+function formatRatio(value: number): string {
+  return `${value.toFixed(2)}x`;
+}
+
+function getDecisionStatus(
+  results: ModelResult,
+  threshold: number,
+): string {
+  if (results.discounted_net_cost_total < 0) {
+    return "Appears cost-saving";
+  }
+
+  if (
+    results.discounted_cost_per_qaly > 0 &&
+    results.discounted_cost_per_qaly <= threshold
+  ) {
+    return "Appears cost-effective";
+  }
+
+  return "Above current threshold";
+}
 
 function getSignalLabel(decisionStatus: string): string {
   const normalised = decisionStatus.toLowerCase();
@@ -139,54 +163,115 @@ function getSignalLabel(decisionStatus: string): string {
   return "Weak";
 }
 
-function buildPurposeQuestion(inputs: Inputs): string {
-  return `This run explores whether a pathway redesign in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly shift patients into lower-cost care settings, reduce admissions, reduce follow-up burden, shorten length of stay, and improve economic value over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
+function getNetCostLabel(results: ModelResult): string {
+  return results.discounted_net_cost_total < 0
+    ? "Discounted net saving"
+    : "Discounted net cost";
 }
 
-function buildScenarioSection(inputs: Inputs): PathShiftReportData["scenario"] {
+function getMainDriverText(
+  inputs: SafeStepInputs,
+  sensitivity?: SensitivitySummary,
+): string {
+  const primary = sensitivity?.primary_driver?.parameter_label;
+  if (primary) {
+    return primary.toLowerCase();
+  }
+
+  if (inputs.targeting_mode !== "Broad population") {
+    return "targeting and concentration of fall risk";
+  }
+
+  if (inputs.costing_method === "Combined illustrative view") {
+    return "the chosen costing method and the blend of avoided admission and bed-day value";
+  }
+
+  if (inputs.intervention_cost_per_person >= 300) {
+    return "intervention cost per person";
+  }
+
+  if (inputs.relative_risk_reduction >= 0.2) {
+    return "assumed fall-risk reduction";
+  }
+
+  if (inputs.participation_dropoff_rate >= 0.1) {
+    return "participation persistence over time";
+  }
+
+  return "uptake, adherence, and achievable risk reduction";
+}
+
+function assessUncertaintyRobustness(
+  uncertaintyRows: UncertaintyRow[],
+  threshold: number,
+): string {
+  const allBelow = uncertaintyRows.every(
+    (row) => row.discounted_cost_per_qaly <= threshold,
+  );
+  const allCostSaving = uncertaintyRows.every(
+    (row) => row.discounted_net_cost_total < 0,
+  );
+  const anyBelow = uncertaintyRows.some(
+    (row) => row.discounted_cost_per_qaly <= threshold,
+  );
+
+  if (allCostSaving) {
+    return "The case appears robustly cost-saving across bounded low, base, and high cases.";
+  }
+
+  if (allBelow) {
+    return "The case appears fairly robust across bounded low, base, and high cases.";
+  }
+
+  if (anyBelow) {
+    return "The case looks fragile: some bounded cases are below threshold, while others are not.";
+  }
+
+  return "The case remains above threshold across the bounded cases.";
+}
+
+function buildPurposeQuestion(inputs: SafeStepInputs): string {
+  return `This run explores whether a falls-prevention intervention in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly reduce falls, avoid admissions, reduce bed use, and improve economic value over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
+}
+
+function buildScenarioSection(
+  inputs: SafeStepInputs,
+): SafeStepReportData["scenario"] {
   return {
-    interventionConcept: `The scenario tests a pathway redesign approach that aims to reach ${formatPercent(
-      inputs.implementation_reach_rate,
-    )} of the relevant population, shift ${formatPercent(
-      inputs.proportion_shifted_to_lower_cost_setting,
-    )} into a lower-cost setting, reduce admissions by ${formatPercent(
-      inputs.reduction_in_admission_rate,
-    )}, and reduce follow-up contacts by ${formatPercent(
-      inputs.reduction_in_follow_up_contacts,
-    )}. In practice, this could represent outpatient redesign, virtual follow-up, ambulatory pathways, community substitution, or a service model that reduces avoidable acute dependence.`,
-    targetPopulationLogic: `The model assumes an annual cohort of ${formatNumber(
-      inputs.annual_cohort_size,
-    )} patients, with a current acute-managed rate of ${formatPercent(
-      inputs.current_acute_managed_rate,
-    )} and a current admission rate of ${formatPercent(
-      inputs.current_admission_rate,
-    )}. The targeting mode is set to ${
-      inputs.targeting_mode
-    }, which affects how concentrated the opportunity is assumed to be and therefore how much practical pathway shift might be achievable.`,
-    economicMechanism: `The value mechanism runs through shifting care into a lower-cost setting, reducing follow-up burden, reducing admissions, and reducing bed use. The model then assesses whether these effects are sufficient to offset redesign costs and produce an acceptable cost per QALY against the selected threshold.`,
+    interventionConcept: `The scenario tests a falls-prevention approach that aims to reach ${formatPercent(
+      inputs.uptake_rate,
+    )} of the eligible population, retain effective participation through an adherence rate of ${formatPercent(
+      inputs.adherence_rate,
+    )}, and reduce fall risk by ${formatPercent(
+      inputs.relative_risk_reduction,
+    )}. In practice, this could represent exercise-based prevention, balance and strength work, medication review, home hazard reduction, or a targeted community support model.`,
+    targetPopulationLogic: `The model assumes an eligible population of ${formatNumber(
+      inputs.eligible_population,
+    )}, a baseline annual fall risk of ${formatPercent(
+      inputs.annual_fall_risk,
+    )}, and a targeting mode of ${inputs.targeting_mode}. The targeting mode affects the effective population reached, the concentration of risk, and therefore how much practical benefit may be achievable.`,
+    economicMechanism: `The value mechanism runs through fewer falls, fewer admissions following falls, reduced bed use, and a health gain associated with avoiding serious fall-related harm. The model then assesses whether these effects are enough to offset intervention costs and produce an acceptable cost per QALY against the selected threshold.`,
   };
 }
 
 function buildPlainEnglishResults(
-  inputs: Inputs,
-  results: ModelResults,
+  inputs: SafeStepInputs,
+  results: ModelResult,
   decisionStatus: string,
   netCostLabel: string,
 ): ReportNarrativeBlock[] {
   return [
     {
-      body: `Under the current assumptions, the model shifts ${formatNumber(
-        results.patients_shifted_total,
-      )} patients within the pathway over ${inputs.time_horizon_years} year${
+      body: `Under the current assumptions, the model avoids ${formatNumber(
+        results.falls_avoided_total,
+      )} falls over ${inputs.time_horizon_years} year${
         inputs.time_horizon_years === 1 ? "" : "s"
       }.`,
     },
     {
-      body: `That redesign is associated with ${formatNumber(
+      body: `That reduction is associated with ${formatNumber(
         results.admissions_avoided_total,
-      )} fewer admissions, ${formatNumber(
-        results.follow_ups_avoided_total,
-      )} fewer follow-up contacts, and ${formatNumber(
+      )} fewer admissions and ${formatNumber(
         results.bed_days_avoided_total,
       )} fewer bed days across the selected horizon.`,
     },
@@ -200,39 +285,45 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the signal remains sensitive to the assumed pathway shift, achievable reduction in admissions and follow-up burden, and redesign delivery cost.`,
+      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the signal remains sensitive to uptake, adherence, the achievable reduction in fall risk, and delivery cost.`,
     },
   ];
 }
 
 function buildAssumptionSections(
-  inputs: Inputs,
-): PathShiftReportData["assumptions"]["sections"] {
+  inputs: SafeStepInputs,
+): SafeStepReportData["assumptions"]["sections"] {
   return [
     {
-      title: "Core redesign assumptions",
+      title: "Core programme assumptions",
       rows: [
         {
           assumption: "Targeting mode",
           value: inputs.targeting_mode,
           rationale:
-            "Determines how concentrated the opportunity is assumed to be and therefore how plausible it is to achieve meaningful pathway change in the selected population.",
+            "Determines how concentrated the opportunity is assumed to be and therefore how plausible it is to achieve meaningful impact in the selected population.",
         },
         {
-          assumption: "Annual cohort size",
-          value: formatNumber(inputs.annual_cohort_size),
+          assumption: "Eligible population",
+          value: formatNumber(inputs.eligible_population),
           rationale:
             "Sets the scale of the addressable population and directly affects the size of any pathway and economic effect.",
         },
         {
-          assumption: "Implementation reach rate",
-          value: formatPercent(inputs.implementation_reach_rate),
+          assumption: "Uptake rate",
+          value: formatPercent(inputs.uptake_rate),
           rationale:
-            "Controls how much of the relevant population is effectively reached by the redesign in practice.",
+            "Controls how much of the eligible population actually enters the intervention.",
         },
         {
-          assumption: "Redesign cost per patient",
-          value: formatCurrency(inputs.redesign_cost_per_patient),
+          assumption: "Adherence rate",
+          value: formatPercent(inputs.adherence_rate),
+          rationale:
+            "Acts as a practical delivery multiplier because the model assumes better adherence supports better realised benefit.",
+        },
+        {
+          assumption: "Intervention cost per person",
+          value: formatCurrency(inputs.intervention_cost_per_person),
           rationale:
             "Acts as the main programme cost lever and has a direct influence on whether the case remains economically attractive.",
         },
@@ -247,57 +338,33 @@ function buildAssumptionSections(
       ],
     },
     {
-      title: "Pathway assumptions",
+      title: "Risk and pathway assumptions",
       rows: [
         {
-          assumption: "Current acute-managed rate",
-          value: formatPercent(inputs.current_acute_managed_rate),
+          assumption: "Annual fall risk",
+          value: formatPercent(inputs.annual_fall_risk),
           rationale:
-            "Defines the baseline proportion of patients currently managed in a higher-cost setting and therefore the headroom for pathway substitution.",
+            "Defines the baseline burden. Higher underlying fall risk creates more headroom for avoidable harm reduction.",
         },
         {
-          assumption: "Current admission rate",
-          value: formatPercent(inputs.current_admission_rate),
+          assumption: "Relative risk reduction",
+          value: formatPercent(inputs.relative_risk_reduction),
           rationale:
-            "Captures the baseline level of acute pressure in the pathway and the opportunity for avoidable admissions.",
+            "This is one of the most important value levers because it determines how much of the baseline fall burden can realistically be reduced.",
         },
         {
-          assumption: "Current follow-up contacts per patient",
-          value: inputs.current_follow_up_contacts_per_patient.toFixed(1),
+          assumption: "Admission rate after fall",
+          value: formatPercent(inputs.admission_rate_after_fall),
           rationale:
-            "Defines the baseline follow-up burden and therefore the opportunity for reduced activity through redesign.",
+            "Translates avoided falls into avoided downstream admissions and therefore drives acute value.",
         },
         {
-          assumption: "Current average length of stay",
-          value: `${inputs.current_average_length_of_stay.toFixed(
-            Number.isInteger(inputs.current_average_length_of_stay) ? 0 : 1,
+          assumption: "Average length of stay",
+          value: `${inputs.average_length_of_stay.toFixed(
+            Number.isInteger(inputs.average_length_of_stay) ? 0 : 1,
           )} days`,
           rationale:
-            "Converts avoided admissions and in-hospital efficiency into avoided bed use and associated hospital pressure.",
-        },
-        {
-          assumption: "Proportion shifted to lower-cost setting",
-          value: formatPercent(inputs.proportion_shifted_to_lower_cost_setting),
-          rationale:
-            "Represents the core pathway substitution effect and is a major determinant of value.",
-        },
-        {
-          assumption: "Reduction in admission rate",
-          value: formatPercent(inputs.reduction_in_admission_rate),
-          rationale:
-            "Captures the degree to which the redesigned pathway reduces acute deterioration or escalation into admission.",
-        },
-        {
-          assumption: "Reduction in follow-up contacts",
-          value: formatPercent(inputs.reduction_in_follow_up_contacts),
-          rationale:
-            "Captures the extent to which the redesign reduces downstream contact burden and releases activity.",
-        },
-        {
-          assumption: "Reduction in length of stay",
-          value: formatPercent(inputs.reduction_in_length_of_stay),
-          rationale:
-            "Represents the degree to which patients still admitted spend less time in hospital under the redesigned pathway.",
+            "Converts avoided admissions into avoided bed use and associated hospital pressure.",
         },
       ],
     },
@@ -317,24 +384,6 @@ function buildAssumptionSections(
             "Provides the benchmark used to judge whether the modelled cost per QALY looks acceptable.",
         },
         {
-          assumption: "Cost per acute-managed patient",
-          value: formatCurrency(inputs.cost_per_acute_managed_patient),
-          rationale:
-            "Defines the higher-cost comparator used in the pathway shift calculation.",
-        },
-        {
-          assumption: "Cost per community-managed patient",
-          value: formatCurrency(inputs.cost_per_community_managed_patient),
-          rationale:
-            "Defines the lower-cost comparator used when patients are shifted into a redesigned pathway.",
-        },
-        {
-          assumption: "Cost per follow-up contact",
-          value: formatCurrency(inputs.cost_per_follow_up_contact),
-          rationale:
-            "Monetises reduced follow-up activity and is therefore a contributor to gross savings.",
-        },
-        {
           assumption: "Cost per admission",
           value: formatCurrency(inputs.cost_per_admission),
           rationale:
@@ -344,7 +393,7 @@ function buildAssumptionSections(
           assumption: "Cost per bed day",
           value: formatCurrency(inputs.cost_per_bed_day),
           rationale:
-            "Monetises avoided bed use and reflects the downstream hospital resource effect of redesign.",
+            "Monetises avoided bed use and reflects the downstream hospital resource effect of preventing serious falls.",
         },
       ],
     },
@@ -352,22 +401,22 @@ function buildAssumptionSections(
       title: "Outcome and persistence assumptions",
       rows: [
         {
-          assumption: "QALY gain per patient improved",
-          value: inputs.qaly_gain_per_patient_improved.toFixed(2),
+          assumption: "QALY loss per serious fall",
+          value: formatDecimal(inputs.qaly_loss_per_serious_fall, 2),
           rationale:
-            "Determines how much health gain is attributed to meaningful pathway improvement and therefore strongly influences cost per QALY.",
+            "Determines how much health gain is attributed to preventing serious fall-related harm and therefore strongly influences cost per QALY.",
         },
         {
           assumption: "Annual effect decay",
           value: formatPercent(inputs.effect_decay_rate),
           rationale:
-            "Represents how much of the redesign effect is assumed to fade over time.",
+            "Represents how much of the intervention effect is assumed to fade over time.",
         },
         {
           assumption: "Annual participation drop-off",
           value: formatPercent(inputs.participation_dropoff_rate),
           rationale:
-            "Captures erosion in implementation coverage or engagement across the selected time horizon.",
+            "Captures erosion in engagement or programme coverage across the selected time horizon.",
         },
         {
           assumption: "Discount rate",
@@ -380,6 +429,182 @@ function buildAssumptionSections(
   ];
 }
 
+function generateOverallSignal(
+  results: ModelResult,
+  inputs: SafeStepInputs,
+  uncertaintyRows: UncertaintyRow[],
+): string {
+  const threshold = inputs.cost_effectiveness_threshold;
+  const robustness = assessUncertaintyRobustness(uncertaintyRows, threshold);
+
+  if (results.discounted_net_cost_total < 0) {
+    return `Promising for further exploration. The current configuration appears cost-saving. ${robustness}`;
+  }
+
+  if (
+    results.discounted_cost_per_qaly > 0 &&
+    results.discounted_cost_per_qaly <= threshold
+  ) {
+    return `Promising, but still assumption-dependent. The current configuration appears cost-effective rather than cost-saving. ${robustness}`;
+  }
+
+  return `Currently weak as a decision case. The intervention reduces falls and downstream pressure, but the economics are not yet convincing. ${robustness}`;
+}
+
+function generateOverviewSummary(
+  results: ModelResult,
+  inputs: SafeStepInputs,
+  uncertaintyRows: UncertaintyRow[],
+  sensitivity: SensitivitySummary,
+): string {
+  const threshold = inputs.cost_effectiveness_threshold;
+  const mainDriver = getMainDriverText(inputs, sensitivity);
+  const uncertaintyText = assessUncertaintyRobustness(
+    uncertaintyRows,
+    threshold,
+  );
+
+  const falls = `${results.falls_avoided_total.toFixed(0)}`;
+  const admissions = `${results.admissions_avoided_total.toFixed(0)}`;
+  const bedDays = `${results.bed_days_avoided_total.toFixed(0)}`;
+  const horizon = inputs.time_horizon_years;
+  const targeting = inputs.targeting_mode.toLowerCase();
+  const costing = inputs.costing_method.toLowerCase();
+
+  if (results.discounted_net_cost_total < 0) {
+    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, SafeStep suggests the intervention could avoid around ${falls} falls, ${admissions} admissions, and ${bedDays} bed days while appearing cost-saving on a discounted basis. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+  }
+
+  if (
+    results.discounted_cost_per_qaly > 0 &&
+    results.discounted_cost_per_qaly <= threshold
+  ) {
+    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, SafeStep suggests the intervention creates meaningful falls-prevention benefit and downstream acute value, with around ${falls} falls avoided and ${admissions} admissions avoided. It does not appear cost-saving, but it does sit within the current threshold on a discounted basis. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+  }
+
+  return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, SafeStep suggests the intervention creates measurable benefit, with around ${falls} falls avoided and ${admissions} admissions avoided, but the discounted economic case remains above the current threshold. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+}
+
+function generateInterpretation(
+  results: ModelResult,
+  inputs: SafeStepInputs,
+  uncertaintyRows: UncertaintyRow[],
+): {
+  what_model_suggests: string;
+  what_drives_result: string;
+  what_looks_fragile: string;
+  what_to_validate_next: string;
+  limitations: string;
+} {
+  const threshold = inputs.cost_effectiveness_threshold;
+  const horizon = inputs.time_horizon_years;
+  const breakEvenHorizon = results.break_even_horizon;
+  const uncertaintyText = assessUncertaintyRobustness(
+    uncertaintyRows,
+    threshold,
+  );
+  const dependency = getMainDriverText(inputs);
+
+  let whatModelSuggests = "";
+  if (results.discounted_net_cost_total < 0) {
+    whatModelSuggests =
+      `SafeStep suggests the intervention generates measurable falls-prevention benefit and a discounted net saving over ${horizon} year` +
+      `${horizon === 1 ? "" : "s"}. The current case is promising, but still depends on assumptions that remain partly illustrative.`;
+  } else if (
+    results.discounted_cost_per_qaly > 0 &&
+    results.discounted_cost_per_qaly <= threshold
+  ) {
+    whatModelSuggests =
+      `SafeStep suggests the intervention delivers measurable benefit and appears cost-effective over ${horizon} year` +
+      `${horizon === 1 ? "" : "s"}, although it does not appear cost-saving. The result looks promising, but still assumption-dependent.`;
+  } else {
+    whatModelSuggests =
+      `SafeStep suggests the intervention delivers measurable benefit over ${horizon} year` +
+      `${horizon === 1 ? "" : "s"}, but the discounted economic case remains above the current threshold.`;
+  }
+
+  const whatDrivesResult =
+    `The current result depends most strongly on ${dependency}, as well as the chosen costing method, the quality of targeting, ` +
+    "and whether participation, adherence, and effect persist over time.";
+
+  let whatLooksFragile = "";
+  if (inputs.costing_method === "Combined illustrative view") {
+    whatLooksFragile =
+      "The economic signal may be fragile because the combined costing approach is intentionally illustrative and may overstate value if local cost components overlap.";
+  } else if (inputs.targeting_mode === "Broad population") {
+    whatLooksFragile =
+      "The case may be fragile because broad implementation can dilute value if the highest-opportunity people are only a subset of the eligible population.";
+  } else {
+    whatLooksFragile = uncertaintyText;
+  }
+
+  const whatToValidateNext =
+    "Before using this in a real decision conversation, the most important next checks are local uptake, adherence, baseline fall risk, admission conversion after falls, and delivery cost. " +
+    `Then check whether the intervention would still look worthwhile over around ${breakEvenHorizon} under locally credible assumptions.`;
+
+  const limitations =
+    "This sandbox does not capture detailed frailty progression, repeated-event heterogeneity, service interaction effects, or richer uncertainty modelling. " +
+    "It remains a structured exploratory tool rather than a formal appraisal model.";
+
+  return {
+    what_model_suggests: whatModelSuggests,
+    what_drives_result: whatDrivesResult,
+    what_looks_fragile: whatLooksFragile,
+    what_to_validate_next: whatToValidateNext,
+    limitations,
+  };
+}
+
+function generateStructuredRecommendation(
+  inputs: SafeStepInputs,
+  results: ModelResult,
+  uncertaintyRows: UncertaintyRow[],
+  sensitivity: SensitivitySummary,
+): {
+  main_dependency: string;
+  main_fragility: string;
+  best_next_step: string;
+} {
+  const threshold = inputs.cost_effectiveness_threshold;
+  const robustness = assessUncertaintyRobustness(uncertaintyRows, threshold);
+  const mainDependency = getMainDriverText(inputs, sensitivity);
+
+  let mainFragility: string;
+  if (inputs.costing_method === "Combined illustrative view") {
+    mainFragility =
+      "The result is sensitive to how value is counted, especially if admission and bed-day effects overlap.";
+  } else if (inputs.targeting_mode === "Broad population") {
+    mainFragility =
+      "The result may depend on whether broad implementation is diluting value that would look stronger in a higher-risk subgroup.";
+  } else if (inputs.participation_dropoff_rate >= 0.1) {
+    mainFragility =
+      "The case may weaken if effective participation falls faster than assumed over time.";
+  } else {
+    mainFragility = robustness;
+  }
+
+  let bestNextStep: string;
+  if (inputs.targeting_mode === "Broad population") {
+    bestNextStep =
+      "Test whether a more targeted delivery model improves value without losing too much practical population impact.";
+  } else if (inputs.costing_method === "Combined illustrative view") {
+    bestNextStep =
+      "Stress-test the costing approach using a cleaner local method before using the result in a live decision conversation.";
+  } else if (results.discounted_cost_per_qaly > threshold) {
+    bestNextStep =
+      "Validate the highest-leverage assumptions locally, especially fall-risk reduction, baseline risk, uptake, adherence, and delivery cost.";
+  } else {
+    bestNextStep =
+      "Pressure-test the strongest assumptions locally before moving from exploratory use to decision support.";
+  }
+
+  return {
+    main_dependency: mainDependency,
+    main_fragility: mainFragility,
+    best_next_step: bestNextStep,
+  };
+}
+
 function buildSensitivitySummary(
   sensitivity: SensitivitySummary,
 ): string[] {
@@ -388,8 +613,8 @@ function buildSensitivitySummary(
   if (top.length === 0) {
     return [
       "One-way sensitivity has not highlighted a clear set of dominant drivers yet.",
-      "At this stage, the case should still be treated as dependent on the core assumptions around pathway shift, admission reduction, follow-up reduction, and redesign cost.",
-      "Further validation should focus on the most decision-relevant pathway, implementation, and cost inputs locally.",
+      "At this stage, the case should still be treated as dependent on the core assumptions around uptake, adherence, fall-risk reduction, and delivery cost.",
+      "Further validation should focus on the most decision-relevant implementation, risk, and cost inputs locally.",
     ];
   }
 
@@ -406,26 +631,43 @@ function buildSensitivitySummary(
     : `In practical terms, the case is strongest when ${first} remains favourable under locally credible assumptions.`;
 
   const line3 =
-    "The case weakens fastest when pathway shift is smaller than expected, redesign costs are higher, or downstream admission and follow-up benefits are less pronounced locally.";
+    "The case weakens fastest when uptake or adherence are lower than expected, achievable fall-risk reduction is smaller, or delivery costs are higher.";
 
   return [line1, line2, line3];
 }
 
-export function buildPathShiftReportData({
+function mapSensitivityRowToDriverText(
+  row: ParameterSensitivityRow | null,
+): string | null {
+  if (!row) return null;
+  return row.parameter_label.toLowerCase();
+}
+
+export function buildSafeStepReportData({
   inputs,
   results,
   uncertainty,
-  sensitivity,
+  oneWaySensitivity,
   exportedAt,
-}: BuildReportArgs): PathShiftReportData {
-  const interpretation = generateInterpretation(results, inputs, uncertainty);
+}: BuildReportArgs): SafeStepReportData {
+  const interpretation = generateInterpretation(
+    results,
+    inputs,
+    uncertainty,
+  );
   const overallSignal = generateOverallSignal(results, inputs, uncertainty);
   const structured = generateStructuredRecommendation(
     inputs,
     results,
     uncertainty,
+    oneWaySensitivity,
   );
-  const overview = generateOverviewSummary(results, inputs, uncertainty);
+  const overview = generateOverviewSummary(
+    results,
+    inputs,
+    uncertainty,
+    oneWaySensitivity,
+  );
 
   const decisionStatus = getDecisionStatus(
     results,
@@ -434,20 +676,22 @@ export function buildPathShiftReportData({
 
   const signalLabel = getSignalLabel(decisionStatus);
   const netCostLabel = getNetCostLabel(results);
-  const mainDriver = getMainDriverText(inputs);
+  const mainDriver =
+    mapSensitivityRowToDriverText(oneWaySensitivity.primary_driver) ??
+    getMainDriverText(inputs, oneWaySensitivity);
 
   const uncertaintyReadout = assessUncertaintyRobustness(
     uncertainty,
     inputs.cost_effectiveness_threshold,
   );
 
-  const sensitivitySummary = buildSensitivitySummary(sensitivity);
+  const sensitivitySummary = buildSensitivitySummary(oneWaySensitivity);
 
   return {
     cover: {
-      title: "PathShift scenario report",
+      title: "SafeStep scenario report",
       subtitle:
-        "Exploratory health economic scenario brief for pathway redesign",
+        "Exploratory health economic scenario brief for falls prevention",
       module: "Health Economics Scenario Lab",
       generatedAt: exportedAt,
       decisionStatus,
@@ -457,7 +701,7 @@ export function buildPathShiftReportData({
     purpose: {
       question: buildPurposeQuestion(inputs),
       context:
-        "PathShift is an exploratory health economic scenario model. It is designed to test whether pathway redesign could plausibly shift care into lower-cost settings, reduce admissions, reduce follow-up burden, reduce bed use, and improve value under a specified set of assumptions before formal evaluation or business case development.",
+        "SafeStep is an exploratory health economic scenario model. It is designed to test whether a falls-prevention intervention could plausibly reduce falls, avoid admissions, reduce bed use, and improve economic value under a specified set of assumptions before formal evaluation or business case development.",
     },
 
     executiveSummary: {
@@ -473,20 +717,20 @@ export function buildPathShiftReportData({
 
     headlineMetrics: [
       {
-        label: "Patients shifted",
-        value: formatNumber(results.patients_shifted_total),
+        label: "Falls avoided",
+        value: formatNumber(results.falls_avoided_total),
       },
       {
         label: "Admissions avoided",
         value: formatNumber(results.admissions_avoided_total),
       },
       {
-        label: "Follow-ups avoided",
-        value: formatNumber(results.follow_ups_avoided_total),
-      },
-      {
         label: "Bed days avoided",
         value: formatNumber(results.bed_days_avoided_total),
+      },
+      {
+        label: "Treated population in year 1",
+        value: formatNumber(results.treated_population_year_1),
       },
       {
         label: netCostLabel,
@@ -522,37 +766,30 @@ export function buildPathShiftReportData({
       uncertaintyRows: uncertainty.map((row) => ({
         label: row.case,
         value: formatCurrency(row.discounted_cost_per_qaly),
-        note: `${formatNumber(row.patients_shifted_total)} patients shifted · ${row.decision_status}`,
-      })),
-      topParameterDrivers: sensitivity.top_drivers.map((row) => ({
-        label: row.parameter_label,
-        value: `${formatCurrency(row.low_icer)} to ${formatCurrency(
-          row.high_icer,
-        )}`,
-        note: `Low: ${row.low_value_label} · High: ${row.high_value_label}`,
+        note: `${formatNumber(row.falls_avoided_total)} falls avoided · ${row.decision_status}`,
       })),
       sensitivitySummary,
     },
 
     scenarioAndComparator: {
       scenarioSummary:
-        "The scenario framing suggests value is most likely to emerge where pathway redesign meaningfully shifts care into lower-cost settings, reduces admissions or follow-up burden, and does so at a delivery cost that remains locally credible.",
+        "The scenario framing suggests value is most likely to emerge where baseline fall risk is sufficiently high, intervention uptake and adherence are credible, and the delivery model can achieve a meaningful reduction in falls at a realistic cost.",
       strongestScenario:
-        "The strongest scenario is typically the one where pathway shift is higher, admission reduction is more material, and redesign cost is relatively modest.",
+        "The strongest scenario is typically the one where uptake is higher, adherence is stronger, fall-risk reduction is more material, and delivery cost is relatively modest.",
       weakestScenario:
-        "The weakest or most fragile scenario is typically the one where pathway shift is smaller, redesign cost is higher, or downstream admission and follow-up benefits are less pronounced.",
+        "The weakest or most fragile scenario is typically the one where uptake or adherence are lower, fall-risk reduction is smaller, or delivery costs are higher.",
       comparatorSummary:
-        "Comparator interpretation should focus on whether the current configuration offers a materially better pathway and economic signal than a more conservative or differently targeted alternative. If gains over comparator are modest, the case is more likely to require stronger local evidence before progression.",
+        "Comparator interpretation should focus on whether the current configuration offers a materially better prevention and economic signal than a more conservative or differently targeted alternative. If gains over comparator are modest, the case is more likely to require stronger local evidence before progression.",
     },
 
     decisionImplications: {
       progressionView:
-        "Progression is better supported when the model shows a credible pathway effect, an acceptable cost per QALY against threshold, and a decision signal that remains directionally positive under bounded uncertainty.",
+        "Progression is better supported when the model shows a credible prevention effect, an acceptable cost per QALY against threshold, and a decision signal that remains directionally positive under bounded uncertainty.",
       mainEvidenceGap:
-        "The most important evidence gap is usually the local credibility of the assumed pathway shift and the extent to which that redesign would translate into real reductions in admissions, follow-up burden, and bed use.",
+        "The most important evidence gap is usually the local credibility of the assumed reduction in fall risk and the extent to which that reduction would translate into real avoided admissions and bed use.",
       currentCasePosition: `At this stage the case looks ${signalLabel.toLowerCase()}. That should be treated as an early decision signal rather than a final answer.`,
       recommendedNextMove:
-        "The next step should be to validate the key local pathway and implementation assumptions, especially redesign reach, achievable pathway substitution, admission reduction, follow-up reduction, and likely delivery cost.",
+        "The next step should be to validate the key local implementation and pathway assumptions, especially uptake, adherence, baseline fall risk, admission conversion after falls, and likely delivery cost.",
     },
 
     caveats: {
@@ -561,12 +798,12 @@ export function buildPathShiftReportData({
 
     localEvidenceNeeded: {
       items: [
-        "Local baseline pathway mix and acute-managed share",
-        "Local admission rate in the pathway population",
-        "Local follow-up burden per patient",
-        "Realistic redesign reach in the intended operational setting",
-        "Likely implementation cost per patient reached",
-        "Local cost difference between acute-managed and lower-cost pathway settings",
+        "Local eligible population and likely real-world uptake",
+        "Expected adherence or sustained participation in the intervention",
+        "Local baseline fall risk in the target group",
+        "Local admission rate following falls",
+        "Local average length of stay for fall-related admissions",
+        "Likely implementation cost per person reached",
       ],
     },
   };
