@@ -1,8 +1,4 @@
-import {
-  COSTING_METHOD_MAP,
-  SCENARIO_MAP,
-  TARGETING_MODE_MAP,
-} from "./scenarios";
+import { COSTING_METHOD_MAP } from "./scenarios";
 import type {
   ModelResult,
   ParameterSensitivityRow,
@@ -13,37 +9,35 @@ import type {
   YearlyResultRow,
 } from "./types";
 
-function safeDivide(numerator: number, denominator: number): number {
+export function safeDivide(numerator: number, denominator: number): number {
   if (denominator === 0) return 0;
   return numerator / denominator;
 }
 
-function clampRate(value: number): number {
+export function clampRate(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-function getDiscountFactor(year: number, discountRate: number): number {
+export function getDiscountFactor(year: number, discountRate: number): number {
   return 1 / (1 + discountRate) ** (year - 1);
 }
 
-function getTargetingAdjustments(
+export function getTargetingAdjustments(
   inputs: SafeStepInputs,
 ): TargetingAdjustmentsResult {
-  const targeting = TARGETING_MODE_MAP[inputs.targeting_mode];
-
   return {
     adjusted_eligible_population:
-      inputs.eligible_population * targeting.population_multiplier,
+      inputs.eligible_population * inputs.target_population_multiplier,
     adjusted_annual_fall_risk: clampRate(
-      inputs.annual_fall_risk * targeting.risk_multiplier,
+      inputs.annual_fall_risk * inputs.target_fall_risk_multiplier,
     ),
     adjusted_uptake_rate: clampRate(
-      inputs.uptake_rate * targeting.uptake_multiplier,
+      inputs.uptake_rate * inputs.target_uptake_multiplier,
     ),
   };
 }
 
-function calculateGrossSavings(
+export function calculateGrossSavings(
   admissionsAvoided: number,
   bedDaysAvoided: number,
   inputs: SafeStepInputs,
@@ -81,11 +75,13 @@ function runModelCore(
 
   for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
     let annualEffectiveness =
-      inputs.relative_risk_reduction * (1 - inputs.effect_decay_rate) ** (year - 1);
+      inputs.relative_risk_reduction *
+      (1 - inputs.effect_decay_rate) ** (year - 1);
     annualEffectiveness = clampRate(annualEffectiveness);
 
     const treatedPopulation =
-      baseTreatedPopulation * (1 - inputs.participation_dropoff_rate) ** (year - 1);
+      baseTreatedPopulation *
+      (1 - inputs.participation_dropoff_rate) ** (year - 1);
 
     const expectedFallsBaseline =
       treatedPopulation * targeting.adjusted_annual_fall_risk;
@@ -198,7 +194,8 @@ export function calculateBreakEvenEffectiveness(
 
   for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
     const treatedPopulation =
-      baseTreatedPopulation * (1 - inputs.participation_dropoff_rate) ** (year - 1);
+      baseTreatedPopulation *
+      (1 - inputs.participation_dropoff_rate) ** (year - 1);
 
     const expectedFallsBaseline =
       treatedPopulation * targeting.adjusted_annual_fall_risk;
@@ -255,10 +252,12 @@ export function calculateBreakEvenCostPerParticipant(
 
   for (let year = 1; year <= inputs.time_horizon_years; year += 1) {
     const treatedPopulation =
-      baseTreatedPopulation * (1 - inputs.participation_dropoff_rate) ** (year - 1);
+      baseTreatedPopulation *
+      (1 - inputs.participation_dropoff_rate) ** (year - 1);
 
     let annualEffectiveness =
-      inputs.relative_risk_reduction * (1 - inputs.effect_decay_rate) ** (year - 1);
+      inputs.relative_risk_reduction *
+      (1 - inputs.effect_decay_rate) ** (year - 1);
     annualEffectiveness = clampRate(annualEffectiveness);
 
     const expectedFallsBaseline =
@@ -415,6 +414,9 @@ function formatSensitivityValue(
 
     case "average_length_of_stay":
     case "qaly_loss_per_serious_fall":
+    case "target_population_multiplier":
+    case "target_uptake_multiplier":
+    case "target_fall_risk_multiplier":
       return value.toFixed(2);
 
     case "eligible_population":
@@ -436,6 +438,12 @@ function getSensitivityParameterLabel(
       return "Uptake rate";
     case "adherence_rate":
       return "Adherence rate";
+    case "target_population_multiplier":
+      return "Target population multiplier";
+    case "target_uptake_multiplier":
+      return "Target uptake multiplier";
+    case "target_fall_risk_multiplier":
+      return "Target fall-risk multiplier";
     case "annual_fall_risk":
       return "Annual fall risk";
     case "admission_rate_after_fall":
@@ -464,8 +472,6 @@ function getSensitivityParameterLabel(
       return "Discount rate";
     case "costing_method":
       return "Costing method";
-    case "targeting_mode":
-      return "Targeting mode";
     default:
       return String(parameter);
   }
@@ -498,6 +504,9 @@ function buildSensitivityVariants(
     case "cost_per_admission":
     case "cost_per_bed_day":
     case "cost_effectiveness_threshold":
+    case "target_population_multiplier":
+    case "target_uptake_multiplier":
+    case "target_fall_risk_multiplier":
       return {
         lowValue: currentValue * 0.8,
         highValue: currentValue * 1.2,
@@ -508,11 +517,6 @@ function buildSensitivityVariants(
     case "annual_fall_risk":
     case "admission_rate_after_fall":
     case "relative_risk_reduction":
-      return {
-        lowValue: clampRate(currentValue * 0.8),
-        highValue: clampRate(currentValue * 1.2),
-      };
-
     case "effect_decay_rate":
     case "participation_dropoff_rate":
     case "discount_rate":
@@ -538,6 +542,9 @@ export function runParameterSensitivity(
     "admission_rate_after_fall",
     "adherence_rate",
     "uptake_rate",
+    "target_population_multiplier",
+    "target_uptake_multiplier",
+    "target_fall_risk_multiplier",
     "average_length_of_stay",
     "participation_dropoff_rate",
     "effect_decay_rate",
@@ -565,8 +572,14 @@ export function runParameterSensitivity(
       const highResult = runModel(highInputs);
 
       const maxAbsIcerChange = Math.max(
-        Math.abs(lowResult.discounted_cost_per_qaly - baseResult.discounted_cost_per_qaly),
-        Math.abs(highResult.discounted_cost_per_qaly - baseResult.discounted_cost_per_qaly),
+        Math.abs(
+          lowResult.discounted_cost_per_qaly -
+            baseResult.discounted_cost_per_qaly,
+        ),
+        Math.abs(
+          highResult.discounted_cost_per_qaly -
+            baseResult.discounted_cost_per_qaly,
+        ),
       );
 
       return {
@@ -592,27 +605,5 @@ export function runParameterSensitivity(
     rows,
     top_drivers: topDrivers,
     primary_driver: topDrivers[0] ?? null,
-  };
-}
-
-export function buildComparatorCase(
-  defaults: SafeStepInputs,
-  baseInputs: SafeStepInputs,
-  comparatorMode: keyof typeof SCENARIO_MAP,
-): SafeStepInputs {
-  const comparatorInputs =
-    comparatorMode in SCENARIO_MAP
-      ? SCENARIO_MAP[comparatorMode](defaults)
-      : { ...baseInputs };
-
-  return {
-    ...comparatorInputs,
-    time_horizon_years: baseInputs.time_horizon_years,
-    discount_rate: baseInputs.discount_rate,
-    costing_method: baseInputs.costing_method,
-    cost_effectiveness_threshold: baseInputs.cost_effectiveness_threshold,
-    cost_per_admission: baseInputs.cost_per_admission,
-    cost_per_bed_day: baseInputs.cost_per_bed_day,
-    qaly_loss_per_serious_fall: baseInputs.qaly_loss_per_serious_fall,
   };
 }
