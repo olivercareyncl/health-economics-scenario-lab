@@ -158,7 +158,13 @@ function buildScenarioSection(inputs: Inputs): PathShiftReportData["scenario"] {
       inputs.current_acute_managed_rate,
     )} and a current admission rate of ${formatPercent(
       inputs.current_admission_rate,
-    )}. Pathway pressure and opportunity are then shaped by the interaction between baseline pathway mix, admission risk, redesign reach, and the degree of achievable pathway substitution.`,
+    )}. Opportunity is then shaped by three explicit targeting assumptions: a target population multiplier of ${inputs.target_population_multiplier.toFixed(
+      2,
+    )}, a target reach multiplier of ${inputs.target_reach_multiplier.toFixed(
+      2,
+    )}, and a target admission risk multiplier of ${inputs.target_admission_risk_multiplier.toFixed(
+      2,
+    )}.`,
     economicMechanism: `The value mechanism runs through shifting care into a lower-cost setting, reducing follow-up burden, reducing admissions, and reducing bed use. The model then assesses whether these effects are sufficient to offset redesign costs and produce an acceptable cost per QALY against the selected threshold.`,
   };
 }
@@ -196,7 +202,7 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the signal remains sensitive to the assumed pathway shift, achievable reduction in admissions and follow-up burden, and redesign delivery cost.`,
+      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the signal remains sensitive to the assumed pathway shift, achievable reduction in admissions and follow-up burden, delivery cost, and the chosen targeting assumptions.`,
     },
   ];
 }
@@ -209,12 +215,6 @@ function buildAssumptionSections(
       title: "Core redesign assumptions",
       rows: [
         {
-          assumption: "Targeting mode",
-          value: inputs.targeting_mode,
-          rationale:
-            "Determines how concentrated the opportunity is assumed to be and therefore how plausible it is to achieve meaningful pathway change in the selected population.",
-        },
-        {
           assumption: "Annual cohort size",
           value: formatNumber(inputs.annual_cohort_size),
           rationale:
@@ -224,7 +224,7 @@ function buildAssumptionSections(
           assumption: "Implementation reach rate",
           value: formatPercent(inputs.implementation_reach_rate),
           rationale:
-            "Controls how much of the relevant population is effectively reached by the redesign in practice.",
+            "Controls how much of the relevant population is effectively reached by the redesign in practice before any targeting uplift is applied.",
         },
         {
           assumption: "Redesign cost per patient",
@@ -241,6 +241,29 @@ function buildAssumptionSections(
           }`,
           rationale:
             "Longer horizons allow more downstream pathway and economic effects to accumulate, which can materially improve the observed value case.",
+        },
+      ],
+    },
+    {
+      title: "Targeting approach assumptions",
+      rows: [
+        {
+          assumption: "Target population multiplier",
+          value: inputs.target_population_multiplier.toFixed(2),
+          rationale:
+            "Represents how much of the full pathway population is treated as the practical target population for redesign.",
+        },
+        {
+          assumption: "Target reach multiplier",
+          value: inputs.target_reach_multiplier.toFixed(2),
+          rationale:
+            "Represents whether the chosen target group is assumed to be easier or harder to reach than the baseline implementation reach suggests.",
+        },
+        {
+          assumption: "Target admission risk multiplier",
+          value: inputs.target_admission_risk_multiplier.toFixed(2),
+          rationale:
+            "Represents how much more or less admission-prone the targeted group is assumed to be than the overall pathway population.",
         },
       ],
     },
@@ -398,7 +421,7 @@ function buildSensitivitySummary(
   if (top.length === 0) {
     return [
       "One-way sensitivity has not highlighted a clear set of dominant drivers yet.",
-      "At this stage, the case should still be treated as dependent on the core assumptions around pathway shift, admission reduction, follow-up reduction, and redesign cost.",
+      "At this stage, the case should still be treated as dependent on the core assumptions around pathway shift, admission reduction, follow-up reduction, redesign cost, and the targeting approach.",
       "Further validation should focus on the most decision-relevant pathway, implementation, and cost inputs locally.",
     ];
   }
@@ -563,7 +586,7 @@ export function buildPathShiftReportData({
         "The most important evidence gap is usually the local credibility of the assumed pathway shift and the extent to which that redesign would translate into real reductions in admissions, follow-up burden, and bed use.",
       currentCasePosition: `At this stage the case looks ${signalLabel.toLowerCase()}. That should be treated as an early decision signal rather than a final answer.`,
       recommendedNextMove:
-        "The next step should be to validate the key local pathway and implementation assumptions, especially redesign reach, achievable pathway substitution, admission reduction, follow-up reduction, and likely delivery cost.",
+        "The next step should be to validate the key local pathway and implementation assumptions, especially redesign reach, achievable pathway substitution, admission reduction, follow-up reduction, likely delivery cost, and the realism of the targeting multipliers.",
     },
 
     caveats: {
@@ -578,6 +601,7 @@ export function buildPathShiftReportData({
         "Realistic redesign reach in the intended operational setting",
         "Likely implementation cost per patient reached",
         "Local cost difference between acute-managed and lower-cost pathway settings",
+        "Evidence to support the chosen target population, reach, and admission-risk multipliers",
       ],
     },
   };
