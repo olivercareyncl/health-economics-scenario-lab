@@ -1,11 +1,13 @@
 import type {
   Inputs,
   ModelResults,
-  ScenarioComparisonRow,
   UncertaintyRow,
 } from "@/lib/waitwise/types";
 
-export function getDecisionStatus(results: ModelResults, threshold: number): string {
+export function getDecisionStatus(
+  results: ModelResults,
+  threshold: number,
+): string {
   if (results.discounted_net_cost_total < 0) {
     return "Appears cost-saving";
   }
@@ -24,6 +26,7 @@ export function getNetCostLabel(results: ModelResults): string {
   if (results.discounted_net_cost_total < 0) {
     return "Discounted net saving";
   }
+
   return "Discounted net cost";
 }
 
@@ -122,6 +125,7 @@ export function generateStructuredRecommendation(
   const mainDependency = getMainDriverText(inputs);
 
   let mainFragility: string;
+
   if (inputs.costing_method === "Combined illustrative view") {
     mainFragility =
       "The result is sensitive to how value is counted, especially if escalation, admission, and bed-day savings overlap.";
@@ -136,6 +140,7 @@ export function generateStructuredRecommendation(
   }
 
   let bestNextStep: string;
+
   if (inputs.targeting_mode === "Broad waiting list") {
     bestNextStep =
       "Test whether a more targeted implementation improves value without losing too much operational impact.";
@@ -216,35 +221,6 @@ export function generateDecisionReadiness(
   };
 }
 
-export function summariseScenarioStrengths(
-  scenarioRows: ScenarioComparisonRow[],
-): string {
-  if (!scenarioRows.length) {
-    return "No scenario comparison is available yet.";
-  }
-
-  const bestValue = [...scenarioRows].sort(
-    (a, b) => a.discounted_cost_per_qaly - b.discounted_cost_per_qaly,
-  )[0];
-
-  const bestEfficiency = [...scenarioRows].sort(
-    (a, b) => a.discounted_net_cost - b.discounted_net_cost,
-  )[0];
-
-  const bestImpact = [...scenarioRows].sort(
-    (a, b) => b.waiting_list_reduction - a.waiting_list_reduction,
-  )[0];
-
-  if (
-    bestValue.scenario === bestEfficiency.scenario &&
-    bestEfficiency.scenario === bestImpact.scenario
-  ) {
-    return `Under the current settings, ${bestValue.scenario} is simultaneously strongest for value, efficiency, and impact.`;
-  }
-
-  return `Under the current settings, ${bestValue.scenario} looks strongest for value, ${bestEfficiency.scenario} looks strongest for efficiency, and ${bestImpact.scenario} looks strongest for impact.`;
-}
-
 export function generateOverviewSummary(
   results: ModelResults,
   inputs: Inputs,
@@ -294,6 +270,7 @@ export function generateInterpretation(
   const readiness = generateDecisionReadiness(inputs, results);
 
   let whatModelSuggests: string;
+
   if (results.discounted_net_cost_total < 0) {
     whatModelSuggests =
       `WaitWise suggests the intervention generates measurable operational benefit and a discounted net saving over ${horizon} year${horizon !== 1 ? "s" : ""}. ` +
@@ -316,6 +293,7 @@ export function generateInterpretation(
     "the quality of targeting, and whether intervention reach and effect persist over time.";
 
   let whatLooksFragile: string;
+
   if (inputs.costing_method === "Combined illustrative view") {
     whatLooksFragile =
       "The economic signal may be fragile because the combined costing approach is intentionally illustrative and may overstate value if local cost components overlap.";
