@@ -18,11 +18,11 @@ export const defaultInputs: SafeStepInputs = {
   relative_risk_reduction: 0.16,
   effect_decay_rate: 0.1,
 
+  costing_method: "Admission cost only",
   cost_per_admission: 3500,
   cost_per_bed_day: 400,
-  qaly_loss_per_serious_fall: 0.05,
 
-  costing_method: "Admission cost only",
+  qaly_loss_per_serious_fall: 0.05,
   cost_effectiveness_threshold: 20000,
   time_horizon_years: 3,
   discount_rate: 0.035,
