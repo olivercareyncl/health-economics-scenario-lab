@@ -1,6 +1,5 @@
-import { COSTING_METHOD_MAP, SCENARIO_MAP, TARGETING_MODE_MAP } from "@/lib/waitwise/scenarios";
+import { COSTING_METHOD_MAP, TARGETING_MODE_MAP } from "@/lib/waitwise/scenarios";
 import type {
-  ComparatorOption,
   Inputs,
   ModelResults,
   UncertaintyRow,
@@ -355,9 +354,12 @@ export function calculateBreakEvenHorizon(
   maxYears = 10,
 ): string {
   for (let horizon = 1; horizon <= maxYears; horizon += 1) {
+    const allowedHorizon: Inputs["time_horizon_years"] =
+      horizon <= 1 ? 1 : horizon <= 3 ? 3 : 5;
+
     const testInputs: Inputs = {
       ...inputs,
-      time_horizon_years: horizon as Inputs["time_horizon_years"],
+      time_horizon_years: allowedHorizon,
     };
 
     const result = runModelCore(testInputs);
@@ -475,32 +477,4 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
       decision_status: decisionStatus,
     };
   });
-}
-
-export function buildComparatorCase(
-  defaults: Inputs,
-  baseInputs: Inputs,
-  comparatorMode: ComparatorOption,
-): Inputs {
-  const comparatorInputs: Inputs = { ...defaults };
-
-  const scenarioBuilder = SCENARIO_MAP[comparatorMode];
-  if (scenarioBuilder) {
-    Object.assign(comparatorInputs, scenarioBuilder(defaults));
-  } else {
-    Object.assign(comparatorInputs, baseInputs);
-  }
-
-  comparatorInputs.time_horizon_years = baseInputs.time_horizon_years;
-  comparatorInputs.discount_rate = baseInputs.discount_rate;
-  comparatorInputs.costing_method = baseInputs.costing_method;
-  comparatorInputs.cost_effectiveness_threshold =
-    baseInputs.cost_effectiveness_threshold;
-  comparatorInputs.cost_per_escalation = baseInputs.cost_per_escalation;
-  comparatorInputs.cost_per_admission = baseInputs.cost_per_admission;
-  comparatorInputs.cost_per_bed_day = baseInputs.cost_per_bed_day;
-  comparatorInputs.qaly_gain_per_escalation_avoided =
-    baseInputs.qaly_gain_per_escalation_avoided;
-
-  return comparatorInputs;
 }
