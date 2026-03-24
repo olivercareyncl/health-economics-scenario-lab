@@ -3,6 +3,7 @@ import {
   formatNumber,
   formatPercent,
 } from "@/lib/pathshift/formatters";
+import type { Inputs } from "@/lib/pathshift/types";
 
 export type ConfidenceLevel =
   | "High confidence"
@@ -18,7 +19,7 @@ export type AssumptionMetaItem = {
   confidence: ConfidenceLevel;
 };
 
-export const ASSUMPTION_META: Record<string, AssumptionMetaItem> = {
+export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
   annual_cohort_size: {
     label: "Annual cohort size",
     unit: "patients",
@@ -62,6 +63,44 @@ export const ASSUMPTION_META: Record<string, AssumptionMetaItem> = {
     source_type: "Operational estimate",
     confidence: "Medium confidence",
   },
+
+  implementation_reach_rate: {
+    label: "Implementation reach rate",
+    unit: "%",
+    formatter: (value) => formatPercent(Number(value)),
+    description:
+      "Estimated share of the cohort effectively reached by the redesign.",
+    source_type: "Operational estimate",
+    confidence: "Medium confidence",
+  },
+  target_population_multiplier: {
+    label: "Target population multiplier",
+    unit: "x",
+    formatter: (value) => `${Number(value).toFixed(2)}x`,
+    description:
+      "Scales the effective cohort size to reflect how narrowly or broadly the redesign is focused.",
+    source_type: "User override",
+    confidence: "Medium confidence",
+  },
+  target_reach_multiplier: {
+    label: "Target reach multiplier",
+    unit: "x",
+    formatter: (value) => `${Number(value).toFixed(2)}x`,
+    description:
+      "Adjusts effective implementation reach to reflect whether the selected subgroup is easier or harder to engage.",
+    source_type: "User override",
+    confidence: "Medium confidence",
+  },
+  target_admission_risk_multiplier: {
+    label: "Target admission risk multiplier",
+    unit: "x",
+    formatter: (value) => `${Number(value).toFixed(2)}x`,
+    description:
+      "Adjusts baseline admission risk to reflect whether the redesign is focused on a higher-opportunity subgroup.",
+    source_type: "User override",
+    confidence: "Medium confidence",
+  },
+
   proportion_shifted_to_lower_cost_setting: {
     label: "Proportion shifted to lower-cost setting",
     unit: "%",
@@ -98,15 +137,7 @@ export const ASSUMPTION_META: Record<string, AssumptionMetaItem> = {
     source_type: "Illustrative default",
     confidence: "Low confidence",
   },
-  implementation_reach_rate: {
-    label: "Implementation reach rate",
-    unit: "%",
-    formatter: (value) => formatPercent(Number(value)),
-    description:
-      "Estimated share of the cohort effectively reached by the redesign.",
-    source_type: "Operational estimate",
-    confidence: "Medium confidence",
-  },
+
   redesign_cost_per_patient: {
     label: "Redesign cost per patient",
     unit: "GBP",
@@ -133,6 +164,7 @@ export const ASSUMPTION_META: Record<string, AssumptionMetaItem> = {
     source_type: "Illustrative default",
     confidence: "Low confidence",
   },
+
   cost_per_acute_managed_patient: {
     label: "Cost per acute-managed patient",
     unit: "GBP",
@@ -191,15 +223,6 @@ export const ASSUMPTION_META: Record<string, AssumptionMetaItem> = {
     source_type: "Evidence-informed proxy",
     confidence: "Low confidence",
   },
-  targeting_mode: {
-    label: "Targeting mode",
-    unit: "",
-    formatter: (value) => String(value),
-    description:
-      "How broadly or narrowly the redesign is focused across the pathway population.",
-    source_type: "User override",
-    confidence: "Medium confidence",
-  },
   time_horizon_years: {
     label: "Time horizon",
     unit: "years",
@@ -227,17 +250,20 @@ export const ASSUMPTION_META: Record<string, AssumptionMetaItem> = {
   },
 };
 
-export const ASSUMPTION_ORDER = [
+export const ASSUMPTION_ORDER: (keyof Inputs)[] = [
   "annual_cohort_size",
   "current_acute_managed_rate",
   "current_admission_rate",
   "current_follow_up_contacts_per_patient",
   "current_average_length_of_stay",
+  "implementation_reach_rate",
+  "target_population_multiplier",
+  "target_reach_multiplier",
+  "target_admission_risk_multiplier",
   "proportion_shifted_to_lower_cost_setting",
   "reduction_in_admission_rate",
   "reduction_in_follow_up_contacts",
   "reduction_in_length_of_stay",
-  "implementation_reach_rate",
   "redesign_cost_per_patient",
   "effect_decay_rate",
   "participation_dropoff_rate",
@@ -248,11 +274,10 @@ export const ASSUMPTION_ORDER = [
   "cost_per_bed_day",
   "costing_method",
   "qaly_gain_per_patient_improved",
-  "targeting_mode",
   "time_horizon_years",
   "discount_rate",
   "cost_effectiveness_threshold",
-] as const;
+];
 
 export function getAssumptionConfidenceSummary(): {
   "High confidence": number;
