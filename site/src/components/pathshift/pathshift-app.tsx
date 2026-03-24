@@ -31,9 +31,11 @@ import {
   runModel,
 } from "@/lib/pathshift/calculations";
 import {
+  buildComparatorDeltaChartData,
   buildCumulativeCostChartData,
   buildImpactBarChartData,
   buildPathwayShiftChartData,
+  buildTornadoChartData,
   buildUncertaintyChartData,
   compactCurrencyAxis,
 } from "@/lib/pathshift/charts";
@@ -43,16 +45,28 @@ import {
   formatPercent,
   formatRatio,
 } from "@/lib/pathshift/formatters";
-import { ASSUMPTION_META, ASSUMPTION_ORDER } from "@/lib/pathshift/metadata";
+import {
+  ASSUMPTION_META,
+  ASSUMPTION_ORDER,
+  getAssumptionConfidenceSummary,
+} from "@/lib/pathshift/metadata";
 import {
   COMPARATOR_OPTIONS,
   COSTING_METHOD_OPTIONS,
   TARGETING_MODE_OPTIONS,
 } from "@/lib/pathshift/scenarios";
 import {
+  buildSensitivityTakeaways,
+  runOneWaySensitivity,
+  SENSITIVITY_VARIABLES,
+} from "@/lib/pathshift/sensitivity";
+import {
+  assessUncertaintyRobustness,
   generateInterpretation,
+  generateOverallSignal,
+  generateOverviewSummary,
+  generateStructuredRecommendation,
   getDecisionStatus,
-  getMainDriverText,
   getNetCostLabel,
 } from "@/lib/pathshift/summaries";
 import type {
@@ -62,6 +76,8 @@ import type {
   Inputs,
   MobileTab,
   ModelResults,
+  ParameterSensitivityRow,
+  SensitivitySummary,
   TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
@@ -73,7 +89,8 @@ type ScenarioPreset =
   | "Optimistic case"
   | "Lower-cost setting shift"
   | "Follow-up reduction focus"
-  | "Admission reduction focus";
+  | "Admission reduction focus"
+  | "Custom";
 
 const PRESET_OPTIONS: readonly ScenarioPreset[] = [
   "Base case",
@@ -82,6 +99,7 @@ const PRESET_OPTIONS: readonly ScenarioPreset[] = [
   "Lower-cost setting shift",
   "Follow-up reduction focus",
   "Admission reduction focus",
+  "Custom",
 ] as const;
 
 const baseTargetingMode = TARGETING_MODE_OPTIONS[0] as TargetingMode;
@@ -94,40 +112,9 @@ const tertiaryTargetingMode =
 
 const baseCostingMethod = COSTING_METHOD_OPTIONS[0] as CostingMethod;
 
-const PRESET_PATCHES: Record<ScenarioPreset, Partial<Inputs>> = {
+const PRESET_PATCHES: Record<Exclude<ScenarioPreset, "Custom">, Partial<Inputs>> = {
   "Base case": {
-    targeting_mode: DEFAULT_INPUTS.targeting_mode,
-    annual_cohort_size: DEFAULT_INPUTS.annual_cohort_size,
-    implementation_reach_rate: DEFAULT_INPUTS.implementation_reach_rate,
-    redesign_cost_per_patient: DEFAULT_INPUTS.redesign_cost_per_patient,
-    proportion_shifted_to_lower_cost_setting:
-      DEFAULT_INPUTS.proportion_shifted_to_lower_cost_setting,
-    reduction_in_admission_rate: DEFAULT_INPUTS.reduction_in_admission_rate,
-    reduction_in_follow_up_contacts:
-      DEFAULT_INPUTS.reduction_in_follow_up_contacts,
-    reduction_in_length_of_stay: DEFAULT_INPUTS.reduction_in_length_of_stay,
-    time_horizon_years: DEFAULT_INPUTS.time_horizon_years,
-    current_acute_managed_rate: DEFAULT_INPUTS.current_acute_managed_rate,
-    current_admission_rate: DEFAULT_INPUTS.current_admission_rate,
-    current_follow_up_contacts_per_patient:
-      DEFAULT_INPUTS.current_follow_up_contacts_per_patient,
-    current_average_length_of_stay:
-      DEFAULT_INPUTS.current_average_length_of_stay,
-    costing_method: DEFAULT_INPUTS.costing_method,
-    cost_effectiveness_threshold:
-      DEFAULT_INPUTS.cost_effectiveness_threshold,
-    cost_per_acute_managed_patient:
-      DEFAULT_INPUTS.cost_per_acute_managed_patient,
-    cost_per_community_managed_patient:
-      DEFAULT_INPUTS.cost_per_community_managed_patient,
-    cost_per_follow_up_contact: DEFAULT_INPUTS.cost_per_follow_up_contact,
-    cost_per_admission: DEFAULT_INPUTS.cost_per_admission,
-    cost_per_bed_day: DEFAULT_INPUTS.cost_per_bed_day,
-    discount_rate: DEFAULT_INPUTS.discount_rate,
-    effect_decay_rate: DEFAULT_INPUTS.effect_decay_rate,
-    participation_dropoff_rate: DEFAULT_INPUTS.participation_dropoff_rate,
-    qaly_gain_per_patient_improved:
-      DEFAULT_INPUTS.qaly_gain_per_patient_improved,
+    ...DEFAULT_INPUTS,
   },
   "Conservative case": {
     targeting_mode: baseTargetingMode,
@@ -199,10 +186,18 @@ function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function getCaseTypeLabel(
-  preset: ScenarioPreset,
-  inputs: Inputs,
-): string {
+function normaliseCurrencyDisplay(value: string) {
+  return value.replace(/^£-/, "-£");
+}
+
+function formatAssumptionValue(
+  formatter: (value: string | number) => string,
+  value: string | number,
+) {
+  return normaliseCurrencyDisplay(formatter(value));
+}
+
+function getCaseTypeLabel(preset: ScenarioPreset, inputs: Inputs): string {
   if (preset === "Lower-cost setting shift") {
     return "Lower-cost setting shift case";
   }
@@ -231,8 +226,7 @@ function getCaseTypeLabel(
   if (
     inputs.reduction_in_follow_up_contacts >=
       inputs.proportion_shifted_to_lower_cost_setting &&
-    inputs.reduction_in_follow_up_contacts >=
-      inputs.reduction_in_admission_rate
+    inputs.reduction_in_follow_up_contacts >= inputs.reduction_in_admission_rate
   ) {
     return "Follow-up reduction case";
   }
@@ -244,17 +238,39 @@ function getCaseTypeLabel(
   return "Broad pathway redesign case";
 }
 
-function getRecommendationSignal(
-  results: ModelResults,
-  threshold: number,
-): string {
-  if (results.discounted_net_cost_total < 0) {
-    return "Looks decision-positive on cost saving grounds.";
-  }
-  if (results.discounted_cost_per_qaly <= threshold) {
-    return "Looks decision-positive on cost-effectiveness grounds.";
-  }
-  return "Needs stronger impact or lower delivery cost to support the case.";
+function buildSensitivitySummary(inputs: Inputs): SensitivitySummary {
+  const rawRows = runOneWaySensitivity(inputs, SENSITIVITY_VARIABLES);
+
+  const rows: ParameterSensitivityRow[] = rawRows.map((row) => ({
+    parameter_key: row.variable as keyof Inputs,
+    parameter_label: row.label,
+    base_value: row.base_input,
+    low_value: row.low_input,
+    high_value: row.high_input,
+    low_value_label: formatAssumptionValue(
+      ASSUMPTION_META[row.variable].formatter,
+      row.low_input,
+    ),
+    high_value_label: formatAssumptionValue(
+      ASSUMPTION_META[row.variable].formatter,
+      row.high_input,
+    ),
+    base_icer: row.base_outcome,
+    low_icer: row.low_outcome,
+    high_icer: row.high_outcome,
+    low_delta: row.low_delta,
+    high_delta: row.high_delta,
+    max_abs_icer_change: Math.max(
+      Math.abs(row.low_delta),
+      Math.abs(row.high_delta),
+    ),
+  }));
+
+  return {
+    rows,
+    primary_driver: rows[0] ?? null,
+    top_drivers: rows.slice(0, 3),
+  };
 }
 
 function CurrencyTooltip({
@@ -275,7 +291,7 @@ function CurrencyTooltip({
         {payload.map((item, index) => (
           <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
             <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-            {formatCurrency(item.value ?? 0)}
+            {normaliseCurrencyDisplay(formatCurrency(item.value ?? 0))}
           </p>
         ))}
       </div>
@@ -305,257 +321,6 @@ function NumberTooltip({
           </p>
         ))}
       </div>
-    </div>
-  );
-}
-
-function PathwayShiftChart({
-  yearlyResults,
-}: {
-  yearlyResults: YearlyResultRow[];
-}) {
-  const data = buildPathwayShiftChartData(yearlyResults);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Patients shifted in pathway
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Annual pathway shift across the selected horizon.
-        </p>
-      </div>
-
-      <div className="h-52 w-full lg:h-64 xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => formatNumber(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={56}
-            />
-            <Tooltip content={<NumberTooltip />} />
-            <Bar
-              dataKey="patientsShiftedInPathway"
-              name="Patients shifted"
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function CostVsSavingsChart({
-  yearlyResults,
-}: {
-  yearlyResults: YearlyResultRow[];
-}) {
-  const data = buildCumulativeCostChartData(yearlyResults);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Cost vs savings
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Cumulative delivery cost compared with gross savings.
-        </p>
-      </div>
-
-      <div className="h-52 w-full lg:h-64 xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={58}
-            />
-            <Tooltip content={<CurrencyTooltip />} />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
-            <Line
-              type="monotone"
-              dataKey="programmeCost"
-              name="Programme cost"
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="grossSavings"
-              name="Gross savings"
-              strokeWidth={2}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function ImpactChart({
-  results,
-}: {
-  results: ModelResults;
-}) {
-  const data = buildImpactBarChartData(results);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Pathway impact
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Headline operational impact over the selected horizon.
-        </p>
-      </div>
-
-      <div className="h-52 w-full overflow-x-auto lg:h-64 xl:h-72">
-        <div className="h-full min-w-[460px] sm:min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 16 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={false}
-                fontSize={12}
-                interval={0}
-                angle={0}
-              />
-              <YAxis
-                tickFormatter={(value) => formatNumber(Number(value))}
-                tickLine={false}
-                axisLine={false}
-                fontSize={12}
-                width={54}
-              />
-              <Tooltip content={<NumberTooltip />} />
-              <Bar dataKey="value" name="Impact" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BoundedUncertaintyChart({
-  uncertaintyRows,
-  threshold,
-}: {
-  uncertaintyRows: UncertaintyRow[];
-  threshold: number;
-}) {
-  const data = buildUncertaintyChartData(uncertaintyRows);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Bounded uncertainty
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Low, base, and high cases against the current threshold.
-        </p>
-      </div>
-
-      <div className="h-56 w-full lg:h-64 xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={58}
-            />
-            <Tooltip content={<CurrencyTooltip />} />
-            <ReferenceLine
-              y={threshold}
-              stroke="#c2410c"
-              strokeWidth={2}
-              strokeDasharray="4 4"
-              ifOverflow="extendDomain"
-            />
-            <Bar
-              dataKey="discountedCostPerQaly"
-              name="Discounted cost per QALY"
-              radius={[8, 8, 0, 0]}
-            >
-              {data.map((entry) => {
-                const belowThreshold = entry.discountedCostPerQaly <= threshold;
-                return (
-                  <Cell
-                    key={`cell-${entry.case}`}
-                    fill={belowThreshold ? "#0f172a" : "#94a3b8"}
-                  />
-                );
-              })}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dark = at or below threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Light = above threshold
-        </span>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
-          Dashed orange = threshold
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function MobileAccordion({
-  title,
-  defaultOpen = false,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
-        aria-expanded={open}
-      >
-        <span className="text-sm font-medium text-slate-900">{title}</span>
-        <ChevronDown
-          className={cx(
-            "h-4 w-4 text-slate-500 transition-transform",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-
-      {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
     </div>
   );
 }
@@ -620,7 +385,7 @@ function MetricCard({
             : "text-lg font-semibold lg:text-xl",
         )}
       >
-        {value}
+        {normaliseCurrencyDisplay(value)}
       </p>
     </div>
   );
@@ -668,6 +433,39 @@ function MobileTabButton({
       {icon}
       {children}
     </button>
+  );
+}
+
+function MobileAccordion({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-sm font-medium text-slate-900">{title}</span>
+        <ChevronDown
+          className={cx(
+            "h-4 w-4 text-slate-500 transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+
+      {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
+    </div>
   );
 }
 
@@ -799,8 +597,361 @@ function AssumptionReviewCard({
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
         {label}
       </p>
-      <p className="mt-1.5 text-sm font-semibold text-slate-900">{value}</p>
+      <p className="mt-1.5 text-sm font-semibold text-slate-900">
+        {normaliseCurrencyDisplay(value)}
+      </p>
       {note ? <p className="mt-1.5 text-sm leading-6 text-slate-600">{note}</p> : null}
+    </div>
+  );
+}
+
+function PathwayShiftChart({
+  yearlyResults,
+}: {
+  yearlyResults: YearlyResultRow[];
+}) {
+  const data = buildPathwayShiftChartData(yearlyResults);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Patients shifted in pathway
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Annual pathway shift across the selected horizon.
+        </p>
+      </div>
+
+      <div className="h-52 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => formatNumber(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={56}
+            />
+            <Tooltip content={<NumberTooltip />} />
+            <Bar
+              dataKey="patientsShiftedInPathway"
+              name="Patients shifted"
+              radius={[8, 8, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function CostVsSavingsChart({
+  yearlyResults,
+}: {
+  yearlyResults: YearlyResultRow[];
+}) {
+  const data = buildCumulativeCostChartData(yearlyResults);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Cost vs savings
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Cumulative delivery cost compared with gross savings.
+        </p>
+      </div>
+
+      <div className="h-52 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="year" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={58}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Line
+              type="monotone"
+              dataKey="programmeCost"
+              name="Programme cost"
+              strokeWidth={2}
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="grossSavings"
+              name="Gross savings"
+              strokeWidth={2}
+              dot={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function ImpactChart({
+  results,
+}: {
+  results: ModelResults;
+}) {
+  const data = buildImpactBarChartData(results);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Pathway impact
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Headline operational impact over the selected horizon.
+        </p>
+      </div>
+
+      <div className="h-52 w-full overflow-x-auto lg:h-64 xl:h-72">
+        <div className="h-full min-w-[460px] sm:min-w-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 16 }}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                fontSize={12}
+                interval={0}
+              />
+              <YAxis
+                tickFormatter={(value) => formatNumber(Number(value))}
+                tickLine={false}
+                axisLine={false}
+                fontSize={12}
+                width={54}
+              />
+              <Tooltip content={<NumberTooltip />} />
+              <Bar dataKey="value" name="Impact" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BoundedUncertaintyChart({
+  uncertaintyRows,
+  threshold,
+}: {
+  uncertaintyRows: UncertaintyRow[];
+  threshold: number;
+}) {
+  const data = buildUncertaintyChartData(uncertaintyRows);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Bounded uncertainty
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Low, base, and high cases against the current threshold.
+        </p>
+      </div>
+
+      <div className="h-56 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="case" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={58}
+            />
+            <Tooltip content={<CurrencyTooltip />} />
+            <ReferenceLine
+              y={threshold}
+              stroke="#c2410c"
+              strokeWidth={2}
+              strokeDasharray="4 4"
+              ifOverflow="extendDomain"
+            />
+            <Bar
+              dataKey="discountedCostPerQaly"
+              name="Discounted cost per QALY"
+              radius={[8, 8, 0, 0]}
+            >
+              {data.map((entry) => {
+                const belowThreshold = entry.discountedCostPerQaly <= threshold;
+                return (
+                  <Cell
+                    key={`cell-${entry.case}`}
+                    fill={belowThreshold ? "#0f172a" : "#94a3b8"}
+                  />
+                );
+              })}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function SensitivityChart({
+  sensitivity,
+}: {
+  sensitivity: SensitivitySummary;
+}) {
+  const data = buildTornadoChartData(
+    sensitivity.rows.map((row) => ({
+      variable: row.parameter_key as string,
+      label: row.parameter_label,
+      base_input: row.base_value,
+      low_input: row.low_value,
+      high_input: row.high_value,
+      base_outcome: row.base_icer,
+      low_outcome: row.low_icer,
+      high_outcome: row.high_icer,
+      low_delta: row.low_delta,
+      high_delta: row.high_delta,
+      swing: row.max_abs_icer_change,
+    })),
+  );
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          One-way sensitivity
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Top drivers of discounted cost per QALY when varied one at a time.
+        </p>
+      </div>
+
+      <div className="h-64 w-full lg:h-72 xl:h-80">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 8, right: 20, left: 12, bottom: 0 }}
+          >
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={190}
+            />
+            <Tooltip
+              formatter={(value: number, name: string) => [
+                normaliseCurrencyDisplay(formatCurrency(value)),
+                name === "lowDelta" ? "Low case delta" : "High case delta",
+              ]}
+            />
+            <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
+            <Legend
+              wrapperStyle={{ fontSize: "12px" }}
+              formatter={(value) => (value === "lowDelta" ? "Low case" : "High case")}
+            />
+            <Bar
+              dataKey="lowDelta"
+              name="lowDelta"
+              fill="#94a3b8"
+              radius={[0, 6, 6, 0]}
+            />
+            <Bar
+              dataKey="highDelta"
+              name="highDelta"
+              fill="#0f172a"
+              radius={[0, 6, 6, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function ComparatorDeltaChart({
+  baseResults,
+  comparatorResults,
+  comparatorLabel,
+}: {
+  baseResults: ModelResults;
+  comparatorResults: ModelResults;
+  comparatorLabel: string;
+}) {
+  const data = buildComparatorDeltaChartData(baseResults, comparatorResults);
+
+  return (
+    <div className={SUBCARD}>
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
+          Comparator deltas
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
+          Change versus the current configuration using {comparatorLabel.toLowerCase()}.
+        </p>
+      </div>
+
+      <div className="h-56 w-full lg:h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+            <YAxis
+              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={58}
+            />
+            <Tooltip
+              content={({ active, payload, label }) => {
+                if (!active || !payload?.length) return null;
+                const row = data.find((d) => d.label === label);
+                const value = Number(payload[0]?.value ?? 0);
+
+                return (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <p className="text-sm font-medium text-slate-900">{label}</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      <span className="font-medium text-slate-800">Delta:</span>{" "}
+                      {row?.isCurrency
+                        ? normaliseCurrencyDisplay(formatCurrency(value))
+                        : formatNumber(value)}
+                    </p>
+                  </div>
+                );
+              }}
+            />
+            <Bar dataKey="delta" name="Delta" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -809,8 +960,8 @@ export default function PathShiftApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-  const [showAssumptionReviewMobile, setShowAssumptionReviewMobile] =
-    useState(false);
+  const [showComparatorDesktop, setShowComparatorDesktop] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [selectedPreset, setSelectedPreset] =
     useState<ScenarioPreset>("Base case");
   const [openSections, setOpenSections] = useState<
@@ -826,6 +977,7 @@ export default function PathShiftApp() {
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
+  const sensitivity = useMemo(() => buildSensitivitySummary(inputs), [inputs]);
 
   const comparatorResults = useMemo(() => {
     const comparatorInputs = buildComparatorCase(
@@ -842,27 +994,62 @@ export default function PathShiftApp() {
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
-  const mainDriver = useMemo(() => getMainDriverText(inputs), [inputs]);
-  const caseTypeLabel = useMemo(
-    () => getCaseTypeLabel(selectedPreset, inputs),
-    [selectedPreset, inputs],
+  const overallSignal = useMemo(
+    () => generateOverallSignal(results, inputs, uncertainty),
+    [results, inputs, uncertainty],
   );
-  const recommendationSignal = useMemo(
-    () =>
-      getRecommendationSignal(
-        results,
-        inputs.cost_effectiveness_threshold,
-      ),
-    [results, inputs.cost_effectiveness_threshold],
+  const overviewSummary = useMemo(
+    () => generateOverviewSummary(results, inputs, uncertainty),
+    [results, inputs, uncertainty],
   );
-
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty),
     [results, inputs, uncertainty],
   );
+  const structuredRecommendation = useMemo(
+    () => generateStructuredRecommendation(inputs, results, uncertainty),
+    [inputs, results, uncertainty],
+  );
+  const uncertaintyRobustness = useMemo(
+    () =>
+      assessUncertaintyRobustness(
+        uncertainty,
+        inputs.cost_effectiveness_threshold,
+      ),
+    [uncertainty, inputs.cost_effectiveness_threshold],
+  );
+
+  const sensitivityTakeaways = useMemo(
+    () =>
+      buildSensitivityTakeaways(
+        sensitivity.rows.map((row) => ({
+          variable: row.parameter_key as string,
+          label: row.parameter_label,
+          base_input: row.base_value,
+          low_input: row.low_value,
+          high_input: row.high_value,
+          base_outcome: row.base_icer,
+          low_outcome: row.low_icer,
+          high_outcome: row.high_icer,
+          low_delta: row.low_delta,
+          high_delta: row.high_delta,
+          swing: row.max_abs_icer_change,
+        })),
+      ),
+    [sensitivity],
+  );
+
+  const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
+
+  const caseTypeLabel = useMemo(
+    () => getCaseTypeLabel(selectedPreset, inputs),
+    [selectedPreset, inputs],
+  );
 
   const handleExportReport = async () => {
     try {
+      setIsExporting(true);
+
       const response = await fetch("/api/export/pathshift", {
         method: "POST",
         headers: {
@@ -886,14 +1073,19 @@ export default function PathShiftApp() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error(error);
+      alert("Failed to export report.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
+    setSelectedPreset("Custom");
   };
 
   const applyPreset = (preset: ScenarioPreset) => {
+    if (preset === "Custom") return;
     setSelectedPreset(preset);
     setInputs((prev) => ({ ...prev, ...PRESET_PATCHES[preset] }));
   };
@@ -903,7 +1095,7 @@ export default function PathShiftApp() {
     setSelectedPreset("Base case");
     setComparatorMode("Follow-up reduction focus");
     setShowAdvancedMobile(false);
-    setShowAssumptionReviewMobile(false);
+    setShowComparatorDesktop(false);
     setOpenSections({
       "advanced-pathway": false,
       "advanced-costs": false,
@@ -927,65 +1119,99 @@ export default function PathShiftApp() {
       />
       <MetricCard
         label={netCostLabel}
-        value={formatCurrency(Math.abs(results.discounted_net_cost_total))}
+        value={normaliseCurrencyDisplay(
+          formatCurrency(Math.abs(results.discounted_net_cost_total)),
+        )}
       />
       <MetricCard
         label="Discounted cost per QALY"
-        value={formatCurrency(results.discounted_cost_per_qaly)}
+        value={normaliseCurrencyDisplay(
+          formatCurrency(results.discounted_cost_per_qaly),
+        )}
         tone="strong"
+      />
+    </div>
+  );
+
+  const thresholdMetrics = (
+    <div className="grid gap-3 xl:grid-cols-3">
+      <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+      <MetricCard
+        label="Break-even cost per patient"
+        value={normaliseCurrencyDisplay(
+          formatCurrency(results.break_even_cost_per_patient),
+        )}
+      />
+      <MetricCard
+        label="Required redesign effect"
+        value={formatPercent(results.break_even_effect_required)}
       />
     </div>
   );
 
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-4">
-      <MiniInsight label="Case type" value={caseTypeLabel} />
-      <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
+      <MiniInsight label="Overall signal" value={overallSignal} />
+      <MiniInsight label="Current case type" value={caseTypeLabel} />
       <MiniInsight
-        label="Main driver"
-        value={`The result is currently most shaped by ${mainDriver}.`}
+        label="Main dependency"
+        value={structuredRecommendation.main_dependency}
       />
-      <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
+      <MiniInsight
+        label="Main fragility"
+        value={structuredRecommendation.main_fragility}
+      />
     </div>
   );
 
   const recommendationPanel = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <MiniInsight label="What this suggests" value={recommendationSignal} />
+      <MiniInsight
+        label="What this suggests"
+        value={interpretation.what_model_suggests}
+      />
       <MiniInsight
         label="What is driving it"
-        value={`This is mainly a ${caseTypeLabel.toLowerCase()}, with the result currently most shaped by ${mainDriver}.`}
+        value={structuredRecommendation.main_dependency}
       />
       <MiniInsight
         label="What looks fragile"
-        value={interpretation.what_looks_fragile}
+        value={structuredRecommendation.main_fragility}
       />
       <MiniInsight
-        label="Validate next"
-        value={interpretation.what_to_validate_next}
+        label="What to validate next"
+        value={structuredRecommendation.best_next_step}
       />
     </div>
   );
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      These are the levers most likely to change the decision signal.
+      Start with a preset, then refine shift, admission effect, follow-up effect, and redesign cost.
     </div>
   );
 
   const presetControl = (
-    <div className={SUBCARD_DENSE}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        Scenario preset
-      </p>
-      <div className="mt-3">
+    <div className={SUBCARD}>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,320px)_1fr] xl:items-end">
         <SelectInput
-          label="Preset"
+          label="Starting template"
           value={selectedPreset}
           options={PRESET_OPTIONS}
           onChange={applyPreset}
-          help="Applies a coherent scenario while still allowing manual edits afterward."
+          help="Applies a coherent starting setup without resetting the full app."
         />
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Template summary
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            <span className="font-medium text-slate-900">{selectedPreset}:</span>{" "}
+            {selectedPreset === "Custom"
+              ? "Inputs have been edited away from a named template."
+              : "Applies a coherent workshop-ready redesign scenario."}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -1314,11 +1540,26 @@ export default function PathShiftApp() {
           <AssumptionReviewCard
             key={key}
             label={meta.label}
-            value={meta.formatter(value as never)}
-            note={meta.description}
+            value={formatAssumptionValue(meta.formatter, value)}
+            note={`${meta.source_type} · ${meta.confidence}`}
           />
         );
       })}
+    </div>
+  );
+
+  const sensitivityTop3 = (
+    <div className="grid gap-3 md:grid-cols-3">
+      {sensitivity.top_drivers.slice(0, 3).map((driver, index) => (
+        <AssumptionReviewCard
+          key={driver.parameter_key}
+          label={`Driver ${index + 1}`}
+          value={driver.parameter_label}
+          note={`Largest ICER swing: ${normaliseCurrencyDisplay(
+            formatCurrency(driver.max_abs_icer_change),
+          )}`}
+        />
+      ))}
     </div>
   );
 
@@ -1340,6 +1581,10 @@ export default function PathShiftApp() {
           threshold={inputs.cost_effectiveness_threshold}
         />
       </MobileAccordion>
+
+      <MobileAccordion title="One-way sensitivity">
+        <SensitivityChart sensitivity={sensitivity} />
+      </MobileAccordion>
     </div>
   );
 
@@ -1352,35 +1597,7 @@ export default function PathShiftApp() {
         uncertaintyRows={uncertainty}
         threshold={inputs.cost_effectiveness_threshold}
       />
-    </div>
-  );
-
-  const comparatorSummary = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <AssumptionReviewCard
-        label="Comparator"
-        value={comparatorMode}
-        note="Current selection versus comparator case."
-      />
-      <AssumptionReviewCard
-        label="Patients shifted delta"
-        value={formatNumber(
-          comparatorResults.patients_shifted_total - results.patients_shifted_total,
-        )}
-      />
-      <AssumptionReviewCard
-        label="Admissions avoided delta"
-        value={formatNumber(
-          comparatorResults.admissions_avoided_total - results.admissions_avoided_total,
-        )}
-      />
-      <AssumptionReviewCard
-        label="Discounted net cost delta"
-        value={formatCurrency(
-          comparatorResults.discounted_net_cost_total -
-            results.discounted_net_cost_total,
-        )}
-      />
+      <SensitivityChart sensitivity={sensitivity} />
     </div>
   );
 
@@ -1400,6 +1617,16 @@ export default function PathShiftApp() {
         </p>
       </div>
 
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+        <p className="text-sm font-medium text-slate-900">Scope and use note</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          PathShift is an exploratory scenario sandbox. It is designed to test how
+          pathway redesign, lower-cost setting shift, reduced admissions, and reduced
+          follow-up burden might influence operational and economic value. It does not
+          replace formal evaluation, forecasting, or business case development.
+        </p>
+      </div>
+
       <div className="sticky top-[72px] z-20 mb-5 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
         <div className="grid grid-cols-3 items-start gap-3">
           <div className="min-w-0">
@@ -1413,13 +1640,17 @@ export default function PathShiftApp() {
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">{netCostLabel}</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+              {normaliseCurrencyDisplay(
+                formatCurrency(Math.abs(results.discounted_net_cost_total)),
+              )}
             </p>
           </div>
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">Cost/QALY</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {formatCurrency(results.discounted_cost_per_qaly)}
+              {normaliseCurrencyDisplay(
+                formatCurrency(results.discounted_cost_per_qaly),
+              )}
             </p>
           </div>
         </div>
@@ -1429,10 +1660,11 @@ export default function PathShiftApp() {
         <button
           type="button"
           onClick={handleExportReport}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          disabled={isExporting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FileDown className="h-4 w-4" />
-          Export report
+          {isExporting ? "Exporting..." : "Export report"}
         </button>
       </div>
 
@@ -1449,22 +1681,27 @@ export default function PathShiftApp() {
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">{netCostLabel}</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {formatCurrency(Math.abs(results.discounted_net_cost_total))}
+              {normaliseCurrencyDisplay(
+                formatCurrency(Math.abs(results.discounted_net_cost_total)),
+              )}
             </p>
           </div>
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">Cost/QALY</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {formatCurrency(results.discounted_cost_per_qaly)}
+              {normaliseCurrencyDisplay(
+                formatCurrency(results.discounted_cost_per_qaly),
+              )}
             </p>
           </div>
           <button
             type="button"
             onClick={handleExportReport}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            disabled={isExporting}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FileDown className="h-4 w-4" />
-            Export report
+            {isExporting ? "Exporting..." : "Export report"}
           </button>
         </div>
       </div>
@@ -1525,6 +1762,7 @@ export default function PathShiftApp() {
             dense
           >
             {summaryMetrics}
+            <div className="mt-3">{thresholdMetrics}</div>
             <div className="mt-4">{interpretationPanel}</div>
           </SectionCard>
 
@@ -1595,7 +1833,7 @@ export default function PathShiftApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, and the next checks."
+            description="Review the current case, uncertainty, sensitivity, comparator view, and validation prompts."
             dense
           >
             <div className="space-y-5">
@@ -1610,15 +1848,26 @@ export default function PathShiftApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export report
+                    {isExporting ? "Exporting..." : "Export report"}
                   </button>
                 </div>
               </div>
 
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Strategic summary</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {overviewSummary}
+                </p>
+              </div>
+
+              {recommendationPanel}
+
               <div className="grid grid-cols-1 gap-3">
+                <MetricCard label="Current case type" value={caseTypeLabel} />
                 <MetricCard
                   label="Follow-ups avoided"
                   value={formatNumber(results.follow_ups_avoided_total)}
@@ -1631,16 +1880,13 @@ export default function PathShiftApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Decision readout</h3>
-                <div className="mt-3">{recommendationPanel}</div>
-              </div>
-
-              <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Threshold readout</h3>
                 <div className="mt-3 grid gap-3">
                   <AssumptionReviewCard
                     label="Break-even cost per patient"
-                    value={formatCurrency(results.break_even_cost_per_patient)}
+                    value={normaliseCurrencyDisplay(
+                      formatCurrency(results.break_even_cost_per_patient),
+                    )}
                   />
                   <AssumptionReviewCard
                     label="Required redesign effect"
@@ -1655,12 +1901,14 @@ export default function PathShiftApp() {
 
               <div>
                 <h3 className={SECTION_KICKER}>Uncertainty readout</h3>
-                <div className="mt-3 grid gap-3">
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
                   {uncertainty.map((row) => (
                     <AssumptionReviewCard
                       key={row.case}
                       label={row.case}
-                      value={formatCurrency(row.discounted_cost_per_qaly)}
+                      value={normaliseCurrencyDisplay(
+                        formatCurrency(row.discounted_cost_per_qaly),
+                      )}
                       note={`${formatNumber(row.patients_shifted_total)} patients shifted · ${row.decision_status}`}
                     />
                   ))}
@@ -1668,32 +1916,59 @@ export default function PathShiftApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-                <div className="mt-3">{comparatorSummary}</div>
+                <h3 className={SECTION_KICKER}>Sensitivity</h3>
+                <div className="mt-3">
+                  <SensitivityChart sensitivity={sensitivity} />
+                </div>
+                <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
               <div className={SUBCARD}>
-                <button
-                  type="button"
-                  onClick={() => setShowAssumptionReviewMobile((v) => !v)}
-                  className="flex w-full items-center justify-between gap-4 text-left"
-                  aria-expanded={showAssumptionReviewMobile}
-                >
-                  <span className="text-sm font-medium text-slate-900">
-                    Assumption review
-                  </span>
-                  <ChevronDown
-                    className={cx(
-                      "h-4 w-4 text-slate-500 transition-transform",
-                      showAssumptionReviewMobile && "rotate-180",
-                    )}
-                  />
-                </button>
-
-                {showAssumptionReviewMobile ? (
-                  <div className="mt-4">{assumptionsReview}</div>
-                ) : null}
+                <h3 className={SECTION_KICKER}>Sensitivity interpretation</h3>
+                <div className="mt-3 grid gap-3">
+                  {sensitivityTakeaways.map((item, index) => (
+                    <MiniInsight
+                      key={`${item}-${index}`}
+                      label={`Takeaway ${index + 1}`}
+                      value={item}
+                    />
+                  ))}
+                </div>
               </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
+                <div className="mt-3">
+                  <ComparatorDeltaChart
+                    baseResults={results}
+                    comparatorResults={comparatorResults}
+                    comparatorLabel={comparatorMode}
+                  />
+                </div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <MiniInsight label="Current case type" value={caseTypeLabel} />
+                  <MiniInsight
+                    label="Uncertainty readout"
+                    value={uncertaintyRobustness}
+                  />
+                  <MiniInsight
+                    label="Interpretation summary"
+                    value={interpretation.what_model_suggests}
+                  />
+                  <MiniInsight
+                    label="Confidence summary"
+                    value={confidenceSummary.summary_text}
+                  />
+                </div>
+              </div>
+
+              <MobileAccordion title="Assumption review">
+                {assumptionsReview}
+              </MobileAccordion>
             </div>
           </SectionCard>
         </div>
@@ -1719,27 +1994,20 @@ export default function PathShiftApp() {
               />
               <MetricCard
                 label="Programme cost"
-                value={formatCurrency(results.programme_cost_total)}
+                value={normaliseCurrencyDisplay(
+                  formatCurrency(results.programme_cost_total),
+                )}
               />
               <MetricCard
                 label="Gross savings"
-                value={formatCurrency(results.gross_savings_total)}
+                value={normaliseCurrencyDisplay(
+                  formatCurrency(results.gross_savings_total),
+                )}
               />
             </div>
 
+            <div className="mt-3">{thresholdMetrics}</div>
             <div className="mt-4">{interpretationPanel}</div>
-
-            <div className="mt-4 grid gap-3 xl:grid-cols-3">
-              <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
-              <MetricCard
-                label="Break-even cost per patient"
-                value={formatCurrency(results.break_even_cost_per_patient)}
-              />
-              <MetricCard
-                label="Required redesign effect"
-                value={formatPercent(results.break_even_effect_required)}
-              />
-            </div>
           </SectionCard>
 
           <div className="mt-4">
@@ -1793,7 +2061,7 @@ export default function PathShiftApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, bounded uncertainty, comparator snapshot, and the next checks."
+            description="Review the current case, uncertainty, sensitivity, comparator view, and validation prompts."
             dense
           >
             <div className="space-y-5">
@@ -1808,15 +2076,26 @@ export default function PathShiftApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export report
+                    {isExporting ? "Exporting..." : "Export report"}
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Strategic summary</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {overviewSummary}
+                </p>
+              </div>
+
+              {recommendationPanel}
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                <MetricCard label="Current case type" value={caseTypeLabel} />
                 <MetricCard
                   label="Follow-ups avoided"
                   value={formatNumber(results.follow_ups_avoided_total)}
@@ -1829,16 +2108,13 @@ export default function PathShiftApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Decision readout</h3>
-                <div className="mt-3">{recommendationPanel}</div>
-              </div>
-
-              <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Threshold readout</h3>
                 <div className="mt-3 grid gap-3 md:grid-cols-3">
                   <AssumptionReviewCard
                     label="Break-even cost per patient"
-                    value={formatCurrency(results.break_even_cost_per_patient)}
+                    value={normaliseCurrencyDisplay(
+                      formatCurrency(results.break_even_cost_per_patient),
+                    )}
                   />
                   <AssumptionReviewCard
                     label="Required redesign effect"
@@ -1858,16 +2134,109 @@ export default function PathShiftApp() {
                     <AssumptionReviewCard
                       key={row.case}
                       label={row.case}
-                      value={formatCurrency(row.discounted_cost_per_qaly)}
+                      value={normaliseCurrencyDisplay(
+                        formatCurrency(row.discounted_cost_per_qaly),
+                      )}
                       note={`${formatNumber(row.patients_shifted_total)} patients shifted · ${row.decision_status}`}
                     />
                   ))}
                 </div>
               </div>
 
+              <div>
+                <h3 className={SECTION_KICKER}>Sensitivity</h3>
+                <div className="mt-3">
+                  <SensitivityChart sensitivity={sensitivity} />
+                </div>
+                <div className="mt-3">{sensitivityTop3}</div>
+              </div>
+
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-                <div className="mt-3">{comparatorSummary}</div>
+                <h3 className={SECTION_KICKER}>Sensitivity interpretation</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  {sensitivityTakeaways.map((item, index) => (
+                    <MiniInsight
+                      key={`${item}-${index}`}
+                      label={`Takeaway ${index + 1}`}
+                      value={item}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Comparator</h3>
+
+                <div className="mt-4">
+                  <SelectInput
+                    label="Compare current selection with"
+                    value={comparatorMode}
+                    options={COMPARATOR_OPTIONS as readonly ComparatorOption[]}
+                    onChange={(value) => setComparatorMode(value)}
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {buildComparatorDeltaChartData(results, comparatorResults)
+                    .slice(0, 3)
+                    .map((row) => (
+                      <MetricCard
+                        key={row.label}
+                        label={`${row.label} delta`}
+                        value={
+                          row.isCurrency
+                            ? normaliseCurrencyDisplay(formatCurrency(row.delta))
+                            : formatNumber(row.delta)
+                        }
+                      />
+                    ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowComparatorDesktop((v) => !v)}
+                  className="mt-4 flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left"
+                  aria-expanded={showComparatorDesktop}
+                >
+                  <span className="text-sm font-medium text-slate-900">
+                    Show comparator chart
+                  </span>
+                  <ChevronDown
+                    className={cx(
+                      "h-4 w-4 text-slate-500 transition-transform",
+                      showComparatorDesktop && "rotate-180",
+                    )}
+                  />
+                </button>
+
+                {showComparatorDesktop ? (
+                  <div className="mt-4">
+                    <ComparatorDeltaChart
+                      baseResults={results}
+                      comparatorResults={comparatorResults}
+                      comparatorLabel={comparatorMode}
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <MiniInsight label="Current case type" value={caseTypeLabel} />
+                  <MiniInsight
+                    label="Uncertainty readout"
+                    value={uncertaintyRobustness}
+                  />
+                  <MiniInsight
+                    label="Interpretation summary"
+                    value={interpretation.what_model_suggests}
+                  />
+                  <MiniInsight
+                    label="Confidence summary"
+                    value={confidenceSummary.summary_text}
+                  />
+                </div>
               </div>
 
               <div>
