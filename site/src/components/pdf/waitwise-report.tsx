@@ -33,10 +33,7 @@ function normaliseCurrencyString(value: string) {
 }
 
 function cleanText(value: string) {
-  return value
-    .replace(/\bis appears\b/gi, "appears")
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.replace(/\bis appears\b/gi, "appears").replace(/\s+/g, " ").trim();
 }
 
 function cleanValue(value: string) {
@@ -379,9 +376,7 @@ function renderInfoRows(
       <View key={item.label} style={rowStyle}>
         <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
         <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
-        {item.note ? (
-          <Text style={styles.rowNote}>{cleanText(item.note)}</Text>
-        ) : null}
+        {item.note ? <Text style={styles.rowNote}>{cleanText(item.note)}</Text> : null}
       </View>
     );
   });
@@ -462,17 +457,13 @@ function renderAssumptionTable(
         return (
           <View key={`${row.assumption}-${index}`} style={rowStyle}>
             <View style={styles.colAssumption}>
-              <Text style={styles.tableCellLabel}>
-                {cleanText(row.assumption)}
-              </Text>
+              <Text style={styles.tableCellLabel}>{cleanText(row.assumption)}</Text>
             </View>
             <View style={styles.colValue}>
               <Text style={styles.tableCellValue}>{cleanValue(row.value)}</Text>
             </View>
             <View style={styles.colRationale}>
-              <Text style={styles.tableCellRationale}>
-                {cleanText(row.rationale)}
-              </Text>
+              <Text style={styles.tableCellRationale}>{cleanText(row.rationale)}</Text>
             </View>
           </View>
         );
@@ -490,9 +481,7 @@ function renderThreeColCards(
         <View key={item.label} style={styles.threeColCard}>
           <Text style={styles.threeColLabel}>{cleanText(item.label)}</Text>
           <Text style={styles.threeColValue}>{cleanValue(item.value)}</Text>
-          {item.note ? (
-            <Text style={styles.threeColNote}>{cleanText(item.note)}</Text>
-          ) : null}
+          {item.note ? <Text style={styles.threeColNote}>{cleanText(item.note)}</Text> : null}
         </View>
       ))}
     </View>
@@ -707,6 +696,7 @@ export function WaitWiseReportDocument({
               break={
                 section.title === "Intervention effect assumptions" ||
                 section.title === "Cost assumptions"
+              }
             >
               <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
