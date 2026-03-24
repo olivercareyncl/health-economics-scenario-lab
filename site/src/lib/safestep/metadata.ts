@@ -40,15 +40,35 @@ export const ASSUMPTION_META: Record<AssumptionKey, AssumptionMetaItem> = {
     sourceType: "Illustrative default",
     confidence: "Low confidence",
   },
-  targeting_mode: {
-    label: "Targeting mode",
-    unit: "",
-    formatter: "text",
+
+  target_population_multiplier: {
+    label: "Target population multiplier",
+    unit: "x",
+    formatter: "decimal2",
     description:
-      "How broadly or narrowly the intervention is focused across the eligible population.",
+      "Adjusts how concentrated the intervention is within the eligible population.",
     sourceType: "User override",
     confidence: "Medium confidence",
   },
+  target_uptake_multiplier: {
+    label: "Target uptake multiplier",
+    unit: "x",
+    formatter: "decimal2",
+    description:
+      "Adjusts uptake to reflect whether the targeted group is easier or harder to reach than the broad population.",
+    sourceType: "User override",
+    confidence: "Medium confidence",
+  },
+  target_fall_risk_multiplier: {
+    label: "Target fall-risk multiplier",
+    unit: "x",
+    formatter: "decimal2",
+    description:
+      "Adjusts baseline fall risk to reflect whether the intervention is focused on a higher-risk subgroup.",
+    sourceType: "User override",
+    confidence: "Medium confidence",
+  },
+
   annual_fall_risk: {
     label: "Annual fall risk",
     unit: "%",
@@ -172,7 +192,9 @@ export const ASSUMPTION_ORDER: AssumptionKey[] = [
   "uptake_rate",
   "adherence_rate",
   "participation_dropoff_rate",
-  "targeting_mode",
+  "target_population_multiplier",
+  "target_uptake_multiplier",
+  "target_fall_risk_multiplier",
   "annual_fall_risk",
   "admission_rate_after_fall",
   "average_length_of_stay",
