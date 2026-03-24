@@ -49,10 +49,7 @@ import {
   ASSUMPTION_ORDER,
   getAssumptionConfidenceSummary,
 } from "@/lib/waitwise/metadata";
-import {
-  COSTING_METHOD_OPTIONS,
-  TARGETING_MODE_OPTIONS,
-} from "@/lib/waitwise/scenarios";
+import { COSTING_METHOD_OPTIONS } from "@/lib/waitwise/scenarios";
 import {
   assessUncertaintyRobustness,
   generateInterpretation,
@@ -68,7 +65,6 @@ import type {
   MobileTab,
   ModelResults,
   SensitivityRow,
-  TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/waitwise/types";
@@ -129,12 +125,12 @@ function formatAssumptionValue(
 }
 
 function deriveCaseType(inputs: Inputs): string {
-  if (inputs.targeting_mode === "Long-wait targeting") {
-    return "Long-wait targeting case";
+  if (inputs.targeting_risk_multiplier >= 1.35) {
+    return "More concentrated high-risk case";
   }
 
-  if (inputs.targeting_mode === "Higher-risk targeting") {
-    return "Higher-risk targeting case";
+  if (inputs.targeting_population_multiplier <= 0.6) {
+    return "More selective targeting case";
   }
 
   if (
@@ -1028,8 +1024,8 @@ export default function WaitWiseApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Start from the default case, then tune reach, intervention effects, persistence,
-      escalation risk, and delivery cost to fit the local use case.
+      Start from the default case, then tune targeting, reach, intervention effects,
+      persistence, escalation risk, and delivery cost to fit the local use case.
     </div>
   );
 
@@ -1040,13 +1036,6 @@ export default function WaitWiseApp() {
           Core setup
         </p>
         <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-2">
-          <SelectInput
-            label="Targeting mode"
-            value={inputs.targeting_mode}
-            options={TARGETING_MODE_OPTIONS as readonly TargetingMode[]}
-            onChange={(value) => updateInput("targeting_mode", value)}
-            help="Changes where value is concentrated."
-          />
           <NumberInput
             label="Starting waiting list"
             value={inputs.starting_waiting_list_size}
@@ -1084,6 +1073,54 @@ export default function WaitWiseApp() {
               help="Longer horizons often improve the economic picture."
             />
           </div>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Targeting approach
+        </p>
+        <p className="mt-1.5 text-xs leading-5 text-slate-600">
+          Set the targeting logic directly rather than choosing a preset label.
+        </p>
+        <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-2">
+          <NumberInput
+            label="Targeted population multiplier"
+            value={inputs.targeting_population_multiplier}
+            onChange={(value) => updateInput("targeting_population_multiplier", value)}
+            min={0}
+            step={0.05}
+            help="Use 1.0 for the whole waiting list. Lower values represent narrower targeting."
+          />
+          <NumberInput
+            label="Targeted reach multiplier"
+            value={inputs.targeting_reach_multiplier}
+            onChange={(value) => updateInput("targeting_reach_multiplier", value)}
+            min={0}
+            step={0.05}
+            help="Multiplier applied to intervention reach in the targeted group."
+          />
+          <div className="xl:col-span-2">
+            <NumberInput
+              label="Targeted escalation risk multiplier"
+              value={inputs.targeting_risk_multiplier}
+              onChange={(value) => updateInput("targeting_risk_multiplier", value)}
+              min={0}
+              step={0.05}
+              help="Multiplier applied to baseline escalation risk. Higher values assume risk is more concentrated in the targeted group."
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            How targeting works
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            A narrower population multiplier reduces the size of the eligible list,
+            a higher reach multiplier assumes the subgroup is easier to reach, and a
+            higher risk multiplier assumes escalation risk is more concentrated there.
+          </p>
         </div>
       </div>
 
@@ -1211,6 +1248,12 @@ export default function WaitWiseApp() {
         {openSections["advanced-pathway"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
+              <NumberInput
+                label="Average wait duration (months)"
+                value={inputs.average_wait_duration_months}
+                onChange={(value) => updateInput("average_wait_duration_months", value)}
+                step={0.5}
+              />
               <SliderInput
                 label="Monthly escalation rate"
                 value={inputs.monthly_escalation_rate}
@@ -1337,7 +1380,7 @@ export default function WaitWiseApp() {
     <div className="grid gap-3 md:grid-cols-3">
       {sensitivity.top_drivers.slice(0, 3).map((driver, index) => (
         <AssumptionReviewCard
-          key={`${driver.variable}-${index}`}
+          key={`${String(driver.variable)}-${index}`}
           label={`Driver ${index + 1}`}
           value={driver.label}
           note={`Largest ICER swing: ${normaliseCurrencyDisplay(
@@ -1558,7 +1601,7 @@ export default function WaitWiseApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Start from the default case, then adjust the key inputs and advanced settings."
+            description="Start from the default case, then adjust targeting, intervention, pathway, and economic assumptions."
             action={
               <button
                 type="button"
@@ -1712,7 +1755,7 @@ export default function WaitWiseApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Start from the default case, then adjust the key inputs and advanced settings."
+            description="Start from the default case, then adjust targeting, intervention, pathway, and economic assumptions."
             action={
               <button
                 type="button"
