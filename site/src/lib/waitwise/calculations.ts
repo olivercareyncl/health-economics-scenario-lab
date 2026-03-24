@@ -1,4 +1,4 @@
-import { COSTING_METHOD_MAP, TARGETING_MODE_MAP } from "@/lib/waitwise/scenarios";
+import { COSTING_METHOD_MAP } from "@/lib/waitwise/scenarios";
 import type {
   Inputs,
   ModelResults,
@@ -22,14 +22,15 @@ export function getDiscountFactor(year: number, discountRate: number): number {
 }
 
 export function getTargetingAdjustments(inputs: Inputs) {
-  const targeting = TARGETING_MODE_MAP[inputs.targeting_mode];
   const adjustedWaitingList =
-    inputs.starting_waiting_list_size * targeting.population_multiplier;
+    inputs.starting_waiting_list_size * inputs.target_population_multiplier;
+
   const adjustedReachRate = clampRate(
-    inputs.intervention_reach_rate * targeting.reach_multiplier,
+    inputs.intervention_reach_rate * inputs.target_reach_multiplier,
   );
+
   const adjustedEscalationRate = clampRate(
-    inputs.monthly_escalation_rate * targeting.risk_multiplier,
+    inputs.monthly_escalation_rate * inputs.target_escalation_risk_multiplier,
   );
 
   return {
@@ -84,8 +85,7 @@ function runModelCore(inputs: Inputs): ModelResults {
 
     const effectiveReach =
       targeting.adjusted_reach_rate * participationMultiplier;
-    const demandReduction =
-      inputs.demand_reduction_effect * effectMultiplier;
+    const demandReduction = inputs.demand_reduction_effect * effectMultiplier;
     const throughputIncrease =
       inputs.throughput_increase_effect * effectMultiplier;
     const escalationReduction =
@@ -103,6 +103,7 @@ function runModelCore(inputs: Inputs): ModelResults {
       waitingListCurrent + reducedInflow - improvedThroughput,
       0,
     );
+
     const baselineWaitingListNext = Math.max(
       waitingListCurrent + annualInflow - annualBaselineThroughput,
       0,
@@ -115,14 +116,18 @@ function runModelCore(inputs: Inputs): ModelResults {
 
     const annualEscalationsBaseline =
       waitingListCurrent * targeting.adjusted_escalation_rate * 12;
+
     const escalationsAvoided =
       annualEscalationsBaseline * escalationReduction * effectiveReach;
+
     const admissionsAvoided =
       escalationsAvoided * inputs.admission_rate_after_escalation;
+
     const bedDaysAvoided =
       admissionsAvoided * inputs.average_length_of_stay;
 
     const patientsReached = waitingListCurrent * effectiveReach;
+
     const programmeCost =
       patientsReached * inputs.intervention_cost_per_patient_reached;
 
@@ -134,6 +139,7 @@ function runModelCore(inputs: Inputs): ModelResults {
     );
 
     const netCost = programmeCost - grossSavings;
+
     const qalysGained =
       escalationsAvoided * inputs.qaly_gain_per_escalation_avoided;
 
@@ -254,10 +260,12 @@ export function calculateBreakEvenEffect(inputs: Inputs): number {
       (1 - inputs.participation_dropoff_rate) ** (year - 1);
     const effectMultiplier =
       (1 - inputs.effect_decay_rate) ** (year - 1);
+
     const effectiveReach =
       targeting.adjusted_reach_rate * participationMultiplier;
 
     const patientsReached = waitingListBase * effectiveReach;
+
     const escalationsAvoidedPerUnit =
       waitingListBase *
       targeting.adjusted_escalation_rate *
@@ -267,6 +275,7 @@ export function calculateBreakEvenEffect(inputs: Inputs): number {
 
     const admissionsAvoidedPerUnit =
       escalationsAvoidedPerUnit * inputs.admission_rate_after_escalation;
+
     const bedDaysAvoidedPerUnit =
       admissionsAvoidedPerUnit * inputs.average_length_of_stay;
 
@@ -283,10 +292,12 @@ export function calculateBreakEvenEffect(inputs: Inputs): number {
       inputs.cost_effectiveness_threshold;
 
     const discountFactor = getDiscountFactor(year, inputs.discount_rate);
+
     numerator +=
       patientsReached *
       inputs.intervention_cost_per_patient_reached *
       discountFactor;
+
     denominator += (grossSavingsPerUnit + qalyValuePerUnit) * discountFactor;
   }
 
@@ -305,6 +316,7 @@ export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
       (1 - inputs.participation_dropoff_rate) ** (year - 1);
     const effectMultiplier =
       (1 - inputs.effect_decay_rate) ** (year - 1);
+
     const effectiveReach =
       targeting.adjusted_reach_rate * participationMultiplier;
 
@@ -326,6 +338,7 @@ export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
 
     const admissionsAvoided =
       escalationsAvoided * inputs.admission_rate_after_escalation;
+
     const bedDaysAvoided =
       admissionsAvoided * inputs.average_length_of_stay;
 
@@ -342,6 +355,7 @@ export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
       inputs.cost_effectiveness_threshold;
 
     const discountFactor = getDiscountFactor(year, inputs.discount_rate);
+
     totalDiscountedPatientsReached += patientsReached * discountFactor;
     totalDiscountedValue += (grossSavings + qalyValue) * discountFactor;
   }
@@ -462,6 +476,7 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
     };
 
     const result = runModelCore(caseInputs);
+
     const decisionStatus = getDecisionStatusForResult(
       result.discounted_net_cost_total,
       result.discounted_cost_per_qaly,
