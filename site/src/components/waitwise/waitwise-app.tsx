@@ -26,18 +26,14 @@ import {
 
 import { DEFAULT_INPUTS } from "@/lib/waitwise/defaults";
 import {
-  buildComparatorCase,
   clampRate,
   runBoundedUncertainty,
   runModel,
 } from "@/lib/waitwise/calculations";
 import {
   buildBacklogReductionChartData,
-  buildComparatorDeltaChartData,
   buildCumulativeCostChartData,
   buildImpactBarChartData,
-  buildScenarioNetCostChartData,
-  buildScenarioOutcomeChartData,
   buildTornadoChartData,
   buildUncertaintyChartData,
   compactCurrencyAxis,
@@ -54,9 +50,7 @@ import {
   getAssumptionConfidenceSummary,
 } from "@/lib/waitwise/metadata";
 import {
-  COMPARATOR_OPTIONS,
   COSTING_METHOD_OPTIONS,
-  SCENARIO_MAP,
   TARGETING_MODE_OPTIONS,
 } from "@/lib/waitwise/scenarios";
 import {
@@ -65,48 +59,25 @@ import {
   generateOverviewSummary,
   generateStructuredRecommendation,
   getDecisionStatus,
-  getMainDriverText,
   getNetCostLabel,
-  summariseScenarioStrengths,
 } from "@/lib/waitwise/summaries";
 import type {
   AssumptionSectionKey,
-  ComparatorOption,
   CostingMethod,
   Inputs,
   MobileTab,
   ModelResults,
-  ScenarioComparisonRow,
   SensitivityRow,
   TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/waitwise/types";
 
-type ScenarioPreset =
-  | "Base case"
-  | "Demand reduction focus"
-  | "Throughput boost"
-  | "Long-wait targeting"
-  | "Lower-cost delivery"
-  | "Targeted and stronger effect"
-  | "Custom";
-
 type SensitivitySummary = {
   rows: SensitivityRow[];
   primary_driver: SensitivityRow | null;
   top_drivers: SensitivityRow[];
 };
-
-const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
-  "Base case",
-  "Demand reduction focus",
-  "Throughput boost",
-  "Long-wait targeting",
-  "Lower-cost delivery",
-  "Targeted and stronger effect",
-  "Custom",
-] as const;
 
 const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
   "demand_reduction_effect",
@@ -157,56 +128,7 @@ function formatAssumptionValue(
   return normaliseCurrencyDisplay(formatter(value));
 }
 
-function getPresetPatch(
-  preset: Exclude<ScenarioPreset, "Custom">,
-): Partial<Inputs> {
-  if (preset === "Base case") {
-    return { ...DEFAULT_INPUTS };
-  }
-
-  const scenarioBuilder = SCENARIO_MAP[preset];
-  return scenarioBuilder ? scenarioBuilder(DEFAULT_INPUTS) : { ...DEFAULT_INPUTS };
-}
-
-function getPresetDescription(preset: ScenarioPreset) {
-  switch (preset) {
-    case "Base case":
-      return "Neutral starting template for workshop use.";
-    case "Demand reduction focus":
-      return "Tests a case where value is driven more by lower inflow into the list.";
-    case "Throughput boost":
-      return "Tests a case where value is driven more by better operational throughput.";
-    case "Long-wait targeting":
-      return "Focuses value into patients waiting longest, where escalation risk is more concentrated.";
-    case "Lower-cost delivery":
-      return "Tests whether leaner delivery materially improves the value case.";
-    case "Targeted and stronger effect":
-      return "Combines higher-risk targeting with somewhat stronger intervention effects.";
-    case "Custom":
-      return "Inputs have been edited away from a named template.";
-  }
-}
-
-function deriveCaseType(preset: ScenarioPreset, inputs: Inputs): string {
-  if (preset !== "Custom") {
-    switch (preset) {
-      case "Base case":
-        return "Broad waiting-list case";
-      case "Demand reduction focus":
-        return "Demand-reduction case";
-      case "Throughput boost":
-        return "Throughput-boost case";
-      case "Long-wait targeting":
-        return "Long-wait targeting case";
-      case "Lower-cost delivery":
-        return "Lower-cost delivery case";
-      case "Targeted and stronger effect":
-        return "Targeted and stronger-effect case";
-      default:
-        return "Current scenario case";
-    }
-  }
-
+function deriveCaseType(inputs: Inputs): string {
   if (inputs.targeting_mode === "Long-wait targeting") {
     return "Long-wait targeting case";
   }
@@ -293,45 +215,6 @@ function buildSensitivitySummary(rows: SensitivityRow[]): SensitivitySummary {
     primary_driver: topDrivers[0] ?? null,
     top_drivers: topDrivers,
   };
-}
-
-function buildScenarioComparison(
-  defaults: Inputs,
-  baseInputs: Inputs,
-): ScenarioComparisonRow[] {
-  return Object.entries(SCENARIO_MAP).map(([scenarioName, scenarioFn]) => {
-    const scenarioInputs: Inputs = {
-      ...defaults,
-      ...scenarioFn(defaults),
-      time_horizon_years: baseInputs.time_horizon_years,
-      discount_rate: baseInputs.discount_rate,
-      effect_decay_rate: baseInputs.effect_decay_rate,
-      participation_dropoff_rate: baseInputs.participation_dropoff_rate,
-      costing_method: baseInputs.costing_method,
-      cost_effectiveness_threshold: baseInputs.cost_effectiveness_threshold,
-      cost_per_escalation: baseInputs.cost_per_escalation,
-      cost_per_admission: baseInputs.cost_per_admission,
-      cost_per_bed_day: baseInputs.cost_per_bed_day,
-      qaly_gain_per_escalation_avoided:
-        baseInputs.qaly_gain_per_escalation_avoided,
-    };
-
-    const scenarioResults = runModel(scenarioInputs);
-
-    return {
-      scenario: scenarioName,
-      targeting: scenarioInputs.targeting_mode,
-      waiting_list_reduction: scenarioResults.waiting_list_reduction_total,
-      escalations_avoided: scenarioResults.escalations_avoided_total,
-      programme_cost: scenarioResults.programme_cost_total,
-      discounted_net_cost: scenarioResults.discounted_net_cost_total,
-      discounted_cost_per_qaly: scenarioResults.discounted_cost_per_qaly,
-      decision_status: getDecisionStatus(
-        scenarioResults,
-        scenarioInputs.cost_effectiveness_threshold,
-      ),
-    };
-  });
 }
 
 function CurrencyTooltip({
@@ -959,168 +842,10 @@ function SensitivityChart({
   );
 }
 
-function ScenarioNetCostChart({
-  scenarioRows,
-}: {
-  scenarioRows: ScenarioComparisonRow[];
-}) {
-  const data = buildScenarioNetCostChartData(scenarioRows);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Scenario net cost
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Discounted net cost across the preset scenario configurations.
-        </p>
-      </div>
-
-      <div className="h-56 w-full lg:h-64 xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="scenario" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={58}
-            />
-            <Tooltip content={<CurrencyTooltip />} />
-            <Bar
-              dataKey="discountedNetCost"
-              name="Discounted net cost"
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function ScenarioOutcomeChart({
-  scenarioRows,
-}: {
-  scenarioRows: ScenarioComparisonRow[];
-}) {
-  const data = buildScenarioOutcomeChartData(scenarioRows);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Scenario pathway impact
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Waiting list reduction and escalations avoided by scenario.
-        </p>
-      </div>
-
-      <div className="h-64 w-full xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="scenario" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => formatNumber(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={54}
-            />
-            <Tooltip content={<NumberTooltip />} />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
-            <Bar
-              dataKey="waitingListReduction"
-              name="Waiting list reduction"
-              radius={[8, 8, 0, 0]}
-            />
-            <Bar
-              dataKey="escalationsAvoided"
-              name="Escalations avoided"
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function ComparatorDeltaChart({
-  baseResults,
-  comparatorResults,
-  comparatorLabel,
-}: {
-  baseResults: ModelResults;
-  comparatorResults: ModelResults;
-  comparatorLabel: string;
-}) {
-  const data = buildComparatorDeltaChartData(baseResults, comparatorResults);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Comparator deltas
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Change versus the current configuration using {comparatorLabel.toLowerCase()}.
-        </p>
-      </div>
-
-      <div className="h-56 w-full lg:h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={58}
-            />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (!active || !payload?.length) return null;
-                const row = data.find((d) => d.label === label);
-                const value = Number(payload[0]?.value ?? 0);
-
-                return (
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                    <p className="text-sm font-medium text-slate-900">{label}</p>
-                    <p className="mt-2 text-sm text-slate-600">
-                      <span className="font-medium text-slate-800">Delta:</span>{" "}
-                      {row?.isCurrency
-                        ? normaliseCurrencyDisplay(formatCurrency(value))
-                        : formatNumber(value)}
-                    </p>
-                  </div>
-                );
-              }}
-            />
-            <Bar dataKey="delta" name="Delta" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
 export default function WaitWiseApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-  const [showComparatorDesktop, setShowComparatorDesktop] = useState(false);
-  const [selectedPreset, setSelectedPreset] = useState<ScenarioPreset>("Base case");
-  const [comparatorMode, setComparatorMode] = useState<ComparatorOption>(
-    COMPARATOR_OPTIONS[0],
-  );
   const [openSections, setOpenSections] = useState<
     Record<AssumptionSectionKey, boolean>
   >({
@@ -1146,10 +871,7 @@ export default function WaitWiseApp() {
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
-  const currentCaseType = useMemo(
-    () => deriveCaseType(selectedPreset, inputs),
-    [selectedPreset, inputs],
-  );
+  const currentCaseType = useMemo(() => deriveCaseType(inputs), [inputs]);
 
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty),
@@ -1173,30 +895,6 @@ export default function WaitWiseApp() {
         inputs.cost_effectiveness_threshold,
       ),
     [uncertainty, inputs.cost_effectiveness_threshold],
-  );
-
-  const scenarioRows = useMemo(
-    () => buildScenarioComparison(DEFAULT_INPUTS, inputs),
-    [inputs],
-  );
-
-  const scenarioStrengths = useMemo(
-    () => summariseScenarioStrengths(scenarioRows),
-    [scenarioRows],
-  );
-
-  const comparatorResults = useMemo(() => {
-    const comparatorInputs = buildComparatorCase(
-      DEFAULT_INPUTS,
-      inputs,
-      comparatorMode,
-    );
-    return runModel(comparatorInputs);
-  }, [inputs, comparatorMode]);
-
-  const comparatorDeltas = useMemo(
-    () => buildComparatorDeltaChartData(results, comparatorResults),
-    [results, comparatorResults],
   );
 
   const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
@@ -1231,21 +929,11 @@ export default function WaitWiseApp() {
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
-    setSelectedPreset("Custom");
-  };
-
-  const applyPreset = (preset: Exclude<ScenarioPreset, "Custom">) => {
-    const patch = getPresetPatch(preset);
-    setInputs((prev) => ({ ...prev, ...patch }));
-    setSelectedPreset(preset);
   };
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
-    setSelectedPreset("Base case");
-    setComparatorMode(COMPARATOR_OPTIONS[0]);
     setShowAdvancedMobile(false);
-    setShowComparatorDesktop(false);
     setOpenSections({
       "advanced-delivery": false,
       "advanced-pathway": false,
@@ -1340,40 +1028,13 @@ export default function WaitWiseApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Use a starting template first, then fine-tune reach, intervention effects, and delivery cost.
-    </div>
-  );
-
-  const presetControl = (
-    <div className={SUBCARD}>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,320px)_1fr] xl:items-end">
-        <SelectInput
-          label="Starting template"
-          value={selectedPreset}
-          options={SCENARIO_PRESET_OPTIONS}
-          onChange={(value) => {
-            if (value === "Custom") return;
-            applyPreset(value);
-          }}
-          help="Applies a coherent starting setup without resetting the full app."
-        />
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Template summary
-          </p>
-          <p className="mt-2 text-sm leading-6 text-slate-700">
-            <span className="font-medium text-slate-900">{selectedPreset}:</span>{" "}
-            {getPresetDescription(selectedPreset)}
-          </p>
-        </div>
-      </div>
+      Start from the default case, then tune reach, intervention effects, persistence,
+      escalation risk, and delivery cost to fit the local use case.
     </div>
   );
 
   const assumptionsQuick = (
     <div className="space-y-5">
-      {presetControl}
-
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
           Core setup
@@ -1897,7 +1558,7 @@ export default function WaitWiseApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Starting template first, then core assumptions and advanced settings."
+            description="Start from the default case, then adjust the key inputs and advanced settings."
             action={
               <button
                 type="button"
@@ -2051,7 +1712,7 @@ export default function WaitWiseApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Starting template first, then core assumptions and advanced settings."
+            description="Start from the default case, then adjust the key inputs and advanced settings."
             action={
               <button
                 type="button"
@@ -2086,7 +1747,7 @@ export default function WaitWiseApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, uncertainty, sensitivity, scenarios, comparator view, and validation prompts."
+            description="Review the current case, uncertainty, sensitivity, and validation prompts."
             dense
           >
             <div className="space-y-5">
@@ -2156,72 +1817,6 @@ export default function WaitWiseApp() {
                   <SensitivityChart sensitivity={sensitivity} />
                 </div>
                 <div className="mt-3">{sensitivityTop3}</div>
-              </div>
-
-              <div>
-                <h3 className={SECTION_KICKER}>Scenario comparison</h3>
-                <div className="mt-3 grid gap-4 xl:grid-cols-2">
-                  <ScenarioNetCostChart scenarioRows={scenarioRows} />
-                  <ScenarioOutcomeChart scenarioRows={scenarioRows} />
-                </div>
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="text-sm leading-6 text-slate-700">
-                    {scenarioStrengths}
-                  </p>
-                </div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator</h3>
-                <div className="mt-4">
-                  <SelectInput
-                    label="Compare current selection with"
-                    value={comparatorMode}
-                    options={COMPARATOR_OPTIONS}
-                    onChange={(value) => setComparatorMode(value)}
-                  />
-                </div>
-
-                <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  {comparatorDeltas.slice(0, 3).map((row) => (
-                    <MetricCard
-                      key={row.label}
-                      label={`${row.label} delta`}
-                      value={
-                        row.isCurrency
-                          ? normaliseCurrencyDisplay(formatCurrency(row.delta))
-                          : formatNumber(row.delta)
-                      }
-                    />
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowComparatorDesktop((v) => !v)}
-                  className="mt-4 flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left"
-                  aria-expanded={showComparatorDesktop}
-                >
-                  <span className="text-sm font-medium text-slate-900">
-                    Show comparator chart
-                  </span>
-                  <ChevronDown
-                    className={cx(
-                      "h-4 w-4 text-slate-500 transition-transform",
-                      showComparatorDesktop && "rotate-180",
-                    )}
-                  />
-                </button>
-
-                {showComparatorDesktop ? (
-                  <div className="mt-4">
-                    <ComparatorDeltaChart
-                      baseResults={results}
-                      comparatorResults={comparatorResults}
-                      comparatorLabel={comparatorMode}
-                    />
-                  </div>
-                ) : null}
               </div>
 
               <div className={SUBCARD}>
