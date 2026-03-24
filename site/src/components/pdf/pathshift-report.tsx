@@ -33,10 +33,7 @@ function normaliseCurrencyString(value: string) {
 }
 
 function cleanText(value: string) {
-  return value
-    .replace(/\bis appears\b/gi, "appears")
-    .replace(/\s+/g, " ")
-    .trim();
+  return value.replace(/\bis appears\b/gi, "appears").replace(/\s+/g, " ").trim();
 }
 
 function cleanValue(value: string) {
@@ -312,6 +309,41 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
   },
 
+  threeColGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  threeColCard: {
+    width: "31.5%",
+    border: "1 solid #cbd5e1",
+    borderRadius: 8,
+    padding: 9,
+    backgroundColor: "#ffffff",
+    minHeight: 98,
+  },
+  threeColLabel: {
+    fontSize: 8.2,
+    fontWeight: 700,
+    color: "#0f172a",
+    textTransform: "uppercase",
+    marginBottom: 4,
+    lineHeight: 1.25,
+  },
+  threeColValue: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: "#0f172a",
+    lineHeight: 1.3,
+    marginBottom: 4,
+  },
+  threeColNote: {
+    fontSize: 8.2,
+    color: "#475569",
+    lineHeight: 1.4,
+  },
+
   footer: {
     position: "absolute",
     left: 34,
@@ -344,9 +376,7 @@ function renderInfoRows(
       <View key={item.label} style={rowStyle}>
         <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
         <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
-        {item.note ? (
-          <Text style={styles.rowNote}>{cleanText(item.note)}</Text>
-        ) : null}
+        {item.note ? <Text style={styles.rowNote}>{cleanText(item.note)}</Text> : null}
       </View>
     );
   });
@@ -440,6 +470,22 @@ function renderAssumptionTable(
           </View>
         );
       })}
+    </View>
+  );
+}
+
+function renderThreeColCards(
+  items: Array<{ label: string; value: string; note?: string }>,
+) {
+  return (
+    <View style={styles.threeColGrid}>
+      {items.map((item) => (
+        <View key={item.label} style={styles.threeColCard}>
+          <Text style={styles.threeColLabel}>{cleanText(item.label)}</Text>
+          <Text style={styles.threeColValue}>{cleanValue(item.value)}</Text>
+          {item.note ? <Text style={styles.threeColNote}>{cleanText(item.note)}</Text> : null}
+        </View>
+      ))}
     </View>
   );
 }
@@ -577,7 +623,7 @@ export function PathShiftReportDocument({
           </Text>
 
           <View style={[styles.sectionTight, { marginTop: 10 }]}>
-            {renderInfoRows(
+            {renderThreeColCards(
               data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
                 label: row.label,
                 value: row.value,
@@ -591,16 +637,12 @@ export function PathShiftReportDocument({
             {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
           </View>
 
-          <View style={[styles.sectionTight, { marginTop: 12 }]}>
-            <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
-            {renderInfoRows(
-              data.uncertaintyAndSensitivity.topParameterDrivers.map((row) => ({
-                label: row.label,
-                value: row.value,
-                note: row.note,
-              })),
-            )}
-          </View>
+          {data.uncertaintyAndSensitivity.topDrivers?.length ? (
+            <View style={[styles.sectionTight, { marginTop: 12 }]}>
+              <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
+              {renderThreeColCards(data.uncertaintyAndSensitivity.topDrivers)}
+            </View>
+          ) : null}
         </View>
 
         <Footer />
@@ -610,30 +652,6 @@ export function PathShiftReportDocument({
         <RepeatingHeader module={data.cover.module} />
 
         <View style={styles.sectionTight}>
-          <Text style={styles.sectionTitle}>
-            Scenario and comparator interpretation
-          </Text>
-          {renderInfoRows([
-            {
-              label: "Scenario readout",
-              value: data.scenarioAndComparator.scenarioSummary,
-            },
-            {
-              label: "Strongest scenario pattern",
-              value: data.scenarioAndComparator.strongestScenario,
-            },
-            {
-              label: "Weakest or most fragile scenario pattern",
-              value: data.scenarioAndComparator.weakestScenario,
-            },
-            {
-              label: "Comparator implication",
-              value: data.scenarioAndComparator.comparatorSummary,
-            },
-          ])}
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Decision implications</Text>
           {renderInfoRows([
             {
@@ -643,6 +661,10 @@ export function PathShiftReportDocument({
             {
               label: "Main evidence gap",
               value: data.decisionImplications.mainEvidenceGap,
+            },
+            {
+              label: "Current case position",
+              value: data.decisionImplications.currentCasePosition,
             },
             {
               label: "Recommended next move",
@@ -673,7 +695,10 @@ export function PathShiftReportDocument({
           {data.assumptions.sections.map((section) => (
             <View
               key={section.title}
-              break={section.title === "Effect assumptions"}
+              break={
+                section.title === "Pathway assumptions" ||
+                section.title === "Cost assumptions"
+              }
             >
               <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
