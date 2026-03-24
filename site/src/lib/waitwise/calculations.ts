@@ -85,7 +85,9 @@ function runModelCore(inputs: Inputs): ModelResults {
 
     const effectiveReach =
       targeting.adjusted_reach_rate * participationMultiplier;
-    const demandReduction = inputs.demand_reduction_effect * effectMultiplier;
+
+    const demandReduction =
+      inputs.demand_reduction_effect * effectMultiplier;
     const throughputIncrease =
       inputs.throughput_increase_effect * effectMultiplier;
     const escalationReduction =
@@ -96,6 +98,7 @@ function runModelCore(inputs: Inputs): ModelResults {
 
     const reducedInflow =
       annualInflow * (1 - demandReduction * effectiveReach);
+
     const improvedThroughput =
       annualBaselineThroughput * (1 + throughputIncrease * effectiveReach);
 
