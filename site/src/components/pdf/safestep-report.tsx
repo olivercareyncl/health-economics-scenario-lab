@@ -312,85 +312,6 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
   },
 
-  threeColTable: {
-    width: "100%",
-    border: "1 solid #cbd5e1",
-    borderRadius: 8,
-    overflow: "hidden",
-    marginTop: 6,
-    backgroundColor: "#ffffff",
-  },
-  threeColHeader: {
-    flexDirection: "row",
-    backgroundColor: "#e2e8f0",
-    paddingVertical: 7,
-    paddingHorizontal: 8,
-  },
-  threeColRow: {
-    flexDirection: "row",
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderBottom: "1 solid #e2e8f0",
-  },
-  threeColRowLast: {
-    flexDirection: "row",
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderBottom: "0 solid #ffffff",
-  },
-  threeColLabelCol: {
-    width: "28%",
-    paddingRight: 8,
-  },
-  threeColValueCol: {
-    width: "24%",
-    paddingRight: 8,
-  },
-  threeColNoteCol: {
-    width: "48%",
-  },
-  threeColHeaderText: {
-    fontSize: 8.3,
-    fontWeight: 700,
-    color: "#0f172a",
-    textTransform: "uppercase",
-  },
-  threeColCaseLabel: {
-    fontSize: 8.8,
-    fontWeight: 700,
-    color: "#0f172a",
-    lineHeight: 1.35,
-  },
-  threeColValue: {
-    fontSize: 8.8,
-    color: "#334155",
-    lineHeight: 1.4,
-  },
-  threeColNote: {
-    fontSize: 8.2,
-    color: "#475569",
-    lineHeight: 1.4,
-  },
-
-  sensitivityDriverBox: {
-    marginTop: 10,
-    padding: 9,
-    border: "1 solid #cbd5e1",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  sensitivityDriverTitle: {
-    fontSize: 9.1,
-    fontWeight: 700,
-    color: "#0f172a",
-    marginBottom: 5,
-  },
-  sensitivityDriverMeta: {
-    fontSize: 8.5,
-    color: "#475569",
-    lineHeight: 1.45,
-  },
-
   footer: {
     position: "absolute",
     left: 34,
@@ -423,7 +344,9 @@ function renderInfoRows(
       <View key={item.label} style={rowStyle}>
         <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
         <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
-        {item.note ? <Text style={styles.rowNote}>{cleanText(item.note)}</Text> : null}
+        {item.note ? (
+          <Text style={styles.rowNote}>{cleanText(item.note)}</Text>
+        ) : null}
       </View>
     );
   });
@@ -504,7 +427,9 @@ function renderAssumptionTable(
         return (
           <View key={`${row.assumption}-${index}`} style={rowStyle}>
             <View style={styles.colAssumption}>
-              <Text style={styles.tableCellLabel}>{cleanText(row.assumption)}</Text>
+              <Text style={styles.tableCellLabel}>
+                {cleanText(row.assumption)}
+              </Text>
             </View>
             <View style={styles.colValue}>
               <Text style={styles.tableCellValue}>{cleanValue(row.value)}</Text>
@@ -517,42 +442,6 @@ function renderAssumptionTable(
           </View>
         );
       })}
-    </View>
-  );
-}
-
-function renderUncertaintyColumns(
-  rows: Array<{
-    label: string;
-    value: string;
-    note: string;
-  }>,
-) {
-  return (
-    <View style={styles.threeColTable}>
-      <View style={styles.threeColHeader}>
-        {rows.map((row) => (
-          <View key={`uncertainty-header-${row.label}`} style={styles.threeColValueCol}>
-            <Text style={styles.threeColHeaderText}>{cleanText(row.label)}</Text>
-          </View>
-        ))}
-        <View style={styles.threeColNoteCol}>
-          <Text style={styles.threeColHeaderText}>Interpretation</Text>
-        </View>
-      </View>
-
-      <View style={styles.threeColRowLast}>
-        {rows.map((row) => (
-          <View key={`uncertainty-value-${row.label}`} style={styles.threeColValueCol}>
-            <Text style={styles.threeColValue}>{cleanValue(row.value)}</Text>
-          </View>
-        ))}
-        <View style={styles.threeColNoteCol}>
-          <Text style={styles.threeColNote}>
-            {cleanText(rows.map((row) => `${row.label}: ${row.note}`).join(" · "))}
-          </Text>
-        </View>
-      </View>
     </View>
   );
 }
@@ -591,9 +480,9 @@ export function SafeStepReportDocument({
 
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>SafeStep scenario brief</Text>
+            <Text style={styles.title}>Falls prevention scenario brief</Text>
             <Text style={styles.subtitle}>
-              Exploratory assessment of potential pathway and economic value
+              Exploratory assessment of pathway and economic value
             </Text>
             <Text style={styles.metaLine}>
               Prepared: {formatGeneratedAt(data.cover.generatedAt)}
@@ -671,7 +560,9 @@ export function SafeStepReportDocument({
           ])}
         </View>
 
-        <View style={styles.section} break>
+        <View break />
+
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
           {renderMetricCards(data.headlineMetrics)}
         </View>
@@ -681,20 +572,20 @@ export function SafeStepReportDocument({
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
 
-        <Footer />
-      </Page>
-
-      <Page size="A4" style={styles.page}>
-        <RepeatingHeader module={data.cover.module} />
-
-        <View style={styles.sectionTight}>
+        <View style={styles.section} break>
           <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
           <Text style={styles.paragraph}>
             {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
           </Text>
 
           <View style={[styles.sectionTight, { marginTop: 10 }]}>
-            {renderUncertaintyColumns(data.uncertaintyAndSensitivity.uncertaintyRows)}
+            {renderInfoRows(
+              data.uncertaintyAndSensitivity.uncertaintyRows.map((row) => ({
+                label: row.label,
+                value: row.value,
+                note: row.note,
+              })),
+            )}
           </View>
 
           <View style={[styles.sectionTight, { marginTop: 12 }]}>
@@ -704,38 +595,24 @@ export function SafeStepReportDocument({
 
           {data.uncertaintyAndSensitivity.topSensitivityDrivers?.length ? (
             <View style={[styles.sectionTight, { marginTop: 12 }]}>
-              <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
-              {data.uncertaintyAndSensitivity.topSensitivityDrivers.map((driver) => (
-                <View
-                  key={`${driver.rank}-${driver.label}`}
-                  style={styles.sensitivityDriverBox}
-                >
-                  <Text style={styles.sensitivityDriverTitle}>
-                    {driver.rank ? `${driver.rank}. ` : ""}
-                    {cleanText(driver.label)}
-                  </Text>
-                  {driver.lowCase ? (
-                    <Text style={styles.sensitivityDriverMeta}>
-                      Low case: {cleanValue(driver.lowCase)}
-                    </Text>
-                  ) : null}
-                  {driver.highCase ? (
-                    <Text style={styles.sensitivityDriverMeta}>
-                      High case: {cleanValue(driver.highCase)}
-                    </Text>
-                  ) : null}
-                  {driver.swing ? (
-                    <Text style={styles.sensitivityDriverMeta}>
-                      ICER swing: {cleanValue(driver.swing)}
-                    </Text>
-                  ) : null}
-                  {driver.note ? (
-                    <Text style={styles.sensitivityDriverMeta}>
-                      {cleanText(driver.note)}
-                    </Text>
-                  ) : null}
-                </View>
-              ))}
+              <Text style={styles.subSectionTitle}>Top sensitivity drivers</Text>
+              {renderInfoRows(
+                data.uncertaintyAndSensitivity.topSensitivityDrivers.map(
+                  (driver) => ({
+                    label:
+                      typeof driver.rank === "number"
+                        ? `Driver ${driver.rank}: ${driver.label}`
+                        : driver.label,
+                    value:
+                      driver.swing != null
+                        ? `Largest ICER swing: ${driver.swing}`
+                        : driver.lowCase ?? driver.label,
+                    note:
+                      driver.note ??
+                      [driver.lowCase, driver.highCase].filter(Boolean).join(" · "),
+                  }),
+                ),
+              )}
             </View>
           ) : null}
         </View>
@@ -811,7 +688,7 @@ export function SafeStepReportDocument({
             <View
               key={section.title}
               break={
-                section.title === "Pathway assumptions" ||
+                section.title === "Delivery and persistence assumptions" ||
                 section.title === "Cost assumptions"
               }
             >
