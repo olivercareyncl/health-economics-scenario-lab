@@ -1,7 +1,4 @@
-import {
-  COSTING_METHOD_MAP,
-  TARGETING_MODE_MAP,
-} from "@/lib/pathshift/scenarios";
+import { COSTING_METHOD_MAP } from "@/lib/pathshift/scenarios";
 import type {
   Inputs,
   ModelResults,
@@ -23,15 +20,15 @@ export function getDiscountFactor(year: number, discountRate: number): number {
 }
 
 export function getTargetingAdjustments(inputs: Inputs) {
-  const targeting = TARGETING_MODE_MAP[inputs.targeting_mode];
-
   const adjusted_cohort =
-    inputs.annual_cohort_size * targeting.population_multiplier;
+    inputs.annual_cohort_size * inputs.target_population_multiplier;
+
   const adjusted_reach_rate = clampRate(
-    inputs.implementation_reach_rate * targeting.reach_multiplier,
+    inputs.implementation_reach_rate * inputs.target_reach_multiplier,
   );
+
   const adjusted_admission_rate = clampRate(
-    inputs.current_admission_rate * targeting.risk_multiplier,
+    inputs.current_admission_rate * inputs.target_admission_risk_multiplier,
   );
 
   return {
@@ -123,6 +120,7 @@ function runModelCore(
       bedDaysAvoidedFromAdmissions + bedDaysAvoidedFromLos;
 
     const programme_cost = patientsReached * inputs.redesign_cost_per_patient;
+
     const gross_savings = calculateGrossSavings(
       admissions_avoided,
       follow_ups_avoided,
@@ -130,7 +128,9 @@ function runModelCore(
       acuteToCommunityShift,
       inputs,
     );
+
     const net_cost = programme_cost - gross_savings;
+
     const qalys_gained =
       patientsReached *
       settingShiftRate *
@@ -269,6 +269,7 @@ export function calculateBreakEvenEffect(inputs: Inputs): number {
       acuteShiftPerUnit,
       inputs,
     );
+
     const qalyValuePerUnit =
       patientsReached *
       effectMultiplier *
@@ -337,6 +338,7 @@ export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
       patientsShifted,
       inputs,
     );
+
     const qalyValue =
       patientsShifted *
       inputs.qaly_gain_per_patient_improved *
@@ -412,6 +414,7 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
   const cases = [
     {
       case: "Low" as const,
+      dominant_domain: "Delivery assumptions",
       overrides: {
         proportion_shifted_to_lower_cost_setting: clampRate(
           inputs.proportion_shifted_to_lower_cost_setting * 0.8,
@@ -432,15 +435,15 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
           inputs.participation_dropoff_rate * 1.2,
         ),
       },
-      dominant_domain: "Delivery assumptions",
     },
     {
       case: "Base" as const,
-      overrides: {},
       dominant_domain: "Base case",
+      overrides: {},
     },
     {
       case: "High" as const,
+      dominant_domain: "Clinical and delivery assumptions",
       overrides: {
         proportion_shifted_to_lower_cost_setting: clampRate(
           inputs.proportion_shifted_to_lower_cost_setting * 1.2,
@@ -461,9 +464,8 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
           inputs.participation_dropoff_rate * 0.8,
         ),
       },
-      dominant_domain: "Clinical and delivery assumptions",
     },
-  ];
+  ] as const;
 
   return cases.map((scenario) => {
     const caseInputs: Inputs = {
@@ -472,6 +474,7 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
     };
 
     const result = runModelCore(caseInputs);
+
     const decision_status = getDecisionStatusForResult(
       result.discounted_net_cost_total,
       result.discounted_cost_per_qaly,
