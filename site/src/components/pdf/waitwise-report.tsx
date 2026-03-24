@@ -704,7 +704,9 @@ export function WaitWiseReportDocument({
           {data.assumptions.sections.map((section) => (
             <View
               key={section.title}
-              break={section.title === "Intervention effect assumptions"}
+              break={
+                section.title === "Intervention effect assumptions" ||
+                section.title === "Cost assumptions"
             >
               <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
