@@ -661,30 +661,6 @@ export function WaitWiseReportDocument({
         <RepeatingHeader module={data.cover.module} />
 
         <View style={styles.sectionTight}>
-          <Text style={styles.sectionTitle}>
-            Scenario and comparator interpretation
-          </Text>
-          {renderInfoRows([
-            {
-              label: "Scenario readout",
-              value: data.scenarioAndComparator.scenarioSummary,
-            },
-            {
-              label: "Strongest scenario pattern",
-              value: data.scenarioAndComparator.strongestScenario,
-            },
-            {
-              label: "Weakest or most fragile scenario pattern",
-              value: data.scenarioAndComparator.weakestScenario,
-            },
-            {
-              label: "Comparator implication",
-              value: data.scenarioAndComparator.comparatorSummary,
-            },
-          ])}
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Decision implications</Text>
           {renderInfoRows([
             {
@@ -694,6 +670,10 @@ export function WaitWiseReportDocument({
             {
               label: "Main evidence gap",
               value: data.decisionImplications.mainEvidenceGap,
+            },
+            {
+              label: "Current case position",
+              value: data.decisionImplications.currentCasePosition,
             },
             {
               label: "Recommended next move",
