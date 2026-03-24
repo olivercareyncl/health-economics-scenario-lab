@@ -89,12 +89,6 @@ export type SafeStepReportData = {
     sensitivitySummary: string[];
     topSensitivityDrivers: ReportSensitivityDriver[];
   };
-  scenarioAndComparator: {
-    scenarioSummary: string;
-    strongestScenario: string;
-    weakestScenario: string;
-    comparatorSummary: string;
-  };
   decisionImplications: {
     progressionView: string;
     mainEvidenceGap: string;
@@ -110,6 +104,10 @@ export type SafeStepReportData = {
     useNote: string;
   };
 };
+
+function normaliseCurrencyString(value: string): string {
+  return value.replace(/^£-/, "-£");
+}
 
 function getSignalLabel(decisionStatus: string): string {
   const normalised = decisionStatus.toLowerCase();
@@ -169,6 +167,12 @@ function prettifyParameterName(parameter: keyof SafeStepInputs | string): string
       return "Cost per bed day";
     case "eligible_population":
       return "Eligible population";
+    case "target_population_multiplier":
+      return "Target population multiplier";
+    case "target_uptake_multiplier":
+      return "Target uptake multiplier";
+    case "target_fall_risk_multiplier":
+      return "Target fall-risk multiplier";
     default:
       return String(parameter)
         .replaceAll("_", " ")
@@ -187,9 +191,13 @@ function buildTopSensitivityDrivers(
     .map((row, index) => ({
       rank: index + 1,
       label: row.parameter_label || prettifyParameterName(row.parameter_key),
-      lowCase: `${row.low_value_label} → ${formatCurrency(row.low_icer)}`,
-      highCase: `${row.high_value_label} → ${formatCurrency(row.high_icer)}`,
-      swing: formatCurrency(row.max_abs_icer_change),
+      lowCase: `${row.low_value_label} → ${normaliseCurrencyString(
+        formatCurrency(row.low_icer),
+      )}`,
+      highCase: `${row.high_value_label} → ${normaliseCurrencyString(
+        formatCurrency(row.high_icer),
+      )}`,
+      swing: normaliseCurrencyString(formatCurrency(row.max_abs_icer_change)),
       note:
         "Low and high cases show how discounted cost per QALY changes when this parameter is varied in one direction at a time.",
     }));
@@ -228,15 +236,15 @@ function buildOverview(
     results.admissions_avoided_total,
   )} admissions over ${inputs.time_horizon_years} year${
     inputs.time_horizon_years === 1 ? "" : "s"
-  }. ${netCostLabel} is estimated at ${formatCurrency(
-    Math.abs(results.discounted_net_cost_total),
-  )}, with a discounted cost per QALY of ${formatCurrency(
-    results.discounted_cost_per_qaly,
+  }. ${netCostLabel} is estimated at ${normaliseCurrencyString(
+    formatCurrency(Math.abs(results.discounted_net_cost_total)),
+  )}, with a discounted cost per QALY of ${normaliseCurrencyString(
+    formatCurrency(results.discounted_cost_per_qaly),
   )}. Taken together, this points to a ${signalLabel} early-stage value case rather than a definitive conclusion.`;
 }
 
 function buildPurposeQuestion(inputs: SafeStepInputs) {
-  return `This run explores whether a falls prevention programme in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly reduce falls, admissions, bed use, and downstream economic burden over ${inputs.time_horizon_years} year${
+  return `This run explores whether a falls prevention programme could plausibly reduce falls, admissions, bed use, and downstream economic burden over ${inputs.time_horizon_years} year${
     inputs.time_horizon_years === 1 ? "" : "s"
   } under the current assumptions.`;
 }
@@ -254,7 +262,13 @@ function buildScenarioSection(inputs: SafeStepInputs) {
       inputs.eligible_population,
     )} with an annual fall risk of ${formatPercent(
       inputs.annual_fall_risk,
-    )}. Targeting mode is set to ${inputs.targeting_mode}, which changes how concentrated risk is assumed to be within the intervention population and therefore how much value is likely to be concentrated in higher-risk groups.`,
+    )}. Opportunity is then shaped by the targeting approach assumptions: a population multiplier of ${inputs.target_population_multiplier.toFixed(
+      2,
+    )}, an uptake multiplier of ${inputs.target_uptake_multiplier.toFixed(
+      2,
+    )}, and a fall-risk multiplier of ${inputs.target_fall_risk_multiplier.toFixed(
+      2,
+    )}. These determine how concentrated risk and achievable reach are assumed to be in the selected subgroup.`,
     economicMechanism: `The value mechanism runs through avoided falls, avoided admissions, lower bed use, and preserved quality of life. The model then assesses whether these benefits are sufficient to offset intervention cost and generate an acceptable cost per QALY at the selected threshold.`,
   };
 }
@@ -315,18 +329,18 @@ function buildPlainEnglishResults(
       )} fewer bed days across the selected horizon.`,
     },
     {
-      body: `${netCostLabel} is estimated at ${formatCurrency(
-        Math.abs(results.discounted_net_cost_total),
-      )}, with a discounted cost per QALY of ${formatCurrency(
-        results.discounted_cost_per_qaly,
-      )} against a threshold of ${formatCurrency(
-        inputs.cost_effectiveness_threshold,
+      body: `${netCostLabel} is estimated at ${normaliseCurrencyString(
+        formatCurrency(Math.abs(results.discounted_net_cost_total)),
+      )}, with a discounted cost per QALY of ${normaliseCurrencyString(
+        formatCurrency(results.discounted_cost_per_qaly),
+      )} against a threshold of ${normaliseCurrencyString(
+        formatCurrency(inputs.cost_effectiveness_threshold),
       )}.`,
     },
     {
       body: `Taken together, the current signal is ${cleanDecisionStatus(
         decisionStatus,
-      ).toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to effect size, participation, and delivery cost.`,
+      ).toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the case remains sensitive to effect size, participation, targeting concentration, and delivery cost.`,
     },
   ];
 }
@@ -336,12 +350,6 @@ function buildAssumptionSections(inputs: SafeStepInputs): ReportTableSection[] {
     {
       title: "Core programme assumptions",
       rows: [
-        {
-          assumption: "Targeting mode",
-          value: inputs.targeting_mode,
-          rationale:
-            "Determines how concentrated risk is assumed to be in the intervention population and therefore how much value may be captured through targeting.",
-        },
         {
           assumption: "Eligible population",
           value: formatNumber(inputs.eligible_population),
@@ -362,7 +370,9 @@ function buildAssumptionSections(inputs: SafeStepInputs): ReportTableSection[] {
         },
         {
           assumption: "Cost per participant",
-          value: formatCurrency(inputs.intervention_cost_per_person),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.intervention_cost_per_person),
+          ),
           rationale:
             "Acts as the main delivery cost lever and strongly influences whether the case remains economically attractive.",
         },
@@ -373,6 +383,29 @@ function buildAssumptionSections(inputs: SafeStepInputs): ReportTableSection[] {
           }`,
           rationale:
             "Longer horizons allow more programme benefit to accumulate and can materially improve the economic picture.",
+        },
+      ],
+    },
+    {
+      title: "Targeting approach assumptions",
+      rows: [
+        {
+          assumption: "Target population multiplier",
+          value: inputs.target_population_multiplier.toFixed(2),
+          rationale:
+            "Adjusts how much of the baseline eligible population is assumed to sit inside the targeted subgroup or delivery focus.",
+        },
+        {
+          assumption: "Target uptake multiplier",
+          value: inputs.target_uptake_multiplier.toFixed(2),
+          rationale:
+            "Adjusts expected uptake to reflect whether a more focused approach improves practical reach among the intended population.",
+        },
+        {
+          assumption: "Target fall-risk multiplier",
+          value: inputs.target_fall_risk_multiplier.toFixed(2),
+          rationale:
+            "Adjusts baseline fall risk to reflect whether the intervention is being focused toward a population with more concentrated underlying risk.",
         },
       ],
     },
@@ -435,19 +468,25 @@ function buildAssumptionSections(inputs: SafeStepInputs): ReportTableSection[] {
         },
         {
           assumption: "Cost per admission",
-          value: formatCurrency(inputs.cost_per_admission),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_admission),
+          ),
           rationale:
             "Monetises avoided acute admissions and is one of the main drivers of gross savings.",
         },
         {
           assumption: "Cost per bed day",
-          value: formatCurrency(inputs.cost_per_bed_day),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_bed_day),
+          ),
           rationale:
             "Monetises avoided bed use where the costing method includes bed-day effects.",
         },
         {
           assumption: "Cost-effectiveness threshold",
-          value: formatCurrency(inputs.cost_effectiveness_threshold),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_effectiveness_threshold),
+          ),
           rationale:
             "Provides the benchmark used to judge whether the modelled cost per QALY looks acceptable.",
         },
@@ -511,9 +550,9 @@ export function buildSafeStepReportData({
     oneWaySensitivity?.primary_driver != null
       ? buildSensitivityLead(
           topSensitivityDrivers,
-          `The result is mainly driven by ${fallbackMainDriver}, effective participation, and delivery cost.`,
+          `The result is mainly driven by ${fallbackMainDriver}, effective participation, targeting concentration, and delivery cost.`,
         )
-      : `The result is mainly driven by ${fallbackMainDriver}, effective participation, and delivery cost.`;
+      : `The result is mainly driven by ${fallbackMainDriver}, effective participation, targeting concentration, and delivery cost.`;
 
   const primaryDriverLabel =
     oneWaySensitivity?.primary_driver?.parameter_label?.toLowerCase();
@@ -561,19 +600,27 @@ export function buildSafeStepReportData({
       },
       {
         label: getNetCostLabel(results),
-        value: formatCurrency(Math.abs(results.discounted_net_cost_total)),
+        value: normaliseCurrencyString(
+          formatCurrency(Math.abs(results.discounted_net_cost_total)),
+        ),
       },
       {
         label: "Programme cost",
-        value: formatCurrency(results.discounted_programme_cost_total),
+        value: normaliseCurrencyString(
+          formatCurrency(results.discounted_programme_cost_total),
+        ),
       },
       {
         label: "Gross savings",
-        value: formatCurrency(results.discounted_gross_savings_total),
+        value: normaliseCurrencyString(
+          formatCurrency(results.discounted_gross_savings_total),
+        ),
       },
       {
         label: "Discounted cost per QALY",
-        value: formatCurrency(results.discounted_cost_per_qaly),
+        value: normaliseCurrencyString(
+          formatCurrency(results.discounted_cost_per_qaly),
+        ),
       },
       {
         label: "QALYs gained",
@@ -591,7 +638,9 @@ export function buildSafeStepReportData({
       robustnessSummary: fragilityText,
       uncertaintyRows: uncertainty.map((row) => ({
         label: row.case,
-        value: formatCurrency(row.discounted_cost_per_qaly),
+        value: normaliseCurrencyString(
+          formatCurrency(row.discounted_cost_per_qaly),
+        ),
         note: `${formatNumber(row.falls_avoided_total)} falls avoided · ${row.decision_status}`,
       })),
       sensitivitySummary:
@@ -610,22 +659,11 @@ export function buildSafeStepReportData({
               "The case weakens when uptake or completion are lower than expected, when effect size is modest, or when avoided falls do not translate into meaningful avoided admissions and bed use.",
             ]
           : [
-              "The result is most likely to move when assumptions change around fall risk, the achieved reduction in falls, effective programme participation, and delivery cost per participant.",
+              "The result is most likely to move when assumptions change around fall risk, the achieved reduction in falls, effective programme participation, targeting concentration, and delivery cost per participant.",
               "In practical terms, the case is strongest when the intervention reaches a population with meaningful baseline risk and delivers a credible reduction in falls at manageable cost.",
               "The case weakens when uptake or completion are lower than expected, when effect size is modest, or when avoided falls do not translate into meaningful avoided admissions and bed use.",
             ],
       topSensitivityDrivers,
-    },
-
-    scenarioAndComparator: {
-      scenarioSummary:
-        "The scenario framing suggests value is most likely to emerge where baseline fall risk is meaningful, admissions following falls are common enough to generate avoidable acute activity, and the intervention can be delivered at realistic cost.",
-      strongestScenario:
-        "The strongest scenario pattern is usually the one where the programme is targeted toward higher-risk groups, participation remains high, and the intervention effect on falls is sustained over time.",
-      weakestScenario:
-        "The weakest or most fragile scenario pattern is usually the one where the programme is delivered broadly at higher cost but with modest effect size or low sustained participation.",
-      comparatorSummary:
-        "Comparator interpretation should focus on whether targeted delivery materially improves value over broader deployment. If broad delivery adds cost without proportionate avoided admissions, a more focused model is likely to be stronger.",
     },
 
     decisionImplications: {
@@ -640,7 +678,7 @@ export function buildSafeStepReportData({
             }.`
           : "The most important evidence gap is usually the local realism of the achieved reduction in falls and how strongly avoided falls translate into avoided acute activity and bed use.",
       recommendedNextMove:
-        "The next step should be to validate local fall risk, the serious-fall pathway, realistic uptake and adherence, and the likely delivery cost of the intended intervention model.",
+        "The next step should be to validate local fall risk, the serious-fall pathway, realistic uptake and adherence, the targeting assumptions, and the likely delivery cost of the intended intervention model.",
     },
 
     localEvidenceNeeded: {
