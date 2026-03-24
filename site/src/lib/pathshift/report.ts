@@ -88,18 +88,12 @@ export type PathShiftReportData = {
       value: string;
       note: string;
     }>;
-    topParameterDrivers: Array<{
+    sensitivitySummary: string[];
+    topDrivers: Array<{
       label: string;
       value: string;
       note: string;
     }>;
-    sensitivitySummary: string[];
-  };
-  scenarioAndComparator: {
-    scenarioSummary: string;
-    strongestScenario: string;
-    weakestScenario: string;
-    comparatorSummary: string;
   };
   decisionImplications: {
     progressionView: string;
@@ -114,6 +108,10 @@ export type PathShiftReportData = {
     items: string[];
   };
 };
+
+function normaliseCurrencyString(value: string): string {
+  return value.replace(/^£-/, "-£");
+}
 
 function getSignalLabel(decisionStatus: string): string {
   const normalised = decisionStatus.toLowerCase();
@@ -140,7 +138,7 @@ function getSignalLabel(decisionStatus: string): string {
 }
 
 function buildPurposeQuestion(inputs: Inputs): string {
-  return `This run explores whether a pathway redesign in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly shift patients into lower-cost care settings, reduce admissions, reduce follow-up burden, shorten length of stay, and improve economic value over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
+  return `This run explores whether a pathway redesign could plausibly shift patients into lower-cost care settings, reduce admissions, reduce follow-up burden, shorten length of stay, and improve economic value over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
 }
 
 function buildScenarioSection(inputs: Inputs): PathShiftReportData["scenario"] {
@@ -160,9 +158,7 @@ function buildScenarioSection(inputs: Inputs): PathShiftReportData["scenario"] {
       inputs.current_acute_managed_rate,
     )} and a current admission rate of ${formatPercent(
       inputs.current_admission_rate,
-    )}. The targeting mode is set to ${
-      inputs.targeting_mode
-    }, which affects how concentrated the opportunity is assumed to be and therefore how much practical pathway shift might be achievable.`,
+    )}. Pathway pressure and opportunity are then shaped by the interaction between baseline pathway mix, admission risk, redesign reach, and the degree of achievable pathway substitution.`,
     economicMechanism: `The value mechanism runs through shifting care into a lower-cost setting, reducing follow-up burden, reducing admissions, and reducing bed use. The model then assesses whether these effects are sufficient to offset redesign costs and produce an acceptable cost per QALY against the selected threshold.`,
   };
 }
@@ -191,12 +187,12 @@ function buildPlainEnglishResults(
       )} fewer bed days across the selected horizon.`,
     },
     {
-      body: `${netCostLabel} is estimated at ${formatCurrency(
-        Math.abs(results.discounted_net_cost_total),
-      )}, with a discounted cost per QALY of ${formatCurrency(
-        results.discounted_cost_per_qaly,
-      )} against a threshold of ${formatCurrency(
-        inputs.cost_effectiveness_threshold,
+      body: `${netCostLabel} is estimated at ${normaliseCurrencyString(
+        formatCurrency(Math.abs(results.discounted_net_cost_total)),
+      )}, with a discounted cost per QALY of ${normaliseCurrencyString(
+        formatCurrency(results.discounted_cost_per_qaly),
+      )} against a threshold of ${normaliseCurrencyString(
+        formatCurrency(inputs.cost_effectiveness_threshold),
       )}.`,
     },
     {
@@ -232,7 +228,9 @@ function buildAssumptionSections(
         },
         {
           assumption: "Redesign cost per patient",
-          value: formatCurrency(inputs.redesign_cost_per_patient),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.redesign_cost_per_patient),
+          ),
           rationale:
             "Acts as the main programme cost lever and has a direct influence on whether the case remains economically attractive.",
         },
@@ -312,37 +310,49 @@ function buildAssumptionSections(
         },
         {
           assumption: "Cost-effectiveness threshold",
-          value: formatCurrency(inputs.cost_effectiveness_threshold),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_effectiveness_threshold),
+          ),
           rationale:
             "Provides the benchmark used to judge whether the modelled cost per QALY looks acceptable.",
         },
         {
           assumption: "Cost per acute-managed patient",
-          value: formatCurrency(inputs.cost_per_acute_managed_patient),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_acute_managed_patient),
+          ),
           rationale:
             "Defines the higher-cost comparator used in the pathway shift calculation.",
         },
         {
           assumption: "Cost per community-managed patient",
-          value: formatCurrency(inputs.cost_per_community_managed_patient),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_community_managed_patient),
+          ),
           rationale:
             "Defines the lower-cost comparator used when patients are shifted into a redesigned pathway.",
         },
         {
           assumption: "Cost per follow-up contact",
-          value: formatCurrency(inputs.cost_per_follow_up_contact),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_follow_up_contact),
+          ),
           rationale:
             "Monetises reduced follow-up activity and is therefore a contributor to gross savings.",
         },
         {
           assumption: "Cost per admission",
-          value: formatCurrency(inputs.cost_per_admission),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_admission),
+          ),
           rationale:
             "Monetises avoided acute admissions and is therefore a key contributor to gross savings.",
         },
         {
           assumption: "Cost per bed day",
-          value: formatCurrency(inputs.cost_per_bed_day),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_bed_day),
+          ),
           rationale:
             "Monetises avoided bed use and reflects the downstream hospital resource effect of redesign.",
         },
@@ -409,6 +419,18 @@ function buildSensitivitySummary(
     "The case weakens fastest when pathway shift is smaller than expected, redesign costs are higher, or downstream admission and follow-up benefits are less pronounced locally.";
 
   return [line1, line2, line3];
+}
+
+function buildTopDriverRows(
+  sensitivity: SensitivitySummary,
+): PathShiftReportData["uncertaintyAndSensitivity"]["topDrivers"] {
+  return sensitivity.top_drivers.slice(0, 3).map((row, index) => ({
+    label: `Driver ${index + 1}`,
+    value: row.parameter_label,
+    note: `ICER range: ${normaliseCurrencyString(
+      formatCurrency(row.low_icer),
+    )} to ${normaliseCurrencyString(formatCurrency(row.high_icer))}`,
+  }));
 }
 
 export function buildPathShiftReportData({
@@ -490,11 +512,15 @@ export function buildPathShiftReportData({
       },
       {
         label: netCostLabel,
-        value: formatCurrency(Math.abs(results.discounted_net_cost_total)),
+        value: normaliseCurrencyString(
+          formatCurrency(Math.abs(results.discounted_net_cost_total)),
+        ),
       },
       {
         label: "Discounted cost per QALY",
-        value: formatCurrency(results.discounted_cost_per_qaly),
+        value: normaliseCurrencyString(
+          formatCurrency(results.discounted_cost_per_qaly),
+        ),
       },
       {
         label: "Return on spend",
@@ -521,28 +547,13 @@ export function buildPathShiftReportData({
       robustnessSummary: `Bounded uncertainty suggests the current signal should be treated with care rather than as a settled answer. ${uncertaintyReadout}`,
       uncertaintyRows: uncertainty.map((row) => ({
         label: row.case,
-        value: formatCurrency(row.discounted_cost_per_qaly),
+        value: normaliseCurrencyString(
+          formatCurrency(row.discounted_cost_per_qaly),
+        ),
         note: `${formatNumber(row.patients_shifted_total)} patients shifted · ${row.decision_status}`,
       })),
-      topParameterDrivers: sensitivity.top_drivers.map((row) => ({
-        label: row.parameter_label,
-        value: `${formatCurrency(row.low_icer)} to ${formatCurrency(
-          row.high_icer,
-        )}`,
-        note: `Low: ${row.low_value_label} · High: ${row.high_value_label}`,
-      })),
       sensitivitySummary,
-    },
-
-    scenarioAndComparator: {
-      scenarioSummary:
-        "The scenario framing suggests value is most likely to emerge where pathway redesign meaningfully shifts care into lower-cost settings, reduces admissions or follow-up burden, and does so at a delivery cost that remains locally credible.",
-      strongestScenario:
-        "The strongest scenario is typically the one where pathway shift is higher, admission reduction is more material, and redesign cost is relatively modest.",
-      weakestScenario:
-        "The weakest or most fragile scenario is typically the one where pathway shift is smaller, redesign cost is higher, or downstream admission and follow-up benefits are less pronounced.",
-      comparatorSummary:
-        "Comparator interpretation should focus on whether the current configuration offers a materially better pathway and economic signal than a more conservative or differently targeted alternative. If gains over comparator are modest, the case is more likely to require stronger local evidence before progression.",
+      topDrivers: buildTopDriverRows(sensitivity),
     },
 
     decisionImplications: {
