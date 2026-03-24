@@ -344,7 +344,9 @@ function renderInfoRows(
       <View key={item.label} style={rowStyle}>
         <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
         <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
-        {item.note ? <Text style={styles.rowNote}>{cleanText(item.note)}</Text> : null}
+        {item.note ? (
+          <Text style={styles.rowNote}>{cleanText(item.note)}</Text>
+        ) : null}
       </View>
     );
   });
@@ -476,9 +478,9 @@ export function PathShiftReportDocument({
 
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>PathShift scenario brief</Text>
+            <Text style={styles.title}>Pathway redesign scenario brief</Text>
             <Text style={styles.subtitle}>
-              Exploratory assessment of potential pathway and economic value
+              Exploratory assessment of pathway and economic value
             </Text>
             <Text style={styles.metaLine}>
               Prepared: {formatGeneratedAt(data.cover.generatedAt)}
@@ -556,7 +558,9 @@ export function PathShiftReportDocument({
           ])}
         </View>
 
-        <View style={styles.section}>
+        <View break />
+
+        <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Headline metrics</Text>
           {renderMetricCards(data.headlineMetrics)}
         </View>
@@ -566,7 +570,7 @@ export function PathShiftReportDocument({
           {renderBulletBlocks(data.plainEnglishResults)}
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} break>
           <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
           <Text style={styles.paragraph}>
             {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
@@ -585,6 +589,17 @@ export function PathShiftReportDocument({
           <View style={[styles.sectionTight, { marginTop: 12 }]}>
             <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
             {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
+          </View>
+
+          <View style={[styles.sectionTight, { marginTop: 12 }]}>
+            <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
+            {renderInfoRows(
+              data.uncertaintyAndSensitivity.topParameterDrivers.map((row) => ({
+                label: row.label,
+                value: row.value,
+                note: row.note,
+              })),
+            )}
           </View>
         </View>
 
@@ -658,10 +673,7 @@ export function PathShiftReportDocument({
           {data.assumptions.sections.map((section) => (
             <View
               key={section.title}
-              break={
-                section.title === "Effect and persistence assumptions" ||
-                section.title === "Cost assumptions"
-              }
+              break={section.title === "Effect assumptions"}
             >
               <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
