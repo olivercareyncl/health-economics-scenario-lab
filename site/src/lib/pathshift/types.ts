@@ -1,8 +1,3 @@
-export type TargetingMode =
-  | "Broad pathway redesign"
-  | "Higher-risk targeting"
-  | "High-utiliser targeting";
-
 export type CostingMethod =
   | "Admission and follow-up savings only"
   | "Bed-day value only"
@@ -21,31 +16,32 @@ export type Inputs = {
   current_admission_rate: number;
   current_follow_up_contacts_per_patient: number;
   current_average_length_of_stay: number;
+
+  implementation_reach_rate: number;
+  target_population_multiplier: number;
+  target_reach_multiplier: number;
+  target_admission_risk_multiplier: number;
+
   proportion_shifted_to_lower_cost_setting: number;
   reduction_in_admission_rate: number;
   reduction_in_follow_up_contacts: number;
   reduction_in_length_of_stay: number;
-  implementation_reach_rate: number;
+
   redesign_cost_per_patient: number;
   effect_decay_rate: number;
   participation_dropoff_rate: number;
+
   cost_per_acute_managed_patient: number;
   cost_per_community_managed_patient: number;
   cost_per_follow_up_contact: number;
   cost_per_admission: number;
   cost_per_bed_day: number;
   costing_method: CostingMethod;
+
   qaly_gain_per_patient_improved: number;
-  targeting_mode: TargetingMode;
   time_horizon_years: 1 | 3 | 5;
   discount_rate: number;
   cost_effectiveness_threshold: number;
-};
-
-export type TargetingAdjustment = {
-  population_multiplier: number;
-  reach_multiplier: number;
-  risk_multiplier: number;
 };
 
 export type AdjustedTargetingValues = {
