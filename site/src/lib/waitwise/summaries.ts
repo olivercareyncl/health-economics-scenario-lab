@@ -31,10 +31,6 @@ export function getNetCostLabel(results: ModelResults): string {
 }
 
 export function getMainDriverText(inputs: Inputs): string {
-  if (inputs.targeting_mode !== "Broad waiting list") {
-    return "targeting and concentration of escalation risk";
-  }
-
   if (inputs.costing_method === "Combined illustrative view") {
     return "the chosen costing method and the blend of intervention effects";
   }
@@ -129,22 +125,19 @@ export function generateStructuredRecommendation(
   if (inputs.costing_method === "Combined illustrative view") {
     mainFragility =
       "The result is sensitive to how value is counted, especially if escalation, admission, and bed-day savings overlap.";
-  } else if (inputs.targeting_mode === "Broad waiting list") {
-    mainFragility =
-      "The result may depend on whether broad implementation is diluting value that would look stronger in a higher-risk or long-wait subgroup.";
   } else if (inputs.participation_dropoff_rate >= 0.1) {
     mainFragility =
-      "The case may weaken if reach falls faster than assumed over time.";
+      "The case may weaken if effective reach falls faster than assumed over time.";
+  } else if (inputs.monthly_escalation_rate <= 0.02) {
+    mainFragility =
+      "The case may be fragile if real escalation risk while waiting is lower than assumed locally.";
   } else {
     mainFragility = robustness;
   }
 
   let bestNextStep: string;
 
-  if (inputs.targeting_mode === "Broad waiting list") {
-    bestNextStep =
-      "Test whether a more targeted implementation improves value without losing too much operational impact.";
-  } else if (inputs.costing_method === "Combined illustrative view") {
+  if (inputs.costing_method === "Combined illustrative view") {
     bestNextStep =
       "Stress-test the costing approach using a cleaner local method before using the result in a live decision conversation.";
   } else if (results.discounted_cost_per_qaly > threshold) {
@@ -178,23 +171,23 @@ export function generateDecisionReadiness(
     );
   }
 
-  if (inputs.targeting_mode !== "Broad waiting list") {
-    validateNext.push(
-      "Confirm the real prevalence and operational identifiability of the targeted subgroup.",
-    );
-  } else {
-    validateNext.push(
-      "Confirm whether a more targeted implementation strategy would be operationally feasible.",
-    );
-  }
-
   if (inputs.monthly_escalation_rate <= 0.02) {
     validateNext.push(
       "Check whether the assumed escalation risk while waiting is realistic in the local pathway.",
     );
   } else {
     validateNext.push(
-      "Validate whether escalation risk is concentrated among long-wait or higher-risk patients.",
+      "Validate whether escalation risk while waiting is genuinely material in the local pathway population.",
+    );
+  }
+
+  if (inputs.intervention_reach_rate <= 0.3) {
+    validateNext.push(
+      "Confirm whether the assumed intervention reach is operationally achievable in practice.",
+    );
+  } else {
+    validateNext.push(
+      "Check whether the assumed reach can be sustained in routine delivery.",
     );
   }
 
@@ -237,21 +230,20 @@ export function generateOverviewSummary(
   const escalations = `${results.escalations_avoided_total.toFixed(0)}`;
   const admissions = `${results.admissions_avoided_total.toFixed(0)}`;
   const horizon = inputs.time_horizon_years;
-  const targeting = inputs.targeting_mode.toLowerCase();
   const costing = inputs.costing_method.toLowerCase();
 
   if (results.discounted_net_cost_total < 0) {
-    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, WaitWise suggests the intervention could reduce the waiting list by around ${reduction}, avoid ${escalations} escalations and ${admissions} admissions, while appearing cost-saving on a discounted basis. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, WaitWise suggests the intervention could reduce the waiting list by around ${reduction}, avoid ${escalations} escalations and ${admissions} admissions, while appearing cost-saving on a discounted basis. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
   }
 
   if (
     results.discounted_cost_per_qaly > 0 &&
     results.discounted_cost_per_qaly <= threshold
   ) {
-    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, WaitWise suggests the intervention creates meaningful operational and pathway benefit, with around ${reduction} fewer people on the waiting list and ${admissions} admissions avoided. It does not appear cost-saving, but it does sit within the current threshold on a discounted basis. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, WaitWise suggests the intervention creates meaningful operational and pathway benefit, with around ${reduction} fewer people on the waiting list and ${admissions} admissions avoided. It does not appear cost-saving, but it does sit within the current threshold on a discounted basis. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
   }
 
-  return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, WaitWise suggests the intervention creates measurable operational benefit, with around ${reduction} fewer people on the waiting list and ${admissions} admissions avoided, but the discounted economic case remains above the current threshold. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+  return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, WaitWise suggests the intervention creates measurable operational benefit, with around ${reduction} fewer people on the waiting list and ${admissions} admissions avoided, but the discounted economic case remains above the current threshold. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
 }
 
 export function generateInterpretation(
@@ -290,16 +282,16 @@ export function generateInterpretation(
 
   const whatDrivesResult =
     `The current result depends most strongly on ${dependency}, as well as the chosen costing method, ` +
-    "the quality of targeting, and whether intervention reach and effect persist over time.";
+    "the assumed escalation burden, and whether intervention reach and effect persist over time.";
 
   let whatLooksFragile: string;
 
   if (inputs.costing_method === "Combined illustrative view") {
     whatLooksFragile =
       "The economic signal may be fragile because the combined costing approach is intentionally illustrative and may overstate value if local cost components overlap.";
-  } else if (inputs.targeting_mode === "Broad waiting list") {
+  } else if (inputs.participation_dropoff_rate >= 0.1) {
     whatLooksFragile =
-      "The case may be fragile because broad implementation can dilute value if the highest-opportunity patients are only a subset of the waiting list.";
+      "The case may be fragile because effective reach may fall faster than assumed once the intervention moves into routine delivery.";
   } else {
     whatLooksFragile = uncertaintyText;
   }
