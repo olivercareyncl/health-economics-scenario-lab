@@ -26,7 +26,6 @@ import {
 
 import { defaultInputs as DEFAULT_INPUTS } from "@/lib/safestep/defaults";
 import {
-  buildComparatorCase,
   runBoundedUncertainty,
   runModel,
   runParameterSensitivity,
@@ -35,14 +34,19 @@ import {
   formatCurrency,
   formatNumber,
   formatPercent,
+  formatRatio,
 } from "@/lib/safestep/formatters";
-import { ASSUMPTION_META, ASSUMPTION_ORDER } from "@/lib/safestep/metadata";
 import {
-  COSTING_METHOD_OPTIONS,
-  TARGETING_MODE_OPTIONS,
-} from "@/lib/safestep/scenarios";
+  ASSUMPTION_META,
+  ASSUMPTION_ORDER,
+  getAssumptionConfidenceSummary,
+} from "@/lib/safestep/metadata";
+import { COSTING_METHOD_OPTIONS } from "@/lib/safestep/scenarios";
 import {
+  assessUncertaintyRobustness,
   generateInterpretation,
+  generateOverviewSummary,
+  generateStructuredRecommendation,
   getDecisionStatus,
   getNetCostLabel,
 } from "@/lib/safestep/summaries";
@@ -52,9 +56,7 @@ import type {
   CostingMethod,
   ModelResult,
   SafeStepInputs,
-  ScenarioName,
   SensitivitySummary,
-  TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/safestep/types";
@@ -65,31 +67,6 @@ type AssumptionSectionKey =
   | "advanced-delivery"
   | "advanced-risk"
   | "advanced-economics";
-
-type ScenarioPreset =
-  | "Base case"
-  | "Lower-cost delivery"
-  | "Stronger effect"
-  | "Higher-risk targeting"
-  | "Tighter high-risk targeting"
-  | "Custom";
-
-const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
-  "Base case",
-  "Lower-cost delivery",
-  "Stronger effect",
-  "Higher-risk targeting",
-  "Tighter high-risk targeting",
-  "Custom",
-] as const;
-
-const COMPARATOR_OPTIONS: readonly ScenarioName[] = [
-  "Lower-cost delivery",
-  "Stronger effect",
-  "Higher-risk targeting",
-  "Tighter high-risk targeting",
-  "Targeted and stronger effect",
-] as const;
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -135,194 +112,24 @@ function formatAssumptionValue(
   }
 }
 
-function getPresetPatch(
-  preset: Exclude<ScenarioPreset, "Custom">,
-): Partial<SafeStepInputs> {
-  switch (preset) {
-    case "Base case":
-      return { ...DEFAULT_INPUTS };
-
-    case "Lower-cost delivery":
-      return {
-        intervention_cost_per_person: 200,
-        uptake_rate: 0.52,
-        adherence_rate: 0.75,
-        relative_risk_reduction: 0.16,
-        annual_fall_risk: 0.24,
-        participation_dropoff_rate: 0.06,
-        effect_decay_rate: 0.1,
-        targeting_mode: "Broad population",
-        costing_method: "Admission cost only",
-      };
-
-    case "Stronger effect":
-      return {
-        intervention_cost_per_person: 250,
-        uptake_rate: 0.52,
-        adherence_rate: 0.8,
-        relative_risk_reduction: 0.22,
-        annual_fall_risk: 0.24,
-        participation_dropoff_rate: 0.05,
-        effect_decay_rate: 0.08,
-        targeting_mode: "Broad population",
-        costing_method: "Admission cost only",
-      };
-
-    case "Higher-risk targeting":
-      return {
-        targeting_mode: "Higher-risk targeting",
-        eligible_population: 4200,
-        annual_fall_risk: 0.3,
-        admission_rate_after_fall: 0.24,
-        uptake_rate: 0.55,
-        adherence_rate: 0.78,
-        relative_risk_reduction: 0.18,
-        intervention_cost_per_person: 255,
-        participation_dropoff_rate: 0.06,
-        effect_decay_rate: 0.09,
-        costing_method: "Admission cost only",
-      };
-
-    case "Tighter high-risk targeting":
-      return {
-        targeting_mode: "Tighter high-risk targeting",
-        eligible_population: 3000,
-        annual_fall_risk: 0.36,
-        admission_rate_after_fall: 0.28,
-        uptake_rate: 0.58,
-        adherence_rate: 0.8,
-        relative_risk_reduction: 0.2,
-        intervention_cost_per_person: 270,
-        participation_dropoff_rate: 0.06,
-        effect_decay_rate: 0.08,
-        costing_method: "Admission cost only",
-      };
-  }
-}
-
-function getPresetDescription(preset: ScenarioPreset) {
-  switch (preset) {
-    case "Base case":
-      return "Neutral starting template for workshop use.";
-    case "Lower-cost delivery":
-      return "Tests whether value improves under leaner delivery.";
-    case "Stronger effect":
-      return "Tests better adherence and stronger fall reduction.";
-    case "Higher-risk targeting":
-      return "Focuses value into a more at-risk subgroup.";
-    case "Tighter high-risk targeting":
-      return "Smaller, higher-risk group with stronger targeting logic.";
-    case "Custom":
-      return "Inputs have been edited away from a named template.";
-  }
-}
-
-function deriveCaseType(
-  preset: ScenarioPreset,
-  inputs: SafeStepInputs,
-): string {
-  if (preset !== "Custom") {
-    switch (preset) {
-      case "Base case":
-        return "Broad falls prevention case";
-      case "Lower-cost delivery":
-        return "Lower-cost delivery case";
-      case "Stronger effect":
-        return "Stronger-effect case";
-      case "Higher-risk targeting":
-        return "Higher-risk targeting case";
-      case "Tighter high-risk targeting":
-        return "Tighter high-risk targeting case";
-      default:
-        return "Current scenario case";
-    }
+function deriveCaseType(inputs: SafeStepInputs): string {
+  if (inputs.target_fall_risk_multiplier >= 1.5) {
+    return "Tighter higher-risk case";
   }
 
-  if (inputs.targeting_mode === "Tighter high-risk targeting") {
-    return "Tighter high-risk targeting case";
+  if (inputs.target_population_multiplier < 0.85) {
+    return "More targeted delivery case";
   }
-  if (inputs.targeting_mode === "Higher-risk targeting") {
-    return "Higher-risk targeting case";
-  }
-  if (inputs.intervention_cost_per_person <= 150) {
+
+  if (inputs.intervention_cost_per_person <= 200) {
     return "Lower-cost delivery case";
   }
-  if (inputs.relative_risk_reduction >= 0.22) {
+
+  if (inputs.relative_risk_reduction >= 0.2) {
     return "Stronger-effect case";
   }
 
-  return "Broad falls prevention case";
-}
-
-function buildRecommendationSummary(
-  inputs: SafeStepInputs,
-  results: ModelResult,
-  uncertaintyRows: UncertaintyRow[],
-  preset: ScenarioPreset,
-  caseType: string,
-  sensitivity: SensitivitySummary,
-) {
-  const interpretation = generateInterpretation(
-    results,
-    inputs,
-    uncertaintyRows,
-    sensitivity,
-  );
-  const decisionStatus = getDecisionStatus(
-    results,
-    inputs.cost_effectiveness_threshold,
-  );
-  const baseRow = uncertaintyRows.find((row) => row.case === "Base");
-  const lowRow = uncertaintyRows.find((row) => row.case === "Low");
-  const highRow = uncertaintyRows.find((row) => row.case === "High");
-  const topDrivers = sensitivity.top_drivers;
-
-  const currentCaseSuggests =
-    decisionStatus === "Appears cost-saving"
-      ? `${caseType} currently suggests avoided falls with a net saving signal.`
-      : decisionStatus === "Appears cost-effective"
-        ? `${caseType} currently suggests a plausible value case at the present threshold.`
-        : `${caseType} currently suggests operational benefit, but the economic case remains above threshold.`;
-
-  const drivingResult =
-    topDrivers.length > 0
-      ? `The result is mainly being driven by ${topDrivers
-          .slice(0, 3)
-          .map((driver) => driver.parameter_label.toLowerCase())
-          .join(", ")}.`
-      : "The result is mainly being shaped by fall risk, treatment effect, targeting, and delivery cost.";
-
-  const fragilePoint =
-    lowRow && highRow && lowRow.decision_status !== highRow.decision_status
-      ? topDrivers.length > 0
-        ? `The bounded range crosses decision categories, and one-way sensitivity suggests the case is particularly exposed to ${topDrivers[0].parameter_label.toLowerCase()}.`
-        : "The bounded range crosses decision categories, so moderate assumption shifts could change the conclusion."
-      : interpretation.what_looks_fragile;
-
-  const validateNext =
-    baseRow &&
-    baseRow.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
-      ? topDrivers.length > 0
-        ? `Validate local ${topDrivers[0].parameter_label.toLowerCase()}${
-            topDrivers[1]
-              ? ` and ${topDrivers[1].parameter_label.toLowerCase()}`
-              : ""
-          } before treating the case as decision-ready.`
-        : "Validate local risk, achievable effect size, and delivery cost before treating the case as decision-ready."
-      : interpretation.what_to_validate_next;
-
-  const recommendationLine =
-    preset === "Custom"
-      ? "This is currently a custom setup. Use the named templates to benchmark whether the current setup is unusually strict or favourable."
-      : `This is currently framed as a ${caseType.toLowerCase()}. Use comparator mode to judge whether a nearby alternative looks materially stronger.`;
-
-  return {
-    current_case_suggests: currentCaseSuggests,
-    driving_result: drivingResult,
-    fragile_point: fragilePoint,
-    validate_next: validateNext,
-    recommendation_line: recommendationLine,
-  };
+  return "Broad prevention case";
 }
 
 function CurrencyTooltip({
@@ -1006,7 +813,6 @@ function AssumptionReviewCard({
 
 export default function SafeStepApp() {
   const [inputs, setInputs] = useState<SafeStepInputs>(DEFAULT_INPUTS);
-  const [selectedPreset, setSelectedPreset] = useState<ScenarioPreset>("Base case");
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
   const [openSections, setOpenSections] = useState<
@@ -1016,21 +822,10 @@ export default function SafeStepApp() {
     "advanced-risk": false,
     "advanced-economics": false,
   });
-  const [comparatorMode, setComparatorMode] =
-    useState<ScenarioName>("Lower-cost delivery");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
   const sensitivity = useMemo(() => runParameterSensitivity(inputs), [inputs]);
-
-  const comparatorResults = useMemo(() => {
-    const comparatorInputs = buildComparatorCase(
-      DEFAULT_INPUTS,
-      inputs,
-      comparatorMode,
-    );
-    return runModel(comparatorInputs);
-  }, [inputs, comparatorMode]);
 
   const decisionStatus = useMemo(
     () => getDecisionStatus(results, inputs.cost_effectiveness_threshold),
@@ -1038,32 +833,34 @@ export default function SafeStepApp() {
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
+  const currentCaseType = useMemo(() => deriveCaseType(inputs), [inputs]);
 
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty, sensitivity),
     [results, inputs, uncertainty, sensitivity],
   );
 
-  const currentCaseType = useMemo(
-    () => deriveCaseType(selectedPreset, inputs),
-    [selectedPreset, inputs],
+  const overviewSummary = useMemo(
+    () => generateOverviewSummary(results, inputs, uncertainty, sensitivity),
+    [results, inputs, uncertainty, sensitivity],
   );
 
-  const recommendationSummary = useMemo(
+  const structuredRecommendation = useMemo(
+    () => generateStructuredRecommendation(inputs, results, uncertainty, sensitivity),
+    [inputs, results, uncertainty, sensitivity],
+  );
+
+  const uncertaintyRobustness = useMemo(
     () =>
-      buildRecommendationSummary(
-        inputs,
-        results,
+      assessUncertaintyRobustness(
         uncertainty,
-        selectedPreset,
-        currentCaseType,
-        sensitivity,
+        inputs.cost_effectiveness_threshold,
       ),
-    [inputs, results, uncertainty, selectedPreset, currentCaseType, sensitivity],
+    [uncertainty, inputs.cost_effectiveness_threshold],
   );
 
-  const primaryDriver = sensitivity.primary_driver;
-  const topDrivers = sensitivity.top_drivers;
+  const confidenceCounts = useMemo(() => getAssumptionConfidenceSummary(), []);
+  const confidenceSummaryText = `${confidenceCounts["High confidence"]} high-confidence, ${confidenceCounts["Medium confidence"]} medium-confidence, and ${confidenceCounts["Low confidence"]} low-confidence assumptions are currently in play.`;
 
   const handleExportReport = async () => {
     try {
@@ -1098,19 +895,10 @@ export default function SafeStepApp() {
     value: SafeStepInputs[K],
   ) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
-    setSelectedPreset("Custom");
-  };
-
-  const applyPreset = (preset: Exclude<ScenarioPreset, "Custom">) => {
-    const patch = getPresetPatch(preset);
-    setInputs((prev) => ({ ...prev, ...patch }));
-    setSelectedPreset(preset);
   };
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
-    setComparatorMode("Lower-cost delivery");
-    setSelectedPreset("Base case");
     setShowAdvancedMobile(false);
     setOpenSections({
       "advanced-delivery": false,
@@ -1145,116 +933,155 @@ export default function SafeStepApp() {
     </div>
   );
 
+  const thresholdMetrics = (
+    <div className="grid gap-3 xl:grid-cols-3">
+      <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+      <MetricCard
+        label="Break-even cost per participant"
+        value={formatCurrency(results.break_even_cost_per_participant)}
+      />
+      <MetricCard
+        label="Required intervention effect"
+        value={formatPercent(results.break_even_effectiveness)}
+      />
+    </div>
+  );
+
   const interpretationPanel = (
-    <div className="grid gap-3 lg:grid-cols-3">
+    <div className="grid gap-3 lg:grid-cols-4">
+      <MiniInsight label="Current case type" value={currentCaseType} />
       <MiniInsight
-        label="Conclusion"
+        label="What this suggests"
         value={interpretation.what_model_suggests}
       />
       <MiniInsight
-        label="Main driver"
-        value={
-          primaryDriver
-            ? `The result is currently most shaped by ${primaryDriver.parameter_label.toLowerCase()}.`
-            : interpretation.where_value_is_coming_from
-        }
+        label="Main dependency"
+        value={structuredRecommendation.mainDependency}
       />
       <MiniInsight
-        label="Fragility"
-        value={recommendationSummary.fragile_point}
+        label="Main fragility"
+        value={structuredRecommendation.mainFragility}
+      />
+    </div>
+  );
+
+  const recommendationPanel = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <MiniInsight
+        label="What this suggests"
+        value={interpretation.what_model_suggests}
+      />
+      <MiniInsight
+        label="What is driving it"
+        value={structuredRecommendation.mainDependency}
+      />
+      <MiniInsight
+        label="What looks fragile"
+        value={structuredRecommendation.mainFragility}
+      />
+      <MiniInsight
+        label="Validate next"
+        value={structuredRecommendation.bestNextStep}
       />
     </div>
   );
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Use a starting template first, then fine-tune risk, effect, and delivery assumptions.
-    </div>
-  );
-
-  const presetControl = (
-    <div className={SUBCARD}>
-      <p className="mb-3 text-sm font-semibold text-slate-900">
-        Starting template
-      </p>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SelectInput<ScenarioPreset>
-          label="Template"
-          value={selectedPreset}
-          options={SCENARIO_PRESET_OPTIONS}
-          onChange={(value) => {
-            if (value === "Custom") return;
-            applyPreset(value);
-          }}
-          help="Applies a coherent starting setup without resetting the full app."
-        />
-        <AssumptionReviewCard
-          label="Current case type"
-          value={currentCaseType}
-          note={getPresetDescription(selectedPreset)}
-        />
-      </div>
+      Start from the default case, then tune targeting concentration, fall risk,
+      intervention effect, persistence, and delivery cost to fit the local use case.
     </div>
   );
 
   const assumptionsQuick = (
-    <div className="grid gap-4 lg:gap-3 xl:grid-cols-2">
-      <SelectInput
-        label="Targeting mode"
-        value={inputs.targeting_mode}
-        options={TARGETING_MODE_OPTIONS as readonly TargetingMode[]}
-        onChange={(value) => updateInput("targeting_mode", value)}
-        help="Changes how risk is concentrated in the intervention population."
-      />
+    <div className="space-y-5">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Core setup
+        </p>
+        <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-2">
+          <NumberInput
+            label="Eligible population"
+            value={inputs.eligible_population}
+            onChange={(value) => updateInput("eligible_population", value)}
+            step={100}
+            help="Baseline scale of the intervention."
+          />
+          <NumberInput
+            label="Intervention cost per person"
+            value={inputs.intervention_cost_per_person}
+            onChange={(value) => updateInput("intervention_cost_per_person", value)}
+            step={10}
+            help="Main delivery cost lever."
+          />
+          <SliderInput
+            label="Annual fall risk"
+            value={inputs.annual_fall_risk}
+            onChange={(value) => updateInput("annual_fall_risk", value)}
+            min={0}
+            max={1}
+            step={0.01}
+            display={formatPercent(inputs.annual_fall_risk)}
+            help="Core fall burden assumption."
+          />
+          <SliderInput
+            label="Reduction in falls"
+            value={inputs.relative_risk_reduction}
+            onChange={(value) => updateInput("relative_risk_reduction", value)}
+            min={0}
+            max={0.7}
+            step={0.01}
+            display={formatPercent(inputs.relative_risk_reduction)}
+            help="Core avoided-falls assumption."
+          />
+          <div className="xl:col-span-2">
+            <NumberInput
+              label="Time horizon"
+              value={inputs.time_horizon_years}
+              onChange={(value) =>
+                updateInput("time_horizon_years", Math.max(1, value))
+              }
+              step={1}
+              help="Longer horizons often improve the economic picture."
+            />
+          </div>
+        </div>
+      </div>
 
-      <NumberInput
-        label="Eligible population"
-        value={inputs.eligible_population}
-        onChange={(value) => updateInput("eligible_population", value)}
-        step={100}
-        help="Baseline scale of the intervention."
-      />
-
-      <SliderInput
-        label="Annual fall risk"
-        value={inputs.annual_fall_risk}
-        onChange={(value) => updateInput("annual_fall_risk", value)}
-        min={0}
-        max={1}
-        step={0.01}
-        display={formatPercent(inputs.annual_fall_risk)}
-        help="Core fall burden assumption."
-      />
-
-      <SliderInput
-        label="Relative risk reduction"
-        value={inputs.relative_risk_reduction}
-        onChange={(value) => updateInput("relative_risk_reduction", value)}
-        min={0}
-        max={0.7}
-        step={0.01}
-        display={formatPercent(inputs.relative_risk_reduction)}
-        help="Core avoided-falls assumption."
-      />
-
-      <NumberInput
-        label="Intervention cost per person"
-        value={inputs.intervention_cost_per_person}
-        onChange={(value) => updateInput("intervention_cost_per_person", value)}
-        step={10}
-        help="Main delivery cost lever."
-      />
-
-      <div className="xl:col-span-2">
-        <NumberInput
-          label="Time horizon"
-          value={inputs.time_horizon_years}
-          onChange={(value) =>
-            updateInput("time_horizon_years", Math.max(1, value))
-          }
-          step={1}
-          help="Longer horizons often improve the economic picture."
-        />
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Targeting approach
+        </p>
+        <p className="mt-1.5 text-xs leading-5 text-slate-600">
+          These three multipliers replace fixed targeting modes and let you control
+          how concentrated the opportunity is.
+        </p>
+        <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-3">
+          <NumberInput
+            label="Target population multiplier"
+            value={inputs.target_population_multiplier}
+            onChange={(value) => updateInput("target_population_multiplier", value)}
+            min={0.1}
+            step={0.05}
+            help="Smaller values represent narrower targeting."
+          />
+          <NumberInput
+            label="Target uptake multiplier"
+            value={inputs.target_uptake_multiplier}
+            onChange={(value) => updateInput("target_uptake_multiplier", value)}
+            min={0.1}
+            step={0.05}
+            help="Adjusts whether the targeted group is easier or harder to reach."
+          />
+          <NumberInput
+            label="Target fall-risk multiplier"
+            value={inputs.target_fall_risk_multiplier}
+            onChange={(value) => updateInput("target_fall_risk_multiplier", value)}
+            min={0.1}
+            step={0.05}
+            help="Higher values concentrate risk into the intervention group."
+          />
+        </div>
       </div>
     </div>
   );
@@ -1283,7 +1110,7 @@ export default function SafeStepApp() {
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
               <SliderInput
-                label="Uptake rate"
+                label="Programme uptake"
                 value={inputs.uptake_rate}
                 onChange={(value) => updateInput("uptake_rate", value)}
                 min={0}
@@ -1292,7 +1119,7 @@ export default function SafeStepApp() {
                 display={formatPercent(inputs.uptake_rate)}
               />
               <SliderInput
-                label="Adherence rate"
+                label="Programme completion"
                 value={inputs.adherence_rate}
                 onChange={(value) => updateInput("adherence_rate", value)}
                 min={0}
@@ -1301,7 +1128,7 @@ export default function SafeStepApp() {
                 display={formatPercent(inputs.adherence_rate)}
               />
               <SliderInput
-                label="Participation drop-off"
+                label="Annual participation drop-off"
                 value={inputs.participation_dropoff_rate}
                 onChange={(value) =>
                   updateInput("participation_dropoff_rate", value)
@@ -1312,7 +1139,7 @@ export default function SafeStepApp() {
                 display={formatPercent(inputs.participation_dropoff_rate)}
               />
               <SliderInput
-                label="Effect decay"
+                label="Annual effect decay"
                 value={inputs.effect_decay_rate}
                 onChange={(value) => updateInput("effect_decay_rate", value)}
                 min={0}
@@ -1347,7 +1174,7 @@ export default function SafeStepApp() {
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
               <SliderInput
-                label="Admission rate after fall"
+                label="Falls leading to admission"
                 value={inputs.admission_rate_after_fall}
                 onChange={(value) => updateInput("admission_rate_after_fall", value)}
                 min={0}
@@ -1360,6 +1187,14 @@ export default function SafeStepApp() {
                 value={inputs.average_length_of_stay}
                 onChange={(value) => updateInput("average_length_of_stay", value)}
                 step={0.5}
+              />
+              <NumberInput
+                label="QALY loss per serious fall"
+                value={inputs.qaly_loss_per_serious_fall}
+                onChange={(value) =>
+                  updateInput("qaly_loss_per_serious_fall", value)
+                }
+                step={0.01}
               />
             </div>
           </div>
@@ -1414,28 +1249,11 @@ export default function SafeStepApp() {
                 step={25}
               />
               <NumberInput
-                label="QALY loss per serious fall"
-                value={inputs.qaly_loss_per_serious_fall}
-                onChange={(value) =>
-                  updateInput("qaly_loss_per_serious_fall", value)
-                }
-                step={0.01}
-              />
-              <NumberInput
                 label="Discount rate"
                 value={inputs.discount_rate}
                 onChange={(value) => updateInput("discount_rate", value)}
                 step={0.005}
               />
-              <div className="xl:col-span-2">
-                <SelectInput
-                  label="Comparator"
-                  value={comparatorMode}
-                  options={COMPARATOR_OPTIONS as readonly ScenarioName[]}
-                  onChange={(value) => setComparatorMode(value)}
-                  help="Use this to compare the current case with a nearby alternative framing."
-                />
-              </div>
             </div>
           </div>
         ) : null}
@@ -1453,7 +1271,7 @@ export default function SafeStepApp() {
             key={key}
             label={meta.label}
             value={formatAssumptionValue(meta.formatter, value)}
-            note={meta.description}
+            note={`${meta.sourceType} · ${meta.confidence}`}
           />
         );
       })}
@@ -1462,7 +1280,7 @@ export default function SafeStepApp() {
 
   const sensitivityTop3 = (
     <div className="grid gap-3 md:grid-cols-3">
-      {topDrivers.map((driver, index) => (
+      {sensitivity.top_drivers.map((driver, index) => (
         <AssumptionReviewCard
           key={driver.parameter_key}
           label={`Driver ${index + 1}`}
@@ -1508,53 +1326,6 @@ export default function SafeStepApp() {
         threshold={inputs.cost_effectiveness_threshold}
       />
       <TornadoSensitivityChart sensitivity={sensitivity} />
-    </div>
-  );
-
-  const comparatorSummary = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <AssumptionReviewCard label="Comparator" value={comparatorMode} />
-      <AssumptionReviewCard
-        label="Falls avoided delta"
-        value={formatNumber(
-          comparatorResults.falls_avoided_total - results.falls_avoided_total,
-        )}
-      />
-      <AssumptionReviewCard
-        label="Admissions avoided delta"
-        value={formatNumber(
-          comparatorResults.admissions_avoided_total - results.admissions_avoided_total,
-        )}
-      />
-      <AssumptionReviewCard
-        label="Discounted net cost delta"
-        value={formatCurrency(
-          comparatorResults.discounted_net_cost_total -
-            results.discounted_net_cost_total,
-        )}
-      />
-    </div>
-  );
-
-  const recommendationPanel = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <MiniInsight label="Case type" value={currentCaseType} />
-      <MiniInsight
-        label="What this suggests"
-        value={recommendationSummary.current_case_suggests}
-      />
-      <MiniInsight
-        label="What is driving it"
-        value={recommendationSummary.driving_result}
-      />
-      <MiniInsight
-        label="What looks fragile"
-        value={recommendationSummary.fragile_point}
-      />
-      <MiniInsight
-        label="Validate next"
-        value={recommendationSummary.validate_next}
-      />
     </div>
   );
 
@@ -1742,6 +1513,7 @@ export default function SafeStepApp() {
             dense
           >
             {summaryMetrics}
+            <div className="mt-3">{thresholdMetrics}</div>
             <div className="mt-4">{interpretationPanel}</div>
           </SectionCard>
 
@@ -1759,7 +1531,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Apply a starting template first, then fine-tune the case."
+            description="Start from the default case, then adjust the key inputs and advanced settings."
             action={
               <button
                 type="button"
@@ -1773,8 +1545,6 @@ export default function SafeStepApp() {
             dense
           >
             <div className="space-y-4">
-              {presetControl}
-
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1812,7 +1582,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
+            description="Review the current case, uncertainty, sensitivity, and practical next checks."
             dense
           >
             <div className="space-y-5">
@@ -1836,14 +1606,18 @@ export default function SafeStepApp() {
                 </div>
               </div>
 
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Strategic summary</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {overviewSummary}
+                </p>
+              </div>
+
               {analysisMetricsMobile}
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
                 <div className="mt-3">{recommendationPanel}</div>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
-                  {recommendationSummary.recommendation_line}
-                </p>
               </div>
 
               <div>
@@ -1866,8 +1640,10 @@ export default function SafeStepApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-                <div className="mt-3">{comparatorSummary}</div>
+                <h3 className={SECTION_KICKER}>Confidence summary</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  {confidenceSummaryText}
+                </p>
               </div>
 
               <MobileAccordion title="Assumption review">
@@ -1906,6 +1682,7 @@ export default function SafeStepApp() {
               />
             </div>
 
+            <div className="mt-3">{thresholdMetrics}</div>
             <div className="mt-4">{interpretationPanel}</div>
           </SectionCard>
 
@@ -1923,7 +1700,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Apply a starting template first, then fine-tune the case."
+            description="Start from the default case, then adjust the key inputs and advanced settings."
             action={
               <button
                 type="button"
@@ -1937,8 +1714,6 @@ export default function SafeStepApp() {
             dense
           >
             <div className="space-y-4">
-              {presetControl}
-
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   Quick assumptions
@@ -1960,7 +1735,7 @@ export default function SafeStepApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
+            description="Review the current case, uncertainty, sensitivity, and validation prompts."
             dense
           >
             <div className="space-y-5">
@@ -1984,14 +1759,18 @@ export default function SafeStepApp() {
                 </div>
               </div>
 
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Strategic summary</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  {overviewSummary}
+                </p>
+              </div>
+
               {analysisMetricsDesktop}
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
                 <div className="mt-3">{recommendationPanel}</div>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
-                  {recommendationSummary.recommendation_line}
-                </p>
               </div>
 
               <div>
@@ -2008,14 +1787,31 @@ export default function SafeStepApp() {
                 </div>
               </div>
 
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
+              <div>
+                <h3 className={SECTION_KICKER}>Sensitivity</h3>
+                <div className="mt-3">
+                  <TornadoSensitivityChart sensitivity={sensitivity} />
+                </div>
                 <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-                <div className="mt-3">{comparatorSummary}</div>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <MiniInsight label="Current case type" value={currentCaseType} />
+                  <MiniInsight
+                    label="Uncertainty readout"
+                    value={uncertaintyRobustness}
+                  />
+                  <MiniInsight
+                    label="Interpretation summary"
+                    value={interpretation.what_model_suggests}
+                  />
+                  <MiniInsight
+                    label="Confidence summary"
+                    value={confidenceSummaryText}
+                  />
+                </div>
               </div>
 
               <div>
