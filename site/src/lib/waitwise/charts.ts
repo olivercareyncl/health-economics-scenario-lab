@@ -1,6 +1,5 @@
 import type {
   ModelResults,
-  ScenarioComparisonRow,
   SensitivityRow,
   UncertaintyRow,
   YearlyResultRow,
@@ -26,29 +25,10 @@ export type WaitwiseUncertaintyChartRow = {
   decisionStatus: string;
 };
 
-export type WaitwiseScenarioNetCostRow = {
-  scenario: string;
-  discountedNetCost: number;
-  discountedCostPerQaly: number;
-  decisionStatus: string;
-};
-
-export type WaitwiseScenarioOutcomeRow = {
-  scenario: string;
-  waitingListReduction: number;
-  escalationsAvoided: number;
-};
-
 export type WaitwiseTornadoRow = {
   label: string;
   lowDelta: number;
   highDelta: number;
-};
-
-export type WaitwiseComparatorDeltaChartRow = {
-  label: string;
-  delta: number;
-  isCurrency: boolean;
 };
 
 export function compactCurrencyAxis(value: number): string {
@@ -151,27 +131,6 @@ export function buildUncertaintyChartData(
   }));
 }
 
-export function buildScenarioNetCostChartData(
-  scenarioRows: ScenarioComparisonRow[],
-): WaitwiseScenarioNetCostRow[] {
-  return scenarioRows.map((row) => ({
-    scenario: row.scenario,
-    discountedNetCost: row.discounted_net_cost,
-    discountedCostPerQaly: row.discounted_cost_per_qaly,
-    decisionStatus: row.decision_status,
-  }));
-}
-
-export function buildScenarioOutcomeChartData(
-  scenarioRows: ScenarioComparisonRow[],
-): WaitwiseScenarioOutcomeRow[] {
-  return scenarioRows.map((row) => ({
-    scenario: row.scenario,
-    waitingListReduction: row.waiting_list_reduction,
-    escalationsAvoided: row.escalations_avoided,
-  }));
-}
-
 export function buildTornadoChartData(
   sensitivityRows: SensitivityRow[],
 ): WaitwiseTornadoRow[] {
@@ -182,40 +141,4 @@ export function buildTornadoChartData(
       lowDelta: row.low_delta,
       highDelta: row.high_delta,
     }));
-}
-
-export function buildComparatorDeltaChartData(
-  baseResults: ModelResults,
-  comparatorResults: ModelResults,
-): WaitwiseComparatorDeltaChartRow[] {
-  return [
-    {
-      label: "Waiting list reduction",
-      delta:
-        comparatorResults.waiting_list_reduction_total -
-        baseResults.waiting_list_reduction_total,
-      isCurrency: false,
-    },
-    {
-      label: "Escalations avoided",
-      delta:
-        comparatorResults.escalations_avoided_total -
-        baseResults.escalations_avoided_total,
-      isCurrency: false,
-    },
-    {
-      label: "Discounted net cost",
-      delta:
-        comparatorResults.discounted_net_cost_total -
-        baseResults.discounted_net_cost_total,
-      isCurrency: true,
-    },
-    {
-      label: "Discounted cost per QALY",
-      delta:
-        comparatorResults.discounted_cost_per_qaly -
-        baseResults.discounted_cost_per_qaly,
-      isCurrency: true,
-    },
-  ];
 }
