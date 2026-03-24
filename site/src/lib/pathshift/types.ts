@@ -137,10 +137,26 @@ export type SensitivityRow = {
   swing: number;
 };
 
+export type ParameterSensitivityRow = {
+  parameter_key: keyof Inputs;
+  parameter_label: string;
+  base_value: number;
+  low_value: number;
+  high_value: number;
+  low_value_label: string;
+  high_value_label: string;
+  base_icer: number;
+  low_icer: number;
+  high_icer: number;
+  low_delta: number;
+  high_delta: number;
+  max_abs_icer_change: number;
+};
+
 export type SensitivitySummary = {
-  rows: SensitivityRow[];
-  primary_driver: SensitivityRow | null;
-  top_drivers: SensitivityRow[];
+  rows: ParameterSensitivityRow[];
+  primary_driver: ParameterSensitivityRow | null;
+  top_drivers: ParameterSensitivityRow[];
 };
 
 export type ComparatorDeltaRow = {
@@ -155,17 +171,6 @@ export type Interpretation = {
   what_looks_fragile: string;
   what_to_validate_next: string;
   limitations: string;
-};
-
-export type StructuredRecommendation = {
-  main_dependency: string;
-  main_fragility: string;
-  best_next_step: string;
-};
-
-export type DecisionReadiness = {
-  validate_next: string[];
-  readiness_note: string;
 };
 
 export type AssumptionMeta = {
