@@ -25,7 +25,11 @@ import {
 } from "recharts";
 
 import { DEFAULT_INPUTS } from "@/lib/pathshift/defaults";
-import { clampRate, runBoundedUncertainty, runModel } from "@/lib/pathshift/calculations";
+import {
+  clampRate,
+  runBoundedUncertainty,
+  runModel,
+} from "@/lib/pathshift/calculations";
 import {
   buildCumulativeCostChartData,
   buildImpactBarChartData,
@@ -45,10 +49,7 @@ import {
   ASSUMPTION_ORDER,
   getAssumptionConfidenceSummary,
 } from "@/lib/pathshift/metadata";
-import {
-  COSTING_METHOD_OPTIONS,
-  TARGETING_MODE_OPTIONS,
-} from "@/lib/pathshift/scenarios";
+import { COSTING_METHOD_OPTIONS } from "@/lib/pathshift/scenarios";
 import {
   assessUncertaintyRobustness,
   generateInterpretation,
@@ -64,27 +65,11 @@ import type {
   MobileTab,
   ModelResults,
   ParameterSensitivityRow,
+  SensitivityRow,
   SensitivitySummary,
-  TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/pathshift/types";
-
-const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
-  "proportion_shifted_to_lower_cost_setting",
-  "reduction_in_admission_rate",
-  "reduction_in_follow_up_contacts",
-  "reduction_in_length_of_stay",
-  "redesign_cost_per_patient",
-  "implementation_reach_rate",
-  "current_admission_rate",
-  "qaly_gain_per_patient_improved",
-  "effect_decay_rate",
-  "participation_dropoff_rate",
-  "cost_per_admission",
-  "cost_per_follow_up_contact",
-  "cost_per_bed_day",
-];
 
 const RATE_VARIABLES = new Set<keyof Inputs>([
   "current_acute_managed_rate",
@@ -98,6 +83,19 @@ const RATE_VARIABLES = new Set<keyof Inputs>([
   "participation_dropoff_rate",
   "discount_rate",
 ]);
+
+const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
+  "proportion_shifted_to_lower_cost_setting",
+  "reduction_in_admission_rate",
+  "reduction_in_follow_up_contacts",
+  "reduction_in_length_of_stay",
+  "redesign_cost_per_patient",
+  "current_admission_rate",
+  "cost_per_admission",
+  "cost_per_follow_up_contact",
+  "qaly_gain_per_patient_improved",
+  "participation_dropoff_rate",
+];
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -124,24 +122,41 @@ function formatAssumptionValue(
 }
 
 function deriveCaseType(inputs: Inputs): string {
-  if (inputs.proportion_shifted_to_lower_cost_setting >= 0.35) {
-    return "Lower-cost setting shift case";
+  if (inputs.target_admission_risk_multiplier >= 1.35) {
+    return "More concentrated high-risk case";
   }
 
-  if (inputs.reduction_in_follow_up_contacts >= 0.3) {
+  if (inputs.target_population_multiplier <= 0.5) {
+    return "More selective pathway subgroup case";
+  }
+
+  if (
+    inputs.proportion_shifted_to_lower_cost_setting >=
+      inputs.reduction_in_follow_up_contacts &&
+    inputs.proportion_shifted_to_lower_cost_setting >=
+      inputs.reduction_in_admission_rate
+  ) {
+    return "Setting-shift led redesign case";
+  }
+
+  if (
+    inputs.reduction_in_follow_up_contacts >=
+      inputs.proportion_shifted_to_lower_cost_setting &&
+    inputs.reduction_in_follow_up_contacts >= inputs.reduction_in_admission_rate
+  ) {
     return "Follow-up reduction case";
   }
 
-  if (inputs.reduction_in_admission_rate >= 0.16) {
+  if (
+    inputs.reduction_in_admission_rate >=
+      inputs.proportion_shifted_to_lower_cost_setting &&
+    inputs.reduction_in_admission_rate >= inputs.reduction_in_follow_up_contacts
+  ) {
     return "Admission reduction case";
   }
 
-  if (inputs.targeting_mode === "High-utiliser targeting") {
-    return "High-utiliser targeting case";
-  }
-
-  if (inputs.targeting_mode === "Higher-risk targeting") {
-    return "Higher-risk targeting case";
+  if (inputs.redesign_cost_per_patient <= 150) {
+    return "Lower-cost redesign case";
   }
 
   return "Broad pathway redesign case";
@@ -151,50 +166,50 @@ function runOneWaySensitivity(
   baseInputs: Inputs,
   variables: Array<keyof Inputs>,
   variation = 0.2,
-) {
+): SensitivityRow[] {
   const baseResults = runModel(baseInputs);
   const baseOutcome = Number(baseResults.discounted_cost_per_qaly);
 
-  return variables
-    .map((variable) => {
-      const baseInput = Number(baseInputs[variable]);
-      const isRate = RATE_VARIABLES.has(variable);
+  const rows: SensitivityRow[] = [];
 
-      let lowInput = baseInput * (1 - variation);
-      let highInput = baseInput * (1 + variation);
+  for (const variable of variables) {
+    const baseInput = Number(baseInputs[variable]);
+    const isRate = RATE_VARIABLES.has(variable);
 
-      if (isRate) {
-        lowInput = clampRate(lowInput);
-        highInput = clampRate(highInput);
-      }
+    let lowInput = baseInput * (1 - variation);
+    let highInput = baseInput * (1 + variation);
 
-      const lowInputs: Inputs = { ...baseInputs, [variable]: lowInput };
-      const highInputs: Inputs = { ...baseInputs, [variable]: highInput };
+    if (isRate) {
+      lowInput = clampRate(lowInput);
+      highInput = clampRate(highInput);
+    }
 
-      const lowOutcome = Number(runModel(lowInputs).discounted_cost_per_qaly);
-      const highOutcome = Number(runModel(highInputs).discounted_cost_per_qaly);
+    const lowInputs: Inputs = { ...baseInputs, [variable]: lowInput };
+    const highInputs: Inputs = { ...baseInputs, [variable]: highInput };
 
-      return {
-        variable,
-        label: ASSUMPTION_META[variable].label,
-        base_input: baseInput,
-        low_input: lowInput,
-        high_input: highInput,
-        base_outcome: baseOutcome,
-        low_outcome: lowOutcome,
-        high_outcome: highOutcome,
-        low_delta: lowOutcome - baseOutcome,
-        high_delta: highOutcome - baseOutcome,
-        swing: Math.abs(highOutcome - lowOutcome),
-      };
-    })
-    .sort((a, b) => b.swing - a.swing);
+    const lowOutcome = Number(runModel(lowInputs).discounted_cost_per_qaly);
+    const highOutcome = Number(runModel(highInputs).discounted_cost_per_qaly);
+
+    rows.push({
+      variable,
+      label: ASSUMPTION_META[variable].label,
+      base_input: baseInput,
+      low_input: lowInput,
+      high_input: highInput,
+      base_outcome: baseOutcome,
+      low_outcome: lowOutcome,
+      high_outcome: highOutcome,
+      low_delta: lowOutcome - baseOutcome,
+      high_delta: highOutcome - baseOutcome,
+      swing: Math.abs(highOutcome - lowOutcome),
+    });
+  }
+
+  return rows.sort((a, b) => b.swing - a.swing);
 }
 
-function buildSensitivitySummary(inputs: Inputs): SensitivitySummary {
-  const rawRows = runOneWaySensitivity(inputs, SENSITIVITY_VARIABLES);
-
-  const rows: ParameterSensitivityRow[] = rawRows.map((row) => ({
+function buildSensitivitySummary(rows: SensitivityRow[]): SensitivitySummary {
+  const mapped: ParameterSensitivityRow[] = rows.map((row) => ({
     parameter_key: row.variable,
     parameter_label: row.label,
     base_value: row.base_input,
@@ -220,18 +235,20 @@ function buildSensitivitySummary(inputs: Inputs): SensitivitySummary {
   }));
 
   return {
-    rows,
-    primary_driver: rows[0] ?? null,
-    top_drivers: rows.slice(0, 3),
+    rows: mapped,
+    primary_driver: mapped[0] ?? null,
+    top_drivers: mapped.slice(0, 5),
   };
 }
 
-function buildSensitivityTakeaways(rows: ParameterSensitivityRow[]): string[] {
+function buildSensitivityTakeaways(
+  rows: ParameterSensitivityRow[],
+): string[] {
   if (!rows.length) {
     return [
-      "One-way sensitivity has not highlighted a clear set of dominant drivers yet.",
-      "At this stage, the case should still be treated as dependent on the core assumptions around redesign effect, reach, and delivery cost.",
-      "Further validation should focus on the most decision-relevant operational and cost inputs locally.",
+      "One-way sensitivity has not yet highlighted a clear dominant set of drivers.",
+      "The case should still be treated as dependent on redesign effect, reach, and delivery cost assumptions.",
+      "Local validation should focus on the highest-leverage operational and economic inputs.",
     ];
   }
 
@@ -248,7 +265,7 @@ function buildSensitivityTakeaways(rows: ParameterSensitivityRow[]): string[] {
     : `In practical terms, the case is strongest when ${first} remains favourable under locally credible assumptions.`;
 
   const line3 =
-    "The case weakens fastest when pathway shift is smaller than expected, redesign costs are higher, or downstream admission and follow-up benefits are less pronounced locally.";
+    "The case weakens fastest when redesign effects are smaller than expected, implementation becomes more expensive, or downstream pathway benefits are less pronounced locally.";
 
   return [line1, line2, line3];
 }
@@ -663,14 +680,14 @@ function CostVsSavingsChart({
               type="monotone"
               dataKey="programmeCost"
               name="Programme cost"
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
             />
             <Line
               type="monotone"
               dataKey="grossSavings"
               name="Gross savings"
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
             />
           </LineChart>
@@ -698,30 +715,33 @@ function ImpactChart({
         </p>
       </div>
 
-      <div className="h-52 w-full overflow-x-auto lg:h-64 xl:h-72">
-        <div className="h-full min-w-[460px] sm:min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 16 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={false}
-                fontSize={12}
-                interval={0}
-              />
-              <YAxis
-                tickFormatter={(value) => formatNumber(Number(value))}
-                tickLine={false}
-                axisLine={false}
-                fontSize={12}
-                width={54}
-              />
-              <Tooltip content={<NumberTooltip />} />
-              <Bar dataKey="value" name="Impact" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      <div className="h-56 w-full lg:h-64 xl:h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 8, right: 12, left: 8, bottom: 0 }}
+          >
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              tickFormatter={(value) => formatNumber(Number(value))}
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              width={150}
+            />
+            <Tooltip content={<NumberTooltip />} />
+            <Bar dataKey="value" name="Impact" radius={[0, 8, 8, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -848,7 +868,7 @@ function SensitivityChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={190}
+              width={210}
             />
             <Tooltip
               formatter={(value: number, name: string) => [
@@ -859,7 +879,9 @@ function SensitivityChart({
             <ReferenceLine x={0} stroke="#cbd5e1" strokeWidth={1.5} />
             <Legend
               wrapperStyle={{ fontSize: "12px" }}
-              formatter={(value) => (value === "lowDelta" ? "Low case" : "High case")}
+              formatter={(value) =>
+                value === "lowDelta" ? "Low case" : "High case"
+              }
             />
             <Bar
               dataKey="lowDelta"
@@ -895,7 +917,14 @@ export default function PathShiftApp() {
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
-  const sensitivity = useMemo(() => buildSensitivitySummary(inputs), [inputs]);
+  const sensitivityRows = useMemo(
+    () => runOneWaySensitivity(inputs, SENSITIVITY_VARIABLES),
+    [inputs],
+  );
+  const sensitivity = useMemo(
+    () => buildSensitivitySummary(sensitivityRows),
+    [sensitivityRows],
+  );
 
   const decisionStatus = useMemo(
     () => getDecisionStatus(results, inputs.cost_effectiveness_threshold),
@@ -903,7 +932,7 @@ export default function PathShiftApp() {
   );
 
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
-  const caseTypeLabel = useMemo(() => deriveCaseType(inputs), [inputs]);
+  const currentCaseType = useMemo(() => deriveCaseType(inputs), [inputs]);
 
   const interpretation = useMemo(
     () => generateInterpretation(results, inputs, uncertainty),
@@ -930,7 +959,7 @@ export default function PathShiftApp() {
   );
 
   const sensitivityTakeaways = useMemo(
-    () => buildSensitivityTakeaways(sensitivity.rows),
+    () => buildSensitivityTakeaways(sensitivity.top_drivers),
     [sensitivity],
   );
 
@@ -1031,7 +1060,7 @@ export default function PathShiftApp() {
 
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-4">
-      <MiniInsight label="Current case type" value={caseTypeLabel} />
+      <MiniInsight label="Current case type" value={currentCaseType} />
       <MiniInsight
         label="What this suggests"
         value={interpretation.what_model_suggests}
@@ -1070,7 +1099,8 @@ export default function PathShiftApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Start from the default case, then tune pathway shift, admission effect, follow-up effect, persistence, and redesign cost to fit the local use case.
+      Start from the default case, then tune targeting approach, redesign effect,
+      reach, persistence, and implementation cost to fit the local use case.
     </div>
   );
 
@@ -1081,14 +1111,6 @@ export default function PathShiftApp() {
           Core setup
         </p>
         <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-2">
-          <SelectInput
-            label="Targeting mode"
-            value={inputs.targeting_mode}
-            options={TARGETING_MODE_OPTIONS as readonly TargetingMode[]}
-            onChange={(value) => updateInput("targeting_mode", value)}
-            help="Changes where value is concentrated."
-          />
-
           <NumberInput
             label="Annual cohort size"
             value={inputs.annual_cohort_size}
@@ -1096,7 +1118,6 @@ export default function PathShiftApp() {
             step={50}
             help="Baseline pathway scale."
           />
-
           <SliderInput
             label="Implementation reach"
             value={inputs.implementation_reach_rate}
@@ -1107,7 +1128,6 @@ export default function PathShiftApp() {
             display={formatPercent(inputs.implementation_reach_rate)}
             help="Share of the pathway effectively reached."
           />
-
           <NumberInput
             label="Redesign cost per patient"
             value={inputs.redesign_cost_per_patient}
@@ -1115,7 +1135,72 @@ export default function PathShiftApp() {
             step={10}
             help="Main implementation cost lever."
           />
+          <div className="xl:col-span-2">
+            <SelectInput
+              label="Time horizon"
+              value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
+              options={["1", "3", "5"]}
+              onChange={(value) =>
+                updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
+              }
+              help="Longer horizons often improve the economic picture."
+            />
+          </div>
+        </div>
+      </div>
 
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Targeting approach
+        </p>
+        <p className="mt-1.5 text-xs leading-5 text-slate-600">
+          These assumptions replace named targeting modes and let you specify how
+          concentrated the opportunity is in your use case.
+        </p>
+        <div className="mt-3 grid gap-4">
+          <SliderInput
+            label="Target population multiplier"
+            value={inputs.target_population_multiplier}
+            onChange={(value) => updateInput("target_population_multiplier", value)}
+            min={0.1}
+            max={1}
+            step={0.01}
+            display={inputs.target_population_multiplier.toFixed(2)}
+            help="Share of the full pathway population considered genuinely targetable."
+          />
+          <SliderInput
+            label="Target reach multiplier"
+            value={inputs.target_reach_multiplier}
+            onChange={(value) => updateInput("target_reach_multiplier", value)}
+            min={0.5}
+            max={1.5}
+            step={0.01}
+            display={inputs.target_reach_multiplier.toFixed(2)}
+            help="Adjustment applied to the headline implementation reach assumption."
+          />
+          <SliderInput
+            label="Target admission risk multiplier"
+            value={inputs.target_admission_risk_multiplier}
+            onChange={(value) =>
+              updateInput("target_admission_risk_multiplier", value)
+            }
+            min={0.5}
+            max={2}
+            step={0.01}
+            display={inputs.target_admission_risk_multiplier.toFixed(2)}
+            help="Adjustment applied to baseline admission risk in the targeted subgroup."
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Redesign effects
+        </p>
+        <p className="mt-1.5 text-xs leading-5 text-slate-600">
+          These are the main levers shaping where value comes from.
+        </p>
+        <div className="mt-3 grid gap-4">
           <SliderInput
             label="Shift to lower-cost setting"
             value={inputs.proportion_shifted_to_lower_cost_setting}
@@ -1126,9 +1211,8 @@ export default function PathShiftApp() {
             max={0.8}
             step={0.01}
             display={formatPercent(inputs.proportion_shifted_to_lower_cost_setting)}
-            help="Core pathway shift assumption."
+            help="Core pathway substitution effect."
           />
-
           <SliderInput
             label="Admission reduction"
             value={inputs.reduction_in_admission_rate}
@@ -1139,7 +1223,6 @@ export default function PathShiftApp() {
             display={formatPercent(inputs.reduction_in_admission_rate)}
             help="Relative reduction in admissions."
           />
-
           <SliderInput
             label="Follow-up reduction"
             value={inputs.reduction_in_follow_up_contacts}
@@ -1152,7 +1235,6 @@ export default function PathShiftApp() {
             display={formatPercent(inputs.reduction_in_follow_up_contacts)}
             help="Reduction in follow-up burden."
           />
-
           <SliderInput
             label="Length of stay reduction"
             value={inputs.reduction_in_length_of_stay}
@@ -1163,18 +1245,6 @@ export default function PathShiftApp() {
             display={formatPercent(inputs.reduction_in_length_of_stay)}
             help="Reduction in inpatient stay."
           />
-
-          <div className="xl:col-span-2">
-            <SelectInput
-              label="Time horizon"
-              value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
-              options={["1", "3", "5"]}
-              onChange={(value) =>
-                updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
-              }
-              help="Longer horizons often improve the economic picture."
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -1211,7 +1281,6 @@ export default function PathShiftApp() {
                 max={1}
                 step={0.01}
                 display={formatPercent(inputs.current_acute_managed_rate)}
-                help="Baseline acute pathway share."
               />
               <SliderInput
                 label="Current admission rate"
@@ -1221,7 +1290,6 @@ export default function PathShiftApp() {
                 max={1}
                 step={0.01}
                 display={formatPercent(inputs.current_admission_rate)}
-                help="Baseline admission risk."
               />
               <NumberInput
                 label="Current follow-up contacts per patient"
@@ -1230,7 +1298,6 @@ export default function PathShiftApp() {
                   updateInput("current_follow_up_contacts_per_patient", value)
                 }
                 step={0.1}
-                help="Baseline follow-up intensity."
               />
               <NumberInput
                 label="Current average length of stay"
@@ -1239,7 +1306,6 @@ export default function PathShiftApp() {
                   updateInput("current_average_length_of_stay", value)
                 }
                 step={0.5}
-                help="Baseline inpatient stay."
               />
             </div>
           </div>
@@ -1272,7 +1338,6 @@ export default function PathShiftApp() {
                 value={inputs.costing_method}
                 options={COSTING_METHOD_OPTIONS as readonly CostingMethod[]}
                 onChange={(value) => updateInput("costing_method", value)}
-                help="Defines how redesign value is counted."
               />
               <NumberInput
                 label="Cost-effectiveness threshold"
@@ -1281,7 +1346,6 @@ export default function PathShiftApp() {
                   updateInput("cost_effectiveness_threshold", value)
                 }
                 step={1000}
-                help="Used to interpret discounted cost per QALY."
               />
               <NumberInput
                 label="Cost per acute-managed patient"
@@ -1359,7 +1423,6 @@ export default function PathShiftApp() {
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.effect_decay_rate)}
-                help="How quickly redesign effect weakens."
               />
               <SliderInput
                 label="Annual participation drop-off"
@@ -1371,7 +1434,6 @@ export default function PathShiftApp() {
                 max={0.5}
                 step={0.01}
                 display={formatPercent(inputs.participation_dropoff_rate)}
-                help="How quickly effective reach falls."
               />
               <NumberInput
                 label="QALY gain per patient improved"
@@ -1380,7 +1442,6 @@ export default function PathShiftApp() {
                   updateInput("qaly_gain_per_patient_improved", value)
                 }
                 step={0.01}
-                help="Health gain used in the economic case."
               />
             </div>
           </div>
@@ -1393,12 +1454,12 @@ export default function PathShiftApp() {
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {ASSUMPTION_ORDER.map((key) => {
         const meta = ASSUMPTION_META[key];
-        const value = inputs[key as keyof Inputs] as string | number;
+        const rawValue = inputs[key];
         return (
           <AssumptionReviewCard
             key={key}
             label={meta.label}
-            value={formatAssumptionValue(meta.formatter, value)}
+            value={formatAssumptionValue(meta.formatter, rawValue)}
             note={`${meta.source_type} · ${meta.confidence}`}
           />
         );
@@ -1410,7 +1471,7 @@ export default function PathShiftApp() {
     <div className="grid gap-3 md:grid-cols-3">
       {sensitivity.top_drivers.slice(0, 3).map((driver, index) => (
         <AssumptionReviewCard
-          key={driver.parameter_key}
+          key={`${String(driver.parameter_key)}-${index}`}
           label={`Driver ${index + 1}`}
           value={driver.parameter_label}
           note={`Largest ICER swing: ${normaliseCurrencyDisplay(
@@ -1470,8 +1531,7 @@ export default function PathShiftApp() {
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
           Explore how pathway redesign might change activity, admissions,
-          follow-up burden, bed use, and value under different assumptions
-          about reach, service shift, effectiveness, and delivery cost.
+          follow-up burden, bed use, and value under different assumptions.
         </p>
       </div>
 
@@ -1721,7 +1781,7 @@ export default function PathShiftApp() {
               </div>
 
               <div className="grid grid-cols-1 gap-3">
-                <MetricCard label="Current case type" value={caseTypeLabel} />
+                <MetricCard label="Current case type" value={currentCaseType} />
                 <MetricCard
                   label="Return on spend"
                   value={formatRatio(results.roi)}
@@ -1879,7 +1939,7 @@ export default function PathShiftApp() {
               </div>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <MetricCard label="Current case type" value={caseTypeLabel} />
+                <MetricCard label="Current case type" value={currentCaseType} />
                 <MetricCard
                   label="Follow-ups avoided"
                   value={formatNumber(results.follow_ups_avoided_total)}
@@ -1936,7 +1996,7 @@ export default function PathShiftApp() {
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Decision readout</h3>
                 <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <MiniInsight label="Current case type" value={caseTypeLabel} />
+                  <MiniInsight label="Current case type" value={currentCaseType} />
                   <MiniInsight
                     label="Uncertainty readout"
                     value={uncertaintyRobustness}
