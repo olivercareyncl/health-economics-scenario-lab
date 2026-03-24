@@ -1,7 +1,6 @@
 import type {
   Inputs,
   ModelResults,
-  ScenarioComparisonRow,
   UncertaintyRow,
 } from "@/lib/pathshift/types";
 
@@ -10,12 +9,14 @@ export function getDecisionStatus(
   threshold: number,
 ): string {
   if (results.discounted_net_cost_total < 0) return "Appears cost-saving";
+
   if (
     results.discounted_cost_per_qaly > 0 &&
     results.discounted_cost_per_qaly <= threshold
   ) {
     return "Appears cost-effective";
   }
+
   return "Above current threshold";
 }
 
@@ -29,27 +30,33 @@ export function getMainDriverText(inputs: Inputs): string {
   if (inputs.targeting_mode !== "Broad pathway redesign") {
     return "targeting and concentration of admission risk";
   }
+
   if (inputs.costing_method === "Combined illustrative view") {
     return "the chosen costing method and the blend of redesign effects";
   }
+
   if (inputs.redesign_cost_per_patient >= 300) {
     return "implementation cost per patient";
   }
+
   if (
     inputs.reduction_in_admission_rate >=
     inputs.reduction_in_follow_up_contacts
   ) {
     return "admission reduction";
   }
+
   if (
     inputs.reduction_in_follow_up_contacts >=
     inputs.reduction_in_admission_rate
   ) {
     return "follow-up reduction";
   }
+
   if (inputs.participation_dropoff_rate >= 0.15) {
     return "implementation persistence over time";
   }
+
   return "care setting shift";
 }
 
@@ -70,12 +77,15 @@ export function assessUncertaintyRobustness(
   if (allCostSaving) {
     return "The case appears robustly cost-saving across bounded low, base, and high cases.";
   }
+
   if (allBelow) {
     return "The case appears fairly robust across bounded low, base, and high cases.";
   }
+
   if (anyBelow) {
     return "The case looks fragile: some bounded cases are below threshold, while others are not.";
   }
+
   return "The case remains above threshold across the bounded cases.";
 }
 
@@ -90,12 +100,14 @@ export function generateOverallSignal(
   if (results.discounted_net_cost_total < 0) {
     return `Promising for further exploration. The current configuration appears cost-saving. ${robustness}`;
   }
+
   if (
     results.discounted_cost_per_qaly > 0 &&
     results.discounted_cost_per_qaly <= threshold
   ) {
     return `Promising, but still assumption-dependent. The current configuration appears cost-effective rather than cost-saving. ${robustness}`;
   }
+
   return `Currently weak as a decision case. The redesign improves the pathway, but the economics are not yet convincing. ${robustness}`;
 }
 
@@ -109,6 +121,7 @@ export function generateStructuredRecommendation(
   const main_dependency = getMainDriverText(inputs);
 
   let main_fragility: string;
+
   if (inputs.costing_method === "Combined illustrative view") {
     main_fragility =
       "The result is sensitive to how value is counted, especially if admission, follow-up, and bed-day effects overlap.";
@@ -123,6 +136,7 @@ export function generateStructuredRecommendation(
   }
 
   let best_next_step: string;
+
   if (inputs.targeting_mode === "Broad pathway redesign") {
     best_next_step =
       "Test whether a more targeted redesign improves value without losing too much pathway impact.";
@@ -155,7 +169,9 @@ export function generateDecisionReadiness(
       "Validate whether admission, follow-up, and bed-day savings overlap under local costing rules.",
     );
   } else {
-    validate_next.push("Validate the local cost inputs used in the economic framing.");
+    validate_next.push(
+      "Validate the local cost inputs used in the economic framing.",
+    );
   }
 
   if (inputs.targeting_mode !== "Broad pathway redesign") {
@@ -199,33 +215,6 @@ export function generateDecisionReadiness(
     readiness_note:
       "This sandbox is best treated as decision-preparation support. The next step should be to validate the highest-leverage local assumptions before any real-world use.",
   };
-}
-
-export function summariseScenarioStrengths(
-  scenarioRows: ScenarioComparisonRow[],
-): string {
-  if (!scenarioRows.length) {
-    return "No scenario comparison is available yet.";
-  }
-
-  const bestValue = [...scenarioRows].sort(
-    (a, b) => a.discounted_cost_per_qaly - b.discounted_cost_per_qaly,
-  )[0];
-  const bestEfficiency = [...scenarioRows].sort(
-    (a, b) => a.discounted_net_cost - b.discounted_net_cost,
-  )[0];
-  const bestImpact = [...scenarioRows].sort(
-    (a, b) => b.patients_shifted_in_pathway - a.patients_shifted_in_pathway,
-  )[0];
-
-  if (
-    bestValue.scenario === bestEfficiency.scenario &&
-    bestEfficiency.scenario === bestImpact.scenario
-  ) {
-    return `Under the current settings, ${bestValue.scenario} is simultaneously strongest for value, efficiency, and impact.`;
-  }
-
-  return `Under the current settings, ${bestValue.scenario} looks strongest for value, ${bestEfficiency.scenario} looks strongest for efficiency, and ${bestImpact.scenario} looks strongest for impact.`;
 }
 
 export function generateOverviewSummary(
@@ -277,6 +266,7 @@ export function generateInterpretation(
   const readiness = generateDecisionReadiness(inputs, results);
 
   let what_model_suggests: string;
+
   if (results.discounted_net_cost_total < 0) {
     what_model_suggests =
       `PathShift suggests the redesign generates measurable pathway benefit and a discounted net saving over ${horizon} year${horizon !== 1 ? "s" : ""}. ` +
@@ -299,6 +289,7 @@ export function generateInterpretation(
     "and whether redesign reach and effect persist over time.";
 
   let what_looks_fragile: string;
+
   if (inputs.costing_method === "Combined illustrative view") {
     what_looks_fragile =
       "The economic signal may be fragile because the combined costing approach is intentionally illustrative and may overstate value if local cost components overlap.";
