@@ -88,6 +88,11 @@ export type PathShiftReportData = {
       value: string;
       note: string;
     }>;
+    topParameterDrivers: Array<{
+      label: string;
+      value: string;
+      note: string;
+    }>;
     sensitivitySummary: string[];
   };
   scenarioAndComparator: {
@@ -413,11 +418,7 @@ export function buildPathShiftReportData({
   sensitivity,
   exportedAt,
 }: BuildReportArgs): PathShiftReportData {
-  const interpretation = generateInterpretation(
-    results,
-    inputs,
-    uncertainty,
-  );
+  const interpretation = generateInterpretation(results, inputs, uncertainty);
   const overallSignal = generateOverallSignal(results, inputs, uncertainty);
   const structured = generateStructuredRecommendation(
     inputs,
@@ -522,6 +523,13 @@ export function buildPathShiftReportData({
         label: row.case,
         value: formatCurrency(row.discounted_cost_per_qaly),
         note: `${formatNumber(row.patients_shifted_total)} patients shifted · ${row.decision_status}`,
+      })),
+      topParameterDrivers: sensitivity.top_drivers.map((row) => ({
+        label: row.parameter_label,
+        value: `${formatCurrency(row.low_icer)} to ${formatCurrency(
+          row.high_icer,
+        )}`,
+        note: `Low: ${row.low_value_label} · High: ${row.high_value_label}`,
       })),
       sensitivitySummary,
     },
