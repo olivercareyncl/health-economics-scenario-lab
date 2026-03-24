@@ -144,7 +144,7 @@ function getSignalLabel(decisionStatus: string): string {
 }
 
 function buildPurposeQuestion(inputs: Inputs): string {
-  return `This run explores whether a waiting list intervention in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly reduce backlog pressure, escalations, admissions, bed use, and economic burden over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
+  return `This run explores whether a waiting list intervention could plausibly reduce backlog pressure, escalations, admissions, bed use, and economic burden over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
 }
 
 function buildScenarioSection(inputs: Inputs): WaitWiseReportData["scenario"] {
@@ -158,9 +158,7 @@ function buildScenarioSection(inputs: Inputs): WaitWiseReportData["scenario"] {
       inputs.monthly_inflow,
     )}, and baseline monthly throughput of ${formatNumber(
       inputs.baseline_monthly_throughput,
-    )}. The targeting mode is set to ${
-      inputs.targeting_mode
-    }, which affects how concentrated the opportunity and escalation risk are assumed to be within the list.`,
+    )}. Waiting list pressure is then shaped by the interaction between inflow, throughput, intervention reach, and deterioration risk while patients remain on the list.`,
     economicMechanism: `The value mechanism runs through a mix of reduced demand, improved throughput, and fewer escalations while waiting. These effects then translate into fewer admissions, lower bed use, and QALY gains from avoided deterioration. The model tests whether those benefits are enough to offset programme costs and produce an acceptable cost per QALY against the selected threshold.`,
   };
 }
@@ -210,12 +208,6 @@ function buildAssumptionSections(
     {
       title: "Core programme assumptions",
       rows: [
-        {
-          assumption: "Targeting mode",
-          value: inputs.targeting_mode,
-          rationale:
-            "Determines how concentrated the opportunity is assumed to be and how strongly escalation risk is focused in the selected population.",
-        },
         {
           assumption: "Starting waiting list size",
           value: formatNumber(inputs.starting_waiting_list_size),
