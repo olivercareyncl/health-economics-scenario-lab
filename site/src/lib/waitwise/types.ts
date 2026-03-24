@@ -8,13 +8,6 @@ export type CostingMethod =
   | "Bed-day value only"
   | "Combined illustrative view";
 
-export type ComparatorOption =
-  | "Demand reduction focus"
-  | "Throughput boost"
-  | "Long-wait targeting"
-  | "Lower-cost delivery"
-  | "Targeted and stronger effect";
-
 export type MobileTab = "summary" | "assumptions" | "analysis";
 
 export type AssumptionSectionKey =
@@ -123,26 +116,8 @@ export type Interpretation = {
   limitations: string;
 };
 
-export type ScenarioComparisonRow = {
-  scenario: string;
-  targeting: string;
-  waiting_list_reduction: number;
-  escalations_avoided: number;
-  programme_cost: number;
-  discounted_net_cost: number;
-  discounted_cost_per_qaly: number;
-  decision_status: string;
-};
-
-export type ComparatorDeltaRow = {
-  metric: string;
-  current_selection: string;
-  comparator: string;
-  delta: string;
-};
-
 export type SensitivityRow = {
-  variable: string;
+  variable: keyof Inputs;
   label: string;
   base_input: number;
   low_input: number;
@@ -153,6 +128,29 @@ export type SensitivityRow = {
   low_delta: number;
   high_delta: number;
   swing: number;
+};
+
+export type ParameterSensitivityRow = {
+  parameter_key: keyof Inputs;
+  parameter_label: string;
+  base_value: number;
+  low_value: number;
+  high_value: number;
+  low_value_label: string;
+  high_value_label: string;
+  low_icer: number;
+  base_icer: number;
+  high_icer: number;
+  low_net_cost: number;
+  base_net_cost: number;
+  high_net_cost: number;
+  max_abs_icer_change: number;
+};
+
+export type SensitivitySummary = {
+  rows: ParameterSensitivityRow[];
+  top_drivers: ParameterSensitivityRow[];
+  primary_driver: ParameterSensitivityRow | null;
 };
 
 export type StructuredRecommendation = {
