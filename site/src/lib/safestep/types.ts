@@ -1,20 +1,7 @@
-export type TargetingMode =
-  | "Broad population"
-  | "Higher-risk targeting"
-  | "Tighter high-risk targeting";
-
 export type CostingMethod =
   | "Admission cost only"
   | "Bed-day value only"
   | "Combined illustrative view";
-
-export type ScenarioName =
-  | "Base case"
-  | "Higher-risk targeting"
-  | "Tighter high-risk targeting"
-  | "Lower-cost delivery"
-  | "Stronger effect"
-  | "Targeted and stronger effect";
 
 export type ConfidenceLevel =
   | "High confidence"
@@ -30,12 +17,49 @@ export type AssumptionFormatter =
   | "decimal2"
   | "integer";
 
+export type AssumptionSectionKey =
+  | "advanced-pathway"
+  | "advanced-costs"
+  | "advanced-outcomes";
+
+export type MobileTab = "summary" | "assumptions" | "analysis";
+
+export interface SafeStepInputs {
+  eligible_population: number;
+  uptake_rate: number;
+  adherence_rate: number;
+  participation_dropoff_rate: number;
+
+  target_population_multiplier: number;
+  target_uptake_multiplier: number;
+  target_fall_risk_multiplier: number;
+
+  annual_fall_risk: number;
+  admission_rate_after_fall: number;
+  average_length_of_stay: number;
+
+  intervention_cost_per_person: number;
+  relative_risk_reduction: number;
+  effect_decay_rate: number;
+
+  cost_per_admission: number;
+  cost_per_bed_day: number;
+  qaly_loss_per_serious_fall: number;
+
+  costing_method: CostingMethod;
+  cost_effectiveness_threshold: number;
+  time_horizon_years: 1 | 3 | 5;
+  discount_rate: number;
+}
+
 export type AssumptionKey =
   | "eligible_population"
   | "uptake_rate"
   | "adherence_rate"
   | "participation_dropoff_rate"
-  | "targeting_mode"
+  | "target_population_multiplier"
+  | "target_uptake_multiplier"
+  | "target_fall_risk_multiplier"
   | "annual_fall_risk"
   | "admission_rate_after_fall"
   | "average_length_of_stay"
@@ -50,27 +74,6 @@ export type AssumptionKey =
   | "time_horizon_years"
   | "discount_rate";
 
-export interface SafeStepInputs {
-  eligible_population: number;
-  uptake_rate: number;
-  adherence_rate: number;
-  annual_fall_risk: number;
-  admission_rate_after_fall: number;
-  average_length_of_stay: number;
-  intervention_cost_per_person: number;
-  relative_risk_reduction: number;
-  effect_decay_rate: number;
-  participation_dropoff_rate: number;
-  cost_per_admission: number;
-  cost_per_bed_day: number;
-  qaly_loss_per_serious_fall: number;
-  cost_effectiveness_threshold: number;
-  time_horizon_years: number;
-  discount_rate: number;
-  costing_method: CostingMethod;
-  targeting_mode: TargetingMode;
-}
-
 export interface AssumptionMetaItem {
   label: string;
   unit: string;
@@ -82,8 +85,8 @@ export interface AssumptionMetaItem {
 
 export interface TargetingAdjustment {
   population_multiplier: number;
-  risk_multiplier: number;
   uptake_multiplier: number;
+  risk_multiplier: number;
 }
 
 export interface CostingMethodConfig {
@@ -154,6 +157,9 @@ export interface UncertaintyRow {
 export interface ParameterSensitivityRow {
   parameter_key: keyof SafeStepInputs;
   parameter_label: string;
+  base_value: number;
+  low_value: number;
+  high_value: number;
   low_value_label: string;
   high_value_label: string;
   low_icer: number;
@@ -169,4 +175,30 @@ export interface SensitivitySummary {
   rows: ParameterSensitivityRow[];
   top_drivers: ParameterSensitivityRow[];
   primary_driver: ParameterSensitivityRow | null;
+}
+
+export interface Interpretation {
+  what_model_suggests: string;
+  what_drives_result: string;
+  what_looks_fragile: string;
+  what_to_validate_next: string;
+  limitations: string;
+}
+
+export interface StructuredRecommendation {
+  main_dependency: string;
+  main_fragility: string;
+  best_next_step: string;
+}
+
+export interface DecisionReadiness {
+  validate_next: string[];
+  readiness_note: string;
+}
+
+export interface AssumptionConfidenceSummary {
+  "High confidence": number;
+  "Medium confidence": number;
+  "Low confidence": number;
+  summary_text: string;
 }
