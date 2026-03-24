@@ -191,7 +191,7 @@ function runOneWaySensitivity(
     const highOutcome = Number(runModel(highInputs).discounted_cost_per_qaly);
 
     rows.push({
-      variable: String(variable),
+      variable,
       label: ASSUMPTION_META[variable].label,
       base_input: baseInput,
       low_input: lowInput,
