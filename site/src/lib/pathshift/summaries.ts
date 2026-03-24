@@ -8,7 +8,9 @@ export function getDecisionStatus(
   results: ModelResults,
   threshold: number,
 ): string {
-  if (results.discounted_net_cost_total < 0) return "Appears cost-saving";
+  if (results.discounted_net_cost_total < 0) {
+    return "Appears cost-saving";
+  }
 
   if (
     results.discounted_cost_per_qaly > 0 &&
@@ -27,8 +29,16 @@ export function getNetCostLabel(results: ModelResults): string {
 }
 
 export function getMainDriverText(inputs: Inputs): string {
-  if (inputs.targeting_mode !== "Broad pathway redesign") {
-    return "targeting and concentration of admission risk";
+  if (inputs.target_admission_risk_multiplier >= 1.35) {
+    return "concentration of admission risk in the targeted population";
+  }
+
+  if (inputs.target_population_multiplier <= 0.6) {
+    return "population targeting and concentration of redesign opportunity";
+  }
+
+  if (inputs.target_reach_multiplier >= 1.05) {
+    return "targeted reach within the selected population";
   }
 
   if (inputs.costing_method === "Combined illustrative view") {
@@ -41,14 +51,16 @@ export function getMainDriverText(inputs: Inputs): string {
 
   if (
     inputs.reduction_in_admission_rate >=
-    inputs.reduction_in_follow_up_contacts
+      inputs.reduction_in_follow_up_contacts &&
+    inputs.reduction_in_admission_rate >= inputs.proportion_shifted_to_lower_cost_setting
   ) {
     return "admission reduction";
   }
 
   if (
     inputs.reduction_in_follow_up_contacts >=
-    inputs.reduction_in_admission_rate
+      inputs.reduction_in_admission_rate &&
+    inputs.reduction_in_follow_up_contacts >= inputs.proportion_shifted_to_lower_cost_setting
   ) {
     return "follow-up reduction";
   }
@@ -125,9 +137,9 @@ export function generateStructuredRecommendation(
   if (inputs.costing_method === "Combined illustrative view") {
     main_fragility =
       "The result is sensitive to how value is counted, especially if admission, follow-up, and bed-day effects overlap.";
-  } else if (inputs.targeting_mode === "Broad pathway redesign") {
+  } else if (inputs.target_population_multiplier >= 0.95) {
     main_fragility =
-      "The result may depend on whether broad implementation is diluting value that would look stronger in a higher-risk or high-utiliser subgroup.";
+      "The result may depend on whether broad implementation is diluting value that would look stronger in a narrower higher-opportunity subgroup.";
   } else if (inputs.participation_dropoff_rate >= 0.1) {
     main_fragility =
       "The case may weaken if effective redesign reach falls faster than assumed over time.";
@@ -137,7 +149,7 @@ export function generateStructuredRecommendation(
 
   let best_next_step: string;
 
-  if (inputs.targeting_mode === "Broad pathway redesign") {
+  if (inputs.target_population_multiplier >= 0.95) {
     best_next_step =
       "Test whether a more targeted redesign improves value without losing too much pathway impact.";
   } else if (inputs.costing_method === "Combined illustrative view") {
@@ -174,7 +186,7 @@ export function generateDecisionReadiness(
     );
   }
 
-  if (inputs.targeting_mode !== "Broad pathway redesign") {
+  if (inputs.target_population_multiplier < 0.95) {
     validate_next.push(
       "Confirm the real prevalence and operational identifiability of the targeted subgroup.",
     );
@@ -188,9 +200,13 @@ export function generateDecisionReadiness(
     validate_next.push(
       "Check whether the assumed baseline admission rate is realistic in the local pathway.",
     );
+  } else if (inputs.target_admission_risk_multiplier > 1) {
+    validate_next.push(
+      "Validate whether admission risk is genuinely concentrated in the targeted subgroup.",
+    );
   } else {
     validate_next.push(
-      "Validate whether admission risk is concentrated among higher-risk or high-utiliser patients.",
+      "Validate whether the baseline admission risk is high enough for redesign to generate material downstream value.",
     );
   }
 
@@ -233,21 +249,20 @@ export function generateOverviewSummary(
   const admissions = `${results.admissions_avoided_total.toFixed(0)}`;
   const followups = `${results.follow_ups_avoided_total.toFixed(0)}`;
   const horizon = inputs.time_horizon_years;
-  const targeting = inputs.targeting_mode.toLowerCase();
   const costing = inputs.costing_method.toLowerCase();
 
   if (results.discounted_net_cost_total < 0) {
-    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, PathShift suggests the redesign could shift around ${shifted} patients in the pathway, avoid ${admissions} admissions and ${followups} follow-ups, while appearing cost-saving on a discounted basis. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, PathShift suggests the redesign could shift around ${shifted} patients in the pathway, avoid ${admissions} admissions and ${followups} follow-ups, while appearing cost-saving on a discounted basis. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
   }
 
   if (
     results.discounted_cost_per_qaly > 0 &&
     results.discounted_cost_per_qaly <= threshold
   ) {
-    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, PathShift suggests the redesign creates meaningful pathway and outcome benefit, with around ${shifted} patients shifted and ${admissions} admissions avoided. It does not appear cost-saving, but it does sit within the current threshold on a discounted basis. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, PathShift suggests the redesign creates meaningful pathway and outcome benefit, with around ${shifted} patients shifted and ${admissions} admissions avoided. It does not appear cost-saving, but it does sit within the current threshold on a discounted basis. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
   }
 
-  return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, PathShift suggests the redesign creates measurable benefit, with around ${shifted} patients shifted and ${admissions} admissions avoided, but the discounted economic case remains above the current threshold. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+  return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, PathShift suggests the redesign creates measurable benefit, with around ${shifted} patients shifted and ${admissions} admissions avoided, but the discounted economic case remains above the current threshold. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
 }
 
 export function generateInterpretation(
@@ -285,7 +300,7 @@ export function generateInterpretation(
   }
 
   const what_drives_result =
-    `The current result depends most strongly on ${dependency}, as well as the chosen costing method, the quality of targeting, ` +
+    `The current result depends most strongly on ${dependency}, as well as the chosen costing method, the quality of pathway targeting, ` +
     "and whether redesign reach and effect persist over time.";
 
   let what_looks_fragile: string;
@@ -293,7 +308,7 @@ export function generateInterpretation(
   if (inputs.costing_method === "Combined illustrative view") {
     what_looks_fragile =
       "The economic signal may be fragile because the combined costing approach is intentionally illustrative and may overstate value if local cost components overlap.";
-  } else if (inputs.targeting_mode === "Broad pathway redesign") {
+  } else if (inputs.target_population_multiplier >= 0.95) {
     what_looks_fragile =
       "The case may be fragile because broad redesign can dilute value if the highest-opportunity patients are only a subset of the pathway population.";
   } else {
