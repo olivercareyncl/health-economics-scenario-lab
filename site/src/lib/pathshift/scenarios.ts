@@ -1,32 +1,30 @@
-import type { ComparatorOption, CostingMethod, Inputs, TargetingMode } from "@/lib/pathshift/types";
+import type { CostingMethod, TargetingMode } from "@/lib/pathshift/types";
 
-export const TARGETING_MODE_OPTIONS: TargetingMode[] = [
+export const TARGETING_MODE_OPTIONS: readonly TargetingMode[] = [
   "Broad pathway redesign",
   "Higher-risk targeting",
   "High-utiliser targeting",
-];
+] as const;
 
-export const COSTING_METHOD_OPTIONS: CostingMethod[] = [
+export const COSTING_METHOD_OPTIONS: readonly CostingMethod[] = [
   "Admission and follow-up savings only",
   "Bed-day value only",
   "Combined illustrative view",
-];
+] as const;
 
-export const COMPARATOR_OPTIONS: ComparatorOption[] = [
-  "Follow-up reduction focus",
-  "Admission reduction focus",
-  "High-utiliser targeting",
-  "Lower-cost redesign",
-  "Targeted and stronger redesign",
-];
+export type TargetingModeAdjustment = {
+  population_multiplier: number;
+  reach_multiplier: number;
+  risk_multiplier: number;
+};
+
+export type CostingMethodConfig = {
+  mode: "admission_followup" | "bed_day" | "combined";
+};
 
 export const TARGETING_MODE_MAP: Record<
   TargetingMode,
-  {
-    population_multiplier: number;
-    reach_multiplier: number;
-    risk_multiplier: number;
-  }
+  TargetingModeAdjustment
 > = {
   "Broad pathway redesign": {
     population_multiplier: 1.0,
@@ -47,66 +45,15 @@ export const TARGETING_MODE_MAP: Record<
 
 export const COSTING_METHOD_MAP: Record<
   CostingMethod,
-  { mode: "admission_followup" | "bed_day" | "combined" }
+  CostingMethodConfig
 > = {
-  "Admission and follow-up savings only": { mode: "admission_followup" },
-  "Bed-day value only": { mode: "bed_day" },
-  "Combined illustrative view": { mode: "combined" },
-};
-
-export function getBaseCase(defaults: Inputs): Partial<Inputs> {
-  return { ...defaults };
-}
-
-export function getFollowUpReductionFocus(defaults: Inputs): Partial<Inputs> {
-  return {
-    ...defaults,
-    reduction_in_follow_up_contacts: defaults.reduction_in_follow_up_contacts * 1.4,
-    reduction_in_admission_rate: defaults.reduction_in_admission_rate * 0.8,
-  };
-}
-
-export function getAdmissionReductionFocus(defaults: Inputs): Partial<Inputs> {
-  return {
-    ...defaults,
-    reduction_in_admission_rate: defaults.reduction_in_admission_rate * 1.4,
-    reduction_in_follow_up_contacts: defaults.reduction_in_follow_up_contacts * 0.8,
-  };
-}
-
-export function getHighUtiliserTargeting(defaults: Inputs): Partial<Inputs> {
-  return {
-    ...defaults,
-    targeting_mode: "High-utiliser targeting",
-  };
-}
-
-export function getLowerCostRedesign(defaults: Inputs): Partial<Inputs> {
-  return {
-    ...defaults,
-    redesign_cost_per_patient: defaults.redesign_cost_per_patient * 0.8,
-  };
-}
-
-export function getTargetedAndStrongerRedesign(
-  defaults: Inputs,
-): Partial<Inputs> {
-  return {
-    ...defaults,
-    targeting_mode: "Higher-risk targeting",
-    proportion_shifted_to_lower_cost_setting:
-      defaults.proportion_shifted_to_lower_cost_setting * 1.15,
-    reduction_in_admission_rate: defaults.reduction_in_admission_rate * 1.15,
-    reduction_in_follow_up_contacts: defaults.reduction_in_follow_up_contacts * 1.15,
-    reduction_in_length_of_stay: defaults.reduction_in_length_of_stay * 1.15,
-  };
-}
-
-export const SCENARIO_MAP: Record<string, (defaults: Inputs) => Partial<Inputs>> = {
-  "Base case": getBaseCase,
-  "Follow-up reduction focus": getFollowUpReductionFocus,
-  "Admission reduction focus": getAdmissionReductionFocus,
-  "High-utiliser targeting": getHighUtiliserTargeting,
-  "Lower-cost redesign": getLowerCostRedesign,
-  "Targeted and stronger redesign": getTargetedAndStrongerRedesign,
+  "Admission and follow-up savings only": {
+    mode: "admission_followup",
+  },
+  "Bed-day value only": {
+    mode: "bed_day",
+  },
+  "Combined illustrative view": {
+    mode: "combined",
+  },
 };
