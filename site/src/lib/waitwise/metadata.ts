@@ -53,15 +53,44 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaEntry> = {
     source_type: "Operational estimate",
     confidence: "Medium confidence",
   },
+
   intervention_reach_rate: {
-    label: "Intervention reach rate",
+    label: "Base intervention reach rate",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
     description:
-      "Estimated share of the waiting list effectively reached by the intervention.",
+      "Estimated share of the waiting list that the intervention could reach before any targeting adjustment is applied.",
     source_type: "Operational estimate",
     confidence: "Medium confidence",
   },
+  target_population_multiplier: {
+    label: "Target population multiplier",
+    unit: "x",
+    formatter: (x) => `${Number(x).toFixed(2)}x`,
+    description:
+      "Scales the size of the population included in the intervention scenario. Lower values represent a narrower targeted subgroup.",
+    source_type: "User override",
+    confidence: "Medium confidence",
+  },
+  target_reach_multiplier: {
+    label: "Target reach multiplier",
+    unit: "x",
+    formatter: (x) => `${Number(x).toFixed(2)}x`,
+    description:
+      "Scales the effective reach rate within the targeted group. Values above 1 imply the targeted population is easier to reach.",
+    source_type: "User override",
+    confidence: "Medium confidence",
+  },
+  target_escalation_risk_multiplier: {
+    label: "Target escalation risk multiplier",
+    unit: "x",
+    formatter: (x) => `${Number(x).toFixed(2)}x`,
+    description:
+      "Scales the baseline escalation risk for the targeted group. Values above 1 imply risk is more concentrated in the selected population.",
+    source_type: "User override",
+    confidence: "Medium confidence",
+  },
+
   demand_reduction_effect: {
     label: "Demand reduction effect",
     unit: "%",
@@ -89,6 +118,7 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaEntry> = {
     source_type: "Illustrative default",
     confidence: "Low confidence",
   },
+
   intervention_cost_per_patient_reached: {
     label: "Intervention cost per patient reached",
     unit: "GBP",
@@ -115,12 +145,13 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaEntry> = {
     source_type: "Illustrative default",
     confidence: "Low confidence",
   },
+
   monthly_escalation_rate: {
     label: "Monthly escalation rate while waiting",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
     description:
-      "Estimated proportion of the waiting list that deteriorates or escalates each month.",
+      "Estimated proportion of the waiting list that deteriorates or escalates each month before targeting adjustment.",
     source_type: "Evidence-informed proxy",
     confidence: "Medium confidence",
   },
@@ -149,6 +180,7 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaEntry> = {
     source_type: "Evidence-informed proxy",
     confidence: "Low confidence",
   },
+
   cost_per_escalation: {
     label: "Cost per escalation",
     unit: "GBP",
@@ -184,15 +216,7 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaEntry> = {
     source_type: "User override",
     confidence: "Medium confidence",
   },
-  targeting_mode: {
-    label: "Targeting mode",
-    unit: "",
-    formatter: (x) => String(x),
-    description:
-      "How broadly or narrowly the intervention is focused across the waiting list.",
-    source_type: "User override",
-    confidence: "Medium confidence",
-  },
+
   time_horizon_years: {
     label: "Time horizon",
     unit: "years",
@@ -226,6 +250,9 @@ export const ASSUMPTION_ORDER: (keyof Inputs)[] = [
   "baseline_monthly_throughput",
   "average_wait_duration_months",
   "intervention_reach_rate",
+  "target_population_multiplier",
+  "target_reach_multiplier",
+  "target_escalation_risk_multiplier",
   "demand_reduction_effect",
   "throughput_increase_effect",
   "escalation_reduction_effect",
@@ -240,7 +267,6 @@ export const ASSUMPTION_ORDER: (keyof Inputs)[] = [
   "cost_per_admission",
   "cost_per_bed_day",
   "costing_method",
-  "targeting_mode",
   "time_horizon_years",
   "discount_rate",
   "cost_effectiveness_threshold",
