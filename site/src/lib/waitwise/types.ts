@@ -1,8 +1,3 @@
-export type TargetingMode =
-  | "Broad waiting list"
-  | "Higher-risk targeting"
-  | "Long-wait targeting";
-
 export type CostingMethod =
   | "Escalation and admission savings only"
   | "Bed-day value only"
@@ -20,31 +15,33 @@ export type Inputs = {
   monthly_inflow: number;
   baseline_monthly_throughput: number;
   average_wait_duration_months: number;
+
   intervention_reach_rate: number;
+  target_population_multiplier: number;
+  target_reach_multiplier: number;
+  target_escalation_risk_multiplier: number;
+
   demand_reduction_effect: number;
   throughput_increase_effect: number;
   escalation_reduction_effect: number;
+
   intervention_cost_per_patient_reached: number;
   effect_decay_rate: number;
   participation_dropoff_rate: number;
+
   monthly_escalation_rate: number;
   admission_rate_after_escalation: number;
   average_length_of_stay: number;
   qaly_gain_per_escalation_avoided: number;
+
   cost_per_escalation: number;
   cost_per_admission: number;
   cost_per_bed_day: number;
   costing_method: CostingMethod;
-  targeting_mode: TargetingMode;
+
   time_horizon_years: 1 | 3 | 5;
   discount_rate: number;
   cost_effectiveness_threshold: number;
-};
-
-export type TargetingAdjustment = {
-  population_multiplier: number;
-  reach_multiplier: number;
-  risk_multiplier: number;
 };
 
 export type AdjustedTargetingValues = {
