@@ -1,7 +1,5 @@
 import type {
-  ComparatorDeltaRow,
   ModelResults,
-  ScenarioComparisonRow,
   SensitivityRow,
   UncertaintyRow,
   YearlyResultRow,
@@ -26,19 +24,6 @@ export type PathShiftUncertaintyChartRow = {
   decisionStatus: string;
 };
 
-export type PathShiftScenarioNetCostRow = {
-  scenario: string;
-  discountedNetCost: number;
-  discountedCostPerQaly: number;
-  decisionStatus: string;
-};
-
-export type PathShiftScenarioOutcomeRow = {
-  scenario: string;
-  patientsShiftedInPathway: number;
-  admissionsAvoided: number;
-};
-
 export type PathShiftTornadoRow = {
   label: string;
   lowDelta: number;
@@ -49,9 +34,11 @@ export function compactCurrencyAxis(value: number): string {
   if (Math.abs(value) >= 1_000_000) {
     return `£${(value / 1_000_000).toFixed(1)}m`;
   }
+
   if (Math.abs(value) >= 1_000) {
     return `£${(value / 1_000).toFixed(0)}k`;
   }
+
   return `£${value.toFixed(0)}`;
 }
 
@@ -112,27 +99,6 @@ export function buildUncertaintyChartData(
   }));
 }
 
-export function buildScenarioNetCostChartData(
-  scenarioRows: ScenarioComparisonRow[],
-): PathShiftScenarioNetCostRow[] {
-  return scenarioRows.map((row) => ({
-    scenario: row.scenario,
-    discountedNetCost: row.discounted_net_cost,
-    discountedCostPerQaly: row.discounted_cost_per_qaly,
-    decisionStatus: row.decision_status,
-  }));
-}
-
-export function buildScenarioOutcomeChartData(
-  scenarioRows: ScenarioComparisonRow[],
-): PathShiftScenarioOutcomeRow[] {
-  return scenarioRows.map((row) => ({
-    scenario: row.scenario,
-    patientsShiftedInPathway: row.patients_shifted_in_pathway,
-    admissionsAvoided: row.admissions_avoided,
-  }));
-}
-
 export function buildTornadoChartData(
   sensitivityRows: SensitivityRow[],
 ): PathShiftTornadoRow[] {
@@ -143,39 +109,4 @@ export function buildTornadoChartData(
       lowDelta: row.low_delta,
       highDelta: row.high_delta,
     }));
-}
-
-export function buildComparatorDeltaChartData(
-  baseResults: ModelResults,
-  comparatorResults: ModelResults,
-): ComparatorDeltaRow[] {
-  return [
-    {
-      label: "Patients shifted",
-      delta:
-        comparatorResults.patients_shifted_total - baseResults.patients_shifted_total,
-      isCurrency: false,
-    },
-    {
-      label: "Admissions avoided",
-      delta:
-        comparatorResults.admissions_avoided_total -
-        baseResults.admissions_avoided_total,
-      isCurrency: false,
-    },
-    {
-      label: "Discounted net cost",
-      delta:
-        comparatorResults.discounted_net_cost_total -
-        baseResults.discounted_net_cost_total,
-      isCurrency: true,
-    },
-    {
-      label: "Discounted cost per QALY",
-      delta:
-        comparatorResults.discounted_cost_per_qaly -
-        baseResults.discounted_cost_per_qaly,
-      isCurrency: true,
-    },
-  ];
 }
