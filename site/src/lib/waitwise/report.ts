@@ -101,12 +101,6 @@ export type WaitWiseReportData = {
       note: string;
     }>;
   };
-  scenarioAndComparator: {
-    scenarioSummary: string;
-    strongestScenario: string;
-    weakestScenario: string;
-    comparatorSummary: string;
-  };
   decisionImplications: {
     progressionView: string;
     mainEvidenceGap: string;
@@ -303,6 +297,14 @@ function buildAssumptionSections(
       title: "Pathway assumptions",
       rows: [
         {
+          assumption: "Average wait duration",
+          value: `${inputs.average_wait_duration_months.toFixed(
+            Number.isInteger(inputs.average_wait_duration_months) ? 0 : 1,
+          )} months`,
+          rationale:
+            "Provides contextual interpretation for the waiting list pressure being modelled, even though the model itself is driven more directly by inflow, throughput, and escalation risk.",
+        },
+        {
           assumption: "Monthly escalation rate",
           value: formatPercent(inputs.monthly_escalation_rate),
           rationale:
@@ -349,7 +351,9 @@ function buildAssumptionSections(
         },
         {
           assumption: "Cost per escalation",
-          value: normaliseCurrencyString(formatCurrency(inputs.cost_per_escalation)),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_escalation),
+          ),
           rationale:
             "Monetises avoided deterioration or escalation while patients wait.",
         },
@@ -538,17 +542,6 @@ export function buildWaitWiseReportData({
       })),
       sensitivitySummary,
       topDrivers: buildTopDriverRows(sensitivity),
-    },
-
-    scenarioAndComparator: {
-      scenarioSummary:
-        "The scenario framing suggests value is most likely to emerge where the waiting list is large enough to matter, escalation risk while waiting is meaningful, and the intervention can either reduce inflow, improve throughput, or reduce deterioration at a realistic delivery cost.",
-      strongestScenario:
-        "The strongest scenario is typically the one where intervention effects are larger, escalation risk is more concentrated, and operational reach remains strong over time.",
-      weakestScenario:
-        "The weakest or most fragile scenario is typically the one where intervention effects are smaller, costs are higher, or escalation and admission benefits are less pronounced.",
-      comparatorSummary:
-        "Comparator interpretation should focus on whether the current configuration offers a materially better operational and economic signal than a more conservative alternative. If gains over comparator are modest, the case is more likely to require stronger local evidence before progression.",
     },
 
     decisionImplications: {
