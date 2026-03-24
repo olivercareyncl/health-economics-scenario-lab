@@ -45,12 +45,6 @@ import {
   formatRatio,
 } from "@/lib/waitwise/formatters";
 import {
-  ASSUMPTION_META,
-  ASSUMPTION_ORDER,
-  getAssumptionConfidenceSummary,
-} from "@/lib/waitwise/metadata";
-import { COSTING_METHOD_OPTIONS } from "@/lib/waitwise/scenarios";
-import {
   assessUncertaintyRobustness,
   generateInterpretation,
   generateOverviewSummary,
@@ -63,7 +57,6 @@ import type {
   CostingMethod,
   Inputs,
   MobileTab,
-  ModelResults,
   SensitivityRow,
   UncertaintyRow,
   YearlyResultRow,
@@ -75,7 +68,17 @@ type SensitivitySummary = {
   top_drivers: SensitivityRow[];
 };
 
+const COSTING_METHOD_OPTIONS: readonly CostingMethod[] = [
+  "Escalation and admission savings only",
+  "Bed-day value only",
+  "Combined illustrative view",
+] as const;
+
 const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
+  "intervention_reach_rate",
+  "target_population_multiplier",
+  "target_reach_multiplier",
+  "target_escalation_risk_multiplier",
   "demand_reduction_effect",
   "throughput_increase_effect",
   "escalation_reduction_effect",
@@ -90,6 +93,9 @@ const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
 
 const RATE_VARIABLES = new Set<keyof Inputs>([
   "intervention_reach_rate",
+  "target_population_multiplier",
+  "target_reach_multiplier",
+  "target_escalation_risk_multiplier",
   "demand_reduction_effect",
   "throughput_increase_effect",
   "escalation_reduction_effect",
@@ -117,20 +123,17 @@ function normaliseCurrencyDisplay(value: string) {
   return value.replace(/^£-/, "-£");
 }
 
-function formatAssumptionValue(
-  formatter: (value: number | string) => string,
-  value: number | string,
-) {
-  return normaliseCurrencyDisplay(formatter(value));
-}
-
 function deriveCaseType(inputs: Inputs): string {
-  if (inputs.targeting_risk_multiplier >= 1.35) {
+  if (inputs.target_escalation_risk_multiplier >= 1.35) {
     return "More concentrated high-risk case";
   }
 
-  if (inputs.targeting_population_multiplier <= 0.6) {
-    return "More selective targeting case";
+  if (inputs.target_population_multiplier <= 0.6) {
+    return "Narrower targeted case";
+  }
+
+  if (inputs.target_reach_multiplier >= 1.05) {
+    return "Higher-reach targeted case";
   }
 
   if (
@@ -188,7 +191,7 @@ function runOneWaySensitivity(
 
     rows.push({
       variable,
-      label: ASSUMPTION_META[variable].label,
+      label: variable.replaceAll("_", " "),
       base_input: baseInput,
       low_input: lowInput,
       high_input: highInput,
@@ -206,6 +209,7 @@ function runOneWaySensitivity(
 
 function buildSensitivitySummary(rows: SensitivityRow[]): SensitivitySummary {
   const topDrivers = rows.slice(0, 5);
+
   return {
     rows,
     primary_driver: topDrivers[0] ?? null,
@@ -643,14 +647,12 @@ function CostVsSavingsChart({
 function PathwayImpactChart({
   results,
 }: {
-  results: ModelResults;
+  results: ReturnType<typeof runModel>;
 }) {
   const data = buildImpactBarChartData(results).map((row) => ({
     label: row.label,
     shortLabel:
-      row.label === "Waiting list reduction"
-        ? "Backlog reduction"
-        : row.label,
+      row.label === "Waiting list reduction" ? "Backlog reduction" : row.label,
     value: row.value,
   }));
 
@@ -804,7 +806,7 @@ function SensitivityChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={200}
+              width={220}
             />
             <Tooltip
               formatter={(value: number, name: string) => [
@@ -892,8 +894,6 @@ export default function WaitWiseApp() {
       ),
     [uncertainty, inputs.cost_effectiveness_threshold],
   );
-
-  const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
 
   const handleExportReport = async () => {
     try {
@@ -1024,8 +1024,9 @@ export default function WaitWiseApp() {
 
   const quickAssumptionNotice = (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Start from the default case, then tune targeting, reach, intervention effects,
-      persistence, escalation risk, and delivery cost to fit the local use case.
+      Start from the default case, then tune targeting, reach, intervention
+      effects, persistence, escalation risk, and delivery cost to fit the local
+      use case.
     </div>
   );
 
@@ -1042,6 +1043,13 @@ export default function WaitWiseApp() {
             onChange={(value) => updateInput("starting_waiting_list_size", value)}
             step={100}
             help="Baseline backlog size."
+          />
+          <NumberInput
+            label="Average wait duration"
+            value={inputs.average_wait_duration_months}
+            onChange={(value) => updateInput("average_wait_duration_months", value)}
+            step={0.5}
+            help="Contextual wait duration proxy in months."
           />
           <SliderInput
             label="Intervention reach"
@@ -1081,46 +1089,43 @@ export default function WaitWiseApp() {
           Targeting approach
         </p>
         <p className="mt-1.5 text-xs leading-5 text-slate-600">
-          Set the targeting logic directly rather than choosing a preset label.
+          Set how concentrated the intervention is by adjusting the size of the
+          target group, likely reach within that group, and their relative
+          escalation risk.
         </p>
-        <div className="mt-3 grid gap-4 lg:gap-3 xl:grid-cols-2">
-          <NumberInput
-            label="Targeted population multiplier"
-            value={inputs.targeting_population_multiplier}
-            onChange={(value) => updateInput("targeting_population_multiplier", value)}
-            min={0}
-            step={0.05}
-            help="Use 1.0 for the whole waiting list. Lower values represent narrower targeting."
+        <div className="mt-3 grid gap-4">
+          <SliderInput
+            label="Target population multiplier"
+            value={inputs.target_population_multiplier}
+            onChange={(value) => updateInput("target_population_multiplier", value)}
+            min={0.2}
+            max={1}
+            step={0.01}
+            display={formatPercent(inputs.target_population_multiplier)}
+            help="Share of the total waiting list considered in scope."
           />
-          <NumberInput
-            label="Targeted reach multiplier"
-            value={inputs.targeting_reach_multiplier}
-            onChange={(value) => updateInput("targeting_reach_multiplier", value)}
-            min={0}
-            step={0.05}
-            help="Multiplier applied to intervention reach in the targeted group."
+          <SliderInput
+            label="Target reach multiplier"
+            value={inputs.target_reach_multiplier}
+            onChange={(value) => updateInput("target_reach_multiplier", value)}
+            min={0.5}
+            max={1.5}
+            step={0.01}
+            display={`${inputs.target_reach_multiplier.toFixed(2)}x`}
+            help="Relative reach within the targeted subgroup."
           />
-          <div className="xl:col-span-2">
-            <NumberInput
-              label="Targeted escalation risk multiplier"
-              value={inputs.targeting_risk_multiplier}
-              onChange={(value) => updateInput("targeting_risk_multiplier", value)}
-              min={0}
-              step={0.05}
-              help="Multiplier applied to baseline escalation risk. Higher values assume risk is more concentrated in the targeted group."
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            How targeting works
-          </p>
-          <p className="mt-2 text-sm leading-6 text-slate-700">
-            A narrower population multiplier reduces the size of the eligible list,
-            a higher reach multiplier assumes the subgroup is easier to reach, and a
-            higher risk multiplier assumes escalation risk is more concentrated there.
-          </p>
+          <SliderInput
+            label="Target escalation risk multiplier"
+            value={inputs.target_escalation_risk_multiplier}
+            onChange={(value) =>
+              updateInput("target_escalation_risk_multiplier", value)
+            }
+            min={0.5}
+            max={2}
+            step={0.01}
+            display={`${inputs.target_escalation_risk_multiplier.toFixed(2)}x`}
+            help="Relative escalation risk in the targeted subgroup."
+          />
         </div>
       </div>
 
@@ -1248,12 +1253,6 @@ export default function WaitWiseApp() {
         {openSections["advanced-pathway"] ? (
           <div className="border-t border-slate-200 p-4">
             <div className="grid gap-4 xl:grid-cols-2">
-              <NumberInput
-                label="Average wait duration (months)"
-                value={inputs.average_wait_duration_months}
-                onChange={(value) => updateInput("average_wait_duration_months", value)}
-                step={0.5}
-              />
               <SliderInput
                 label="Monthly escalation rate"
                 value={inputs.monthly_escalation_rate}
@@ -1317,7 +1316,7 @@ export default function WaitWiseApp() {
               <SelectInput
                 label="Costing method"
                 value={inputs.costing_method}
-                options={COSTING_METHOD_OPTIONS as readonly CostingMethod[]}
+                options={COSTING_METHOD_OPTIONS}
                 onChange={(value) => updateInput("costing_method", value)}
               />
               <NumberInput
@@ -1361,18 +1360,135 @@ export default function WaitWiseApp() {
 
   const assumptionsReview = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {ASSUMPTION_ORDER.map((key) => {
-        const meta = ASSUMPTION_META[key];
-        const rawValue = inputs[key];
-        return (
-          <AssumptionReviewCard
-            key={key}
-            label={meta.label}
-            value={formatAssumptionValue(meta.formatter, rawValue)}
-            note={`${meta.source_type} · ${meta.confidence}`}
-          />
-        );
-      })}
+      <AssumptionReviewCard
+        label="Starting waiting list"
+        value={formatNumber(inputs.starting_waiting_list_size)}
+        note="Baseline backlog size."
+      />
+      <AssumptionReviewCard
+        label="Monthly inflow"
+        value={formatNumber(inputs.monthly_inflow)}
+        note="New demand entering the list each month."
+      />
+      <AssumptionReviewCard
+        label="Baseline throughput"
+        value={formatNumber(inputs.baseline_monthly_throughput)}
+        note="Patients processed per month before intervention."
+      />
+      <AssumptionReviewCard
+        label="Average wait duration"
+        value={`${inputs.average_wait_duration_months.toFixed(1)} months`}
+        note="Contextual wait duration proxy."
+      />
+      <AssumptionReviewCard
+        label="Intervention reach"
+        value={formatPercent(inputs.intervention_reach_rate)}
+        note="Share of the list effectively reached."
+      />
+      <AssumptionReviewCard
+        label="Target population multiplier"
+        value={formatPercent(inputs.target_population_multiplier)}
+        note="Relative size of the subgroup in scope."
+      />
+      <AssumptionReviewCard
+        label="Target reach multiplier"
+        value={`${inputs.target_reach_multiplier.toFixed(2)}x`}
+        note="Relative reach inside the targeted subgroup."
+      />
+      <AssumptionReviewCard
+        label="Target escalation risk multiplier"
+        value={`${inputs.target_escalation_risk_multiplier.toFixed(2)}x`}
+        note="Relative escalation risk in the subgroup."
+      />
+      <AssumptionReviewCard
+        label="Demand reduction effect"
+        value={formatPercent(inputs.demand_reduction_effect)}
+        note="Reduction in inflow."
+      />
+      <AssumptionReviewCard
+        label="Throughput increase effect"
+        value={formatPercent(inputs.throughput_increase_effect)}
+        note="Improvement in processing capacity."
+      />
+      <AssumptionReviewCard
+        label="Escalation reduction effect"
+        value={formatPercent(inputs.escalation_reduction_effect)}
+        note="Reduction in deterioration while waiting."
+      />
+      <AssumptionReviewCard
+        label="Intervention cost per patient"
+        value={normaliseCurrencyDisplay(
+          formatCurrency(inputs.intervention_cost_per_patient_reached),
+        )}
+        note="Main programme cost lever."
+      />
+      <AssumptionReviewCard
+        label="Annual effect decay"
+        value={formatPercent(inputs.effect_decay_rate)}
+        note="How quickly intervention effect weakens."
+      />
+      <AssumptionReviewCard
+        label="Annual participation drop-off"
+        value={formatPercent(inputs.participation_dropoff_rate)}
+        note="How quickly effective reach falls."
+      />
+      <AssumptionReviewCard
+        label="Monthly escalation rate"
+        value={formatPercent(inputs.monthly_escalation_rate)}
+        note="Baseline deterioration risk while waiting."
+      />
+      <AssumptionReviewCard
+        label="Admission rate after escalation"
+        value={formatPercent(inputs.admission_rate_after_escalation)}
+        note="Escalations translating into admissions."
+      />
+      <AssumptionReviewCard
+        label="Average length of stay"
+        value={`${inputs.average_length_of_stay.toFixed(1)} days`}
+        note="Used to derive bed days avoided."
+      />
+      <AssumptionReviewCard
+        label="QALY gain per escalation avoided"
+        value={inputs.qaly_gain_per_escalation_avoided.toFixed(2)}
+        note="Health gain assumption."
+      />
+      <AssumptionReviewCard
+        label="Cost per escalation"
+        value={normaliseCurrencyDisplay(formatCurrency(inputs.cost_per_escalation))}
+        note="Unit cost of escalation."
+      />
+      <AssumptionReviewCard
+        label="Cost per admission"
+        value={normaliseCurrencyDisplay(formatCurrency(inputs.cost_per_admission))}
+        note="Unit cost of admission."
+      />
+      <AssumptionReviewCard
+        label="Cost per bed day"
+        value={normaliseCurrencyDisplay(formatCurrency(inputs.cost_per_bed_day))}
+        note="Illustrative bed-day value."
+      />
+      <AssumptionReviewCard
+        label="Costing method"
+        value={inputs.costing_method}
+        note="Economic framing used in the model."
+      />
+      <AssumptionReviewCard
+        label="Time horizon"
+        value={`${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"}`}
+        note="Duration of the scenario."
+      />
+      <AssumptionReviewCard
+        label="Discount rate"
+        value={formatPercent(inputs.discount_rate)}
+        note="Present-value adjustment."
+      />
+      <AssumptionReviewCard
+        label="Cost-effectiveness threshold"
+        value={normaliseCurrencyDisplay(
+          formatCurrency(inputs.cost_effectiveness_threshold),
+        )}
+        note="Threshold used to interpret cost per QALY."
+      />
     </div>
   );
 
@@ -1440,17 +1556,19 @@ export default function WaitWiseApp() {
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
           Explore how waiting list interventions might reduce backlog pressure,
-          escalations, admissions, bed use, and economic burden under different assumptions.
+          escalations, admissions, bed use, and economic burden under different
+          assumptions.
         </p>
       </div>
 
       <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
         <p className="text-sm font-medium text-slate-900">Scope and use note</p>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          WaitWise is an exploratory scenario sandbox. It is designed to test how
-          changes in demand, throughput, escalation risk, persistence, and delivery
-          cost might influence potential operational and economic value. It does not
-          replace formal evaluation, forecasting, or business case development.
+          WaitWise is an exploratory scenario sandbox. It is designed to test
+          how changes in targeting, demand, throughput, escalation risk,
+          persistence, and delivery cost might influence potential operational
+          and economic value. It does not replace formal evaluation,
+          forecasting, or business case development.
         </p>
       </div>
 
@@ -1475,7 +1593,9 @@ export default function WaitWiseApp() {
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">Cost/QALY</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {normaliseCurrencyDisplay(formatCurrency(results.discounted_cost_per_qaly))}
+              {normaliseCurrencyDisplay(
+                formatCurrency(results.discounted_cost_per_qaly),
+              )}
             </p>
           </div>
         </div>
@@ -1513,7 +1633,9 @@ export default function WaitWiseApp() {
           <div className="min-w-0 text-right">
             <p className="text-[11px] text-slate-500">Cost/QALY</p>
             <p className="mt-1 text-sm font-semibold text-slate-950">
-              {normaliseCurrencyDisplay(formatCurrency(results.discounted_cost_per_qaly))}
+              {normaliseCurrencyDisplay(
+                formatCurrency(results.discounted_cost_per_qaly),
+              )}
             </p>
           </div>
           <button
@@ -1601,7 +1723,7 @@ export default function WaitWiseApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Start from the default case, then adjust targeting, intervention, pathway, and economic assumptions."
+            description="Start from the default case, then adjust the key inputs and advanced settings."
             action={
               <button
                 type="button"
@@ -1661,7 +1783,8 @@ export default function WaitWiseApp() {
                   <div>
                     <h3 className={SECTION_KICKER}>Report export</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-700">
-                      Export a structured summary of the current assumptions, results, and interpretation.
+                      Export a structured summary of the current assumptions,
+                      results, and interpretation.
                     </p>
                   </div>
                   <button
@@ -1715,9 +1838,13 @@ export default function WaitWiseApp() {
               </div>
 
               <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Confidence summary</h3>
+                <h3 className={SECTION_KICKER}>Confidence readout</h3>
                 <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {String(confidenceSummary.summary_text)}
+                  This sandbox combines operational assumptions, illustrative
+                  intervention effects, and user-defined targeting multipliers.
+                  The most decision-relevant next step is to validate local
+                  reach, subgroup concentration, escalation risk, and delivery
+                  cost.
                 </p>
               </div>
 
@@ -1755,7 +1882,7 @@ export default function WaitWiseApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Start from the default case, then adjust targeting, intervention, pathway, and economic assumptions."
+            description="Start from the default case, then adjust the key inputs and advanced settings."
             action={
               <button
                 type="button"
@@ -1799,7 +1926,8 @@ export default function WaitWiseApp() {
                   <div>
                     <h3 className={SECTION_KICKER}>Report export</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-700">
-                      Export a structured summary of the current assumptions, results, and interpretation.
+                      Export a structured summary of the current assumptions,
+                      results, and interpretation.
                     </p>
                   </div>
                   <button
@@ -1875,8 +2003,8 @@ export default function WaitWiseApp() {
                     value={interpretation.what_model_suggests}
                   />
                   <MiniInsight
-                    label="Confidence summary"
-                    value={String(confidenceSummary.summary_text)}
+                    label="Confidence readout"
+                    value="Treat the result as exploratory until local subgroup concentration, reach, escalation risk, and delivery cost are validated."
                   />
                 </div>
               </div>
