@@ -1,4 +1,4 @@
-import { runModel, clampRate } from "@/lib/waitwise/calculations";
+import { clampRate, runModel } from "@/lib/waitwise/calculations";
 import { ASSUMPTION_META } from "@/lib/waitwise/metadata";
 import type { Inputs, SensitivityRow } from "@/lib/waitwise/types";
 
@@ -9,9 +9,23 @@ export const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
   "intervention_cost_per_patient_reached",
   "monthly_escalation_rate",
   "qaly_gain_per_escalation_avoided",
+  "cost_per_admission",
+  "cost_per_escalation",
   "effect_decay_rate",
   "participation_dropoff_rate",
 ];
+
+const RATE_VARIABLES = new Set<keyof Inputs>([
+  "intervention_reach_rate",
+  "demand_reduction_effect",
+  "throughput_increase_effect",
+  "escalation_reduction_effect",
+  "effect_decay_rate",
+  "participation_dropoff_rate",
+  "monthly_escalation_rate",
+  "admission_rate_after_escalation",
+  "discount_rate",
+]);
 
 function applyVariation(
   value: number,
@@ -39,35 +53,21 @@ export function runOneWaySensitivity(
   const baseValue = Number(baseResults[outcomeKey]);
 
   return variables
-    .map((variable) => {
+    .map((variable): SensitivityRow => {
       const meta = ASSUMPTION_META[variable];
       const baseInputValue = Number(baseInputs[variable]);
-
-      const isRate = [
-        "intervention_reach_rate",
-        "demand_reduction_effect",
-        "throughput_increase_effect",
-        "escalation_reduction_effect",
-        "effect_decay_rate",
-        "participation_dropoff_rate",
-        "monthly_escalation_rate",
-        "admission_rate_after_escalation",
-        "discount_rate",
-      ].includes(variable as string);
+      const isRate = RATE_VARIABLES.has(variable);
 
       const { low, high } = applyVariation(baseInputValue, variation, isRate);
 
-      const lowInputs = { ...baseInputs, [variable]: low };
-      const highInputs = { ...baseInputs, [variable]: high };
+      const lowCaseInputs: Inputs = { ...baseInputs, [variable]: low };
+      const highCaseInputs: Inputs = { ...baseInputs, [variable]: high };
 
-      const lowResults = runModel(lowInputs);
-      const highResults = runModel(highInputs);
-
-      const lowOutcome = Number(lowResults[outcomeKey]);
-      const highOutcome = Number(highResults[outcomeKey]);
+      const lowOutcome = Number(runModel(lowCaseInputs)[outcomeKey]);
+      const highOutcome = Number(runModel(highCaseInputs)[outcomeKey]);
 
       return {
-        variable: variable as string,
+        variable,
         label: meta.label,
         base_input: baseInputValue,
         low_input: low,
