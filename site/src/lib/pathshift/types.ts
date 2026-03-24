@@ -8,13 +8,6 @@ export type CostingMethod =
   | "Bed-day value only"
   | "Combined illustrative view";
 
-export type ComparatorOption =
-  | "Follow-up reduction focus"
-  | "Admission reduction focus"
-  | "High-utiliser targeting"
-  | "Lower-cost redesign"
-  | "Targeted and stronger redesign";
-
 export type MobileTab = "summary" | "assumptions" | "analysis";
 
 export type AssumptionSectionKey =
@@ -112,19 +105,8 @@ export type UncertaintyRow = {
   decision_status: string;
 };
 
-export type ScenarioComparisonRow = {
-  scenario: string;
-  targeting: string;
-  patients_shifted_in_pathway: number;
-  admissions_avoided: number;
-  programme_cost: number;
-  discounted_net_cost: number;
-  discounted_cost_per_qaly: number;
-  decision_status: string;
-};
-
 export type SensitivityRow = {
-  variable: string;
+  variable: keyof Inputs;
   label: string;
   base_input: number;
   low_input: number;
@@ -159,18 +141,23 @@ export type SensitivitySummary = {
   top_drivers: ParameterSensitivityRow[];
 };
 
-export type ComparatorDeltaRow = {
-  label: string;
-  delta: number;
-  isCurrency: boolean;
-};
-
 export type Interpretation = {
   what_model_suggests: string;
   what_drives_result: string;
   what_looks_fragile: string;
   what_to_validate_next: string;
   limitations: string;
+};
+
+export type StructuredRecommendation = {
+  main_dependency: string;
+  main_fragility: string;
+  best_next_step: string;
+};
+
+export type DecisionReadiness = {
+  validate_next: string[];
+  readiness_note: string;
 };
 
 export type AssumptionMeta = {
