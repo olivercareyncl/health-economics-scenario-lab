@@ -151,14 +151,20 @@ function buildScenarioSection(inputs: Inputs): WaitWiseReportData["scenario"] {
   return {
     interventionConcept: `The scenario tests a waiting list improvement approach that aims to reach ${formatPercent(
       inputs.intervention_reach_rate,
-    )} of the relevant list population. In practice, this could represent demand management, validation and triage, pathway redesign, capacity support, prioritisation, or targeted case management for patients at greater risk while waiting.`,
+    )} of the relevant list population before targeting adjustments are applied. In practice, this could represent demand management, validation and triage, pathway redesign, capacity support, prioritisation, or targeted case management for patients at greater risk while waiting.`,
     targetPopulationLogic: `The model assumes a starting waiting list of ${formatNumber(
       inputs.starting_waiting_list_size,
     )}, monthly inflow of ${formatNumber(
       inputs.monthly_inflow,
     )}, and baseline monthly throughput of ${formatNumber(
       inputs.baseline_monthly_throughput,
-    )}. Waiting list pressure is then shaped by the interaction between inflow, throughput, intervention reach, and deterioration risk while patients remain on the list.`,
+    )}. Targeting is represented explicitly through three user-set multipliers: a population multiplier of ${inputs.target_population_multiplier.toFixed(
+      2,
+    )}, a reach multiplier of ${inputs.target_reach_multiplier.toFixed(
+      2,
+    )}, and an escalation-risk multiplier of ${inputs.target_escalation_risk_multiplier.toFixed(
+      2,
+    )}. These determine how much of the list is treated as in scope, how feasible it is to reach them, and how concentrated deterioration risk is assumed to be.`,
     economicMechanism: `The value mechanism runs through a mix of reduced demand, improved throughput, and fewer escalations while waiting. These effects then translate into fewer admissions, lower bed use, and QALY gains from avoided deterioration. The model tests whether those benefits are enough to offset programme costs and produce an acceptable cost per QALY against the selected threshold.`,
   };
 }
@@ -196,7 +202,7 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the signal remains sensitive to the assumed intervention effects, escalation risk, achievable reach, and delivery cost.`,
+      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the signal remains sensitive to the assumed intervention effects, escalation risk, achievable reach, targeting assumptions, and delivery cost.`,
     },
   ];
 }
@@ -230,7 +236,7 @@ function buildAssumptionSections(
           assumption: "Intervention reach rate",
           value: formatPercent(inputs.intervention_reach_rate),
           rationale:
-            "Controls how much of the relevant waiting list is effectively reached by the intervention.",
+            "Controls how much of the relevant waiting list is effectively reached before any targeting adjustment is applied.",
         },
         {
           assumption: "Intervention cost per patient reached",
@@ -247,6 +253,29 @@ function buildAssumptionSections(
           }`,
           rationale:
             "Longer horizons allow more operational and economic effects to accumulate.",
+        },
+      ],
+    },
+    {
+      title: "Targeting approach assumptions",
+      rows: [
+        {
+          assumption: "Target population multiplier",
+          value: `${inputs.target_population_multiplier.toFixed(2)}x`,
+          rationale:
+            "Scales the effective waiting-list population treated as in scope for the intervention. Values below 1.00 imply a narrower targeted subgroup.",
+        },
+        {
+          assumption: "Target reach multiplier",
+          value: `${inputs.target_reach_multiplier.toFixed(2)}x`,
+          rationale:
+            "Adjusts baseline intervention reach up or down depending on how feasible the chosen target group is to identify and engage.",
+        },
+        {
+          assumption: "Target escalation-risk multiplier",
+          value: `${inputs.target_escalation_risk_multiplier.toFixed(2)}x`,
+          rationale:
+            "Adjusts baseline escalation risk to reflect whether the chosen target group is expected to have lower or higher deterioration risk while waiting.",
         },
       ],
     },
@@ -300,7 +329,7 @@ function buildAssumptionSections(
           assumption: "Monthly escalation rate",
           value: formatPercent(inputs.monthly_escalation_rate),
           rationale:
-            "Captures deterioration or escalation risk while patients remain on the waiting list.",
+            "Captures deterioration or escalation risk while patients remain on the waiting list before any targeting risk multiplier is applied.",
         },
         {
           assumption: "Admission rate after escalation",
@@ -351,13 +380,17 @@ function buildAssumptionSections(
         },
         {
           assumption: "Cost per admission",
-          value: normaliseCurrencyString(formatCurrency(inputs.cost_per_admission)),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_admission),
+          ),
           rationale:
             "Monetises avoided admissions following escalation.",
         },
         {
           assumption: "Cost per bed day",
-          value: normaliseCurrencyString(formatCurrency(inputs.cost_per_bed_day)),
+          value: normaliseCurrencyString(
+            formatCurrency(inputs.cost_per_bed_day),
+          ),
           rationale:
             "Represents the value of avoided inpatient bed use in the model.",
         },
@@ -378,7 +411,7 @@ function buildSensitivitySummary(sensitivity: SensitivitySummary): string[] {
   if (top.length === 0) {
     return [
       "One-way sensitivity has not highlighted a clear set of dominant drivers yet.",
-      "At this stage, the case should still be treated as dependent on the core assumptions around intervention effects, reach, and delivery cost.",
+      "At this stage, the case should still be treated as dependent on the core assumptions around intervention effects, reach, targeting, and delivery cost.",
       "Further validation should focus on the most decision-relevant operational and cost inputs locally.",
     ];
   }
@@ -396,7 +429,7 @@ function buildSensitivitySummary(sensitivity: SensitivitySummary): string[] {
     : `In practical terms, the case is strongest when ${first} remains favourable under locally credible assumptions.`;
 
   const line3 =
-    "The case weakens fastest when intervention effects are smaller than expected, delivery becomes more expensive, or escalation and admission benefits are less pronounced locally.";
+    "The case weakens fastest when intervention effects are smaller than expected, targeting captures less risk than intended, delivery becomes more expensive, or escalation and admission benefits are less pronounced locally.";
 
   return [line1, line2, line3];
 }
@@ -543,7 +576,7 @@ export function buildWaitWiseReportData({
         "The most important evidence gap is usually the local credibility of the assumed intervention effects and the extent to which they would translate into real reductions in escalation, admissions, and inpatient pressure.",
       currentCasePosition: `At this stage the case looks ${signalLabel.toLowerCase()}. That should be treated as an early decision signal rather than a final answer.`,
       recommendedNextMove:
-        "The next step should be to validate the key local operational and implementation assumptions, especially achievable intervention effect, escalation risk, realistic intervention reach, and likely delivery cost.",
+        "The next step should be to validate the key local operational and implementation assumptions, especially achievable intervention effect, targeting logic, escalation risk, realistic intervention reach, and likely delivery cost.",
     },
 
     caveats: {
@@ -556,7 +589,7 @@ export function buildWaitWiseReportData({
         "Local baseline monthly throughput and operational constraints",
         "Local escalation or deterioration risk while waiting",
         "Local admission and bed-use consequences following escalation",
-        "Realistic intervention reach in the intended operational setting",
+        "Locally credible targeting assumptions for population coverage, reach, and risk concentration",
         "Likely implementation cost per patient reached",
       ],
     },
