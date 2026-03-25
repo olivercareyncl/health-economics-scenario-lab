@@ -956,11 +956,11 @@ export default function SafeStepApp() {
       />
       <MiniInsight
         label="Main dependency"
-        value={structuredRecommendation.mainDependency}
+        value={structuredRecommendation.driving_result}
       />
       <MiniInsight
         label="Main fragility"
-        value={structuredRecommendation.mainFragility}
+        value={structuredRecommendation.fragile_point}
       />
     </div>
   );
@@ -969,19 +969,19 @@ export default function SafeStepApp() {
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <MiniInsight
         label="What this suggests"
-        value={interpretation.what_model_suggests}
+        value={structuredRecommendation.current_case_suggests}
       />
       <MiniInsight
         label="What is driving it"
-        value={structuredRecommendation.mainDependency}
+        value={structuredRecommendation.driving_result}
       />
       <MiniInsight
         label="What looks fragile"
-        value={structuredRecommendation.mainFragility}
+        value={structuredRecommendation.fragile_point}
       />
       <MiniInsight
         label="Validate next"
-        value={structuredRecommendation.bestNextStep}
+        value={structuredRecommendation.validate_next}
       />
     </div>
   );
@@ -1608,9 +1608,14 @@ export default function SafeStepApp() {
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Strategic summary</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
-                  {overviewSummary}
-                </p>
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm font-medium text-slate-900">
+                    {overviewSummary.headline}
+                  </p>
+                  <p className="text-sm leading-6 text-slate-700">
+                    {overviewSummary.subheadline}
+                  </p>
+                </div>
               </div>
 
               {analysisMetricsMobile}
@@ -1761,9 +1766,14 @@ export default function SafeStepApp() {
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Strategic summary</h3>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
-                  {overviewSummary}
-                </p>
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm font-medium text-slate-900">
+                    {overviewSummary.headline}
+                  </p>
+                  <p className="text-sm leading-6 text-slate-700">
+                    {overviewSummary.subheadline}
+                  </p>
+                </div>
               </div>
 
               {analysisMetricsDesktop}
