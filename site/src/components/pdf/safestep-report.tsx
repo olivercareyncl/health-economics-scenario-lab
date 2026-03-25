@@ -461,7 +461,9 @@ function RepeatingHeader({ module }: { module: string }) {
 function Footer() {
   return (
     <View style={styles.footer} fixed>
-      <Text style={styles.footerText}>Health Economics Scenario Lab · SafeStep</Text>
+      <Text style={styles.footerText}>
+        Health Economics Scenario Lab · SafeStep
+      </Text>
       <Text
         style={styles.pageNumber}
         render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
@@ -480,9 +482,9 @@ export function SafeStepReportDocument({
 
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>Falls prevention scenario brief</Text>
+            <Text style={styles.title}>{cleanText(data.cover.title)}</Text>
             <Text style={styles.subtitle}>
-              Exploratory assessment of pathway and economic value
+              {cleanText(data.cover.subtitle)}
             </Text>
             <Text style={styles.metaLine}>
               Prepared: {formatGeneratedAt(data.cover.generatedAt)}
@@ -609,7 +611,9 @@ export function SafeStepReportDocument({
                         : driver.lowCase ?? driver.label,
                     note:
                       driver.note ??
-                      [driver.lowCase, driver.highCase].filter(Boolean).join(" · "),
+                      [driver.lowCase, driver.highCase]
+                        .filter(Boolean)
+                        .join(" · "),
                   }),
                 ),
               )}
@@ -624,25 +628,23 @@ export function SafeStepReportDocument({
         <RepeatingHeader module={data.cover.module} />
 
         <View style={styles.sectionTight}>
-          <Text style={styles.sectionTitle}>
-            Scenario and comparator interpretation
-          </Text>
+          <Text style={styles.sectionTitle}>Interpretation and implications</Text>
           {renderInfoRows([
             {
               label: "Scenario readout",
-              value: data.scenarioAndComparator.scenarioSummary,
+              value: data.executiveSummary.whatModelSuggests,
             },
             {
               label: "Strongest scenario pattern",
-              value: data.scenarioAndComparator.strongestScenario,
+              value: data.executiveSummary.mainDependency,
             },
             {
               label: "Weakest or most fragile scenario pattern",
-              value: data.scenarioAndComparator.weakestScenario,
+              value: data.executiveSummary.mainFragility,
             },
             {
-              label: "Comparator implication",
-              value: data.scenarioAndComparator.comparatorSummary,
+              label: "Best next step",
+              value: data.executiveSummary.bestNextStep,
             },
           ])}
         </View>
