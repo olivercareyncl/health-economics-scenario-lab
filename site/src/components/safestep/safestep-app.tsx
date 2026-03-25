@@ -846,8 +846,8 @@ export default function SafeStepApp() {
   );
 
   const structuredRecommendation = useMemo(
-    () => generateStructuredRecommendation(inputs, results, uncertainty, sensitivity),
-    [inputs, results, uncertainty, sensitivity],
+    () => generateStructuredRecommendation(results, inputs, uncertainty, sensitivity),
+    [results, inputs, uncertainty, sensitivity],
   );
 
   const uncertaintyRobustness = useMemo(
