@@ -841,8 +841,8 @@ export default function SafeStepApp() {
   );
 
   const overviewSummary = useMemo(
-    () => generateOverviewSummary(results, inputs, uncertainty, sensitivity),
-    [results, inputs, uncertainty, sensitivity],
+    () => generateOverviewSummary(results, inputs),
+    [results, inputs],
   );
 
   const structuredRecommendation = useMemo(
