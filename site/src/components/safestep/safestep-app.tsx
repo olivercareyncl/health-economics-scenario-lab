@@ -1035,14 +1035,14 @@ export default function SafeStepApp() {
             help="Core avoided-falls assumption."
           />
           <div className="xl:col-span-2">
-            <NumberInput
-              label="Time horizon"
-              value={inputs.time_horizon_years}
-              onChange={(value) =>
-                updateInput("time_horizon_years", Math.max(1, value))
-              }
-              step={1}
-              help="Longer horizons often improve the economic picture."
+            <SelectInput
+                label="Time horizon"
+                value={String(inputs.time_horizon_years)}
+                options={["1", "3", "5"]}
+                onChange={(value) =>
+                  updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
+                }
+                help="Longer horizons often improve the economic picture."
             />
           </div>
         </div>
