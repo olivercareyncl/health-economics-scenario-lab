@@ -1,188 +1,234 @@
-export type CostingMethod =
-  | "Admission cost only"
-  | "Bed-day value only"
-  | "Combined illustrative view";
+import type {
+  ModelResult,
+  SafeStepInputs,
+  SensitivitySummary,
+  UncertaintyRow,
+} from "./types";
 
-export type MobileTab = "summary" | "assumptions" | "analysis";
+type DecisionStatus =
+  | "Appears cost-saving"
+  | "Appears cost-effective"
+  | "Appears high-cost for value gained";
 
-export type AssumptionSectionKey =
-  | "advanced-delivery"
-  | "advanced-pathway"
-  | "advanced-economics";
+type UncertaintyRobustness =
+  | "Robust across bounded range"
+  | "Borderline across bounded range"
+  | "Not robust across bounded range";
 
-export type ConfidenceLevel =
-  | "High confidence"
-  | "Medium confidence"
-  | "Low confidence";
+type StructuredRecommendation = {
+  current_case_suggests: string;
+  driving_result: string;
+  fragile_point: string;
+  validate_next: string;
+  recommendation_line: string;
+};
 
-export type AssumptionFormatter =
-  | "number"
-  | "percent"
-  | "currency"
-  | "text"
-  | "decimal1"
-  | "decimal2"
-  | "integer";
+type OverviewSummary = {
+  headline: string;
+  subheadline: string;
+};
 
-export type AssumptionKey =
-  | "eligible_population"
-  | "uptake_rate"
-  | "adherence_rate"
-  | "participation_dropoff_rate"
-  | "target_population_multiplier"
-  | "target_uptake_multiplier"
-  | "target_fall_risk_multiplier"
-  | "annual_fall_risk"
-  | "admission_rate_after_fall"
-  | "average_length_of_stay"
-  | "intervention_cost_per_person"
-  | "relative_risk_reduction"
-  | "effect_decay_rate"
-  | "costing_method"
-  | "cost_per_admission"
-  | "cost_per_bed_day"
-  | "qaly_loss_per_serious_fall"
-  | "cost_effectiveness_threshold"
-  | "time_horizon_years"
-  | "discount_rate";
-
-export interface SafeStepInputs {
-  eligible_population: number;
-  uptake_rate: number;
-  adherence_rate: number;
-  participation_dropoff_rate: number;
-
-  target_population_multiplier: number;
-  target_uptake_multiplier: number;
-  target_fall_risk_multiplier: number;
-
-  annual_fall_risk: number;
-  admission_rate_after_fall: number;
-  average_length_of_stay: number;
-
-  intervention_cost_per_person: number;
-  relative_risk_reduction: number;
-  effect_decay_rate: number;
-
-  costing_method: CostingMethod;
-  cost_per_admission: number;
-  cost_per_bed_day: number;
-
-  qaly_loss_per_serious_fall: number;
-  cost_effectiveness_threshold: number;
-  time_horizon_years: number;
-  discount_rate: number;
-}
-
-export interface AssumptionMetaItem {
-  label: string;
-  unit: string;
-  formatter: AssumptionFormatter;
-  description: string;
-  sourceType: string;
-  confidence: ConfidenceLevel;
-}
-
-export interface TargetingAdjustmentsResult {
-  adjusted_eligible_population: number;
-  adjusted_annual_fall_risk: number;
-  adjusted_uptake_rate: number;
-}
-
-export interface CostingMethodConfig {
-  mode: "admission" | "bed_day" | "combined";
-}
-
-export interface YearlyResultRow {
-  year: number;
-  treated_population: number;
-  annual_effectiveness: number;
-  expected_falls_baseline: number;
-  falls_after_intervention: number;
-  falls_avoided: number;
-  admissions_avoided: number;
-  bed_days_avoided: number;
-  programme_cost: number;
-  gross_savings: number;
-  net_cost: number;
-  qalys_gained: number;
-  discount_factor: number;
-  discounted_programme_cost: number;
-  discounted_gross_savings: number;
-  discounted_net_cost: number;
-  discounted_qalys: number;
-  cumulative_programme_cost: number;
-  cumulative_gross_savings: number;
-  cumulative_net_cost: number;
-}
-
-export interface ModelResult {
-  treated_population_year_1: number;
-  adjusted_eligible_population: number;
-  adjusted_annual_fall_risk: number;
-  adjusted_uptake_rate: number;
-  falls_avoided_total: number;
-  admissions_avoided_total: number;
-  bed_days_avoided_total: number;
-  programme_cost_total: number;
-  gross_savings_total: number;
-  net_cost_total: number;
-  discounted_programme_cost_total: number;
-  discounted_gross_savings_total: number;
-  discounted_net_cost_total: number;
-  discounted_qalys_total: number;
-  discounted_cost_per_qaly: number;
-  roi: number;
-  yearly_results: YearlyResultRow[];
-  break_even_effectiveness: number;
-  break_even_cost_per_participant: number;
-  break_even_horizon: string;
-}
-
-export interface UncertaintyRow {
-  case: "Low" | "Base" | "High";
-  falls_avoided_total: number;
-  discounted_net_cost_total: number;
-  discounted_cost_per_qaly: number;
-  dominant_domain: string;
-  decision_status: string;
-}
-
-export interface ParameterSensitivityRow {
-  parameter_key: keyof SafeStepInputs;
-  parameter_label: string;
-  low_value_label: string;
-  high_value_label: string;
-  low_icer: number;
-  base_icer: number;
-  high_icer: number;
-  low_net_cost: number;
-  base_net_cost: number;
-  high_net_cost: number;
-  max_abs_icer_change: number;
-}
-
-export interface SensitivitySummary {
-  rows: ParameterSensitivityRow[];
-  top_drivers: ParameterSensitivityRow[];
-  primary_driver: ParameterSensitivityRow | null;
-}
-
-export interface StructuredRecommendation {
-  main_dependency: string;
-  main_fragility: string;
-  best_next_step: string;
-}
-
-export interface DecisionReadiness {
-  validate_next: string[];
-  readiness_note: string;
-}
-
-export interface Interpretation {
+type InterpretationSummary = {
   what_model_suggests: string;
   where_value_is_coming_from: string;
   what_looks_fragile: string;
   what_to_validate_next: string;
-  limitations: string;
+};
+
+export function getDecisionStatus(
+  results: ModelResult,
+  threshold: number,
+): DecisionStatus {
+  if (results.discounted_net_cost_total < 0) {
+    return "Appears cost-saving";
+  }
+
+  if (results.discounted_cost_per_qaly <= threshold) {
+    return "Appears cost-effective";
+  }
+
+  return "Appears high-cost for value gained";
+}
+
+export function getNetCostLabel(results: ModelResult): string {
+  return results.discounted_net_cost_total < 0
+    ? "Net savings"
+    : "Net cost";
+}
+
+export function getMainDriverText(
+  sensitivity: SensitivitySummary,
+): string {
+  const driver = sensitivity.primary_driver;
+
+  if (!driver) {
+    return "The result is mainly shaped by fall risk, effect size, and delivery cost.";
+  }
+
+  return `The result is currently most shaped by ${driver.parameter_label.toLowerCase()}.`;
+}
+
+export function assessUncertaintyRobustness(
+  uncertaintyRows: UncertaintyRow[],
+  threshold: number,
+): UncertaintyRobustness {
+  if (!uncertaintyRows.length) {
+    return "Borderline across bounded range";
+  }
+
+  const allBelowThreshold = uncertaintyRows.every(
+    (row) => row.discounted_cost_per_qaly <= threshold,
+  );
+  const allAboveThreshold = uncertaintyRows.every(
+    (row) => row.discounted_cost_per_qaly > threshold,
+  );
+
+  if (allBelowThreshold) {
+    return "Robust across bounded range";
+  }
+
+  if (allAboveThreshold) {
+    return "Not robust across bounded range";
+  }
+
+  return "Borderline across bounded range";
+}
+
+export function generateStructuredRecommendation(
+  results: ModelResult,
+  inputs: SafeStepInputs,
+  uncertaintyRows: UncertaintyRow[],
+  sensitivity: SensitivitySummary,
+): StructuredRecommendation {
+  const decision = getDecisionStatus(
+    results,
+    inputs.cost_effectiveness_threshold,
+  );
+  const robustness = assessUncertaintyRobustness(
+    uncertaintyRows,
+    inputs.cost_effectiveness_threshold,
+  );
+  const mainDriver = sensitivity.primary_driver;
+  const topDrivers = sensitivity.top_drivers ?? [];
+
+  const current_case_suggests =
+    decision === "Appears cost-saving"
+      ? "The current case suggests avoided falls with a net saving signal."
+      : decision === "Appears cost-effective"
+        ? "The current case suggests a plausible value case at the current threshold."
+        : "The current case suggests clinical benefit, but the economic case is not yet persuasive at the current threshold.";
+
+  const driving_result = mainDriver
+    ? `The result is currently most influenced by ${mainDriver.parameter_label.toLowerCase()}.`
+    : "The result is mainly being shaped by baseline risk, intervention effect, and delivery cost.";
+
+  const fragile_point =
+    robustness === "Robust across bounded range"
+      ? "The conclusion looks relatively stable across the bounded low, base, and high cases."
+      : robustness === "Borderline across bounded range"
+        ? `The conclusion changes across the bounded range, so moderate shifts in assumptions could alter the decision signal${
+            topDrivers[0]
+              ? `, especially around ${topDrivers[0].parameter_label.toLowerCase()}`
+              : ""
+          }.`
+        : "The case remains above threshold across the bounded range, so the current value proposition looks weak under these assumptions.";
+
+  const validate_next =
+    topDrivers.length > 1
+      ? `Validate local estimates for ${topDrivers[0].parameter_label.toLowerCase()} and ${topDrivers[1].parameter_label.toLowerCase()} before treating this case as decision-ready.`
+      : topDrivers.length === 1
+        ? `Validate local estimates for ${topDrivers[0].parameter_label.toLowerCase()} before treating this case as decision-ready.`
+        : "Validate local risk, delivery cost, and achievable effect size before treating this case as decision-ready.";
+
+  const recommendation_line =
+    decision === "Appears cost-saving"
+      ? "This scenario is worth treating as a strong candidate for further local validation."
+      : decision === "Appears cost-effective"
+        ? "This scenario is worth refining further, especially around the most decision-sensitive assumptions."
+        : "This scenario likely needs stronger targeting, lower delivery cost, or greater effect to become decision-attractive.";
+
+  return {
+    current_case_suggests,
+    driving_result,
+    fragile_point,
+    validate_next,
+    recommendation_line,
+  };
+}
+
+export function generateOverviewSummary(
+  results: ModelResult,
+  inputs: SafeStepInputs,
+): OverviewSummary {
+  const decision = getDecisionStatus(
+    results,
+    inputs.cost_effectiveness_threshold,
+  );
+  const netLabel = getNetCostLabel(results);
+
+  const headline =
+    decision === "Appears cost-saving"
+      ? "SafeStep currently indicates a cost-saving falls prevention case."
+      : decision === "Appears cost-effective"
+        ? "SafeStep currently indicates a potentially cost-effective falls prevention case."
+        : "SafeStep currently indicates clinical value, but limited economic attractiveness.";
+
+  const subheadline = `${netLabel} of ${Math.abs(
+    results.discounted_net_cost_total,
+  ).toLocaleString("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    maximumFractionDigits: 0,
+  })} and discounted cost per QALY of ${results.discounted_cost_per_qaly.toLocaleString(
+    "en-GB",
+    {
+      style: "currency",
+      currency: "GBP",
+      maximumFractionDigits: 0,
+    },
+  )}.`;
+
+  return { headline, subheadline };
+}
+
+export function generateInterpretation(
+  results: ModelResult,
+  inputs: SafeStepInputs,
+  uncertaintyRows: UncertaintyRow[],
+  sensitivity: SensitivitySummary,
+): InterpretationSummary {
+  const decision = getDecisionStatus(
+    results,
+    inputs.cost_effectiveness_threshold,
+  );
+  const robustness = assessUncertaintyRobustness(
+    uncertaintyRows,
+    inputs.cost_effectiveness_threshold,
+  );
+
+  const what_model_suggests =
+    decision === "Appears cost-saving"
+      ? "The model suggests that falls prevention could reduce activity and release more value than it costs under the current assumptions."
+      : decision === "Appears cost-effective"
+        ? "The model suggests that the intervention could offer reasonable value for money under the current assumptions."
+        : "The model suggests that the intervention may reduce falls and admissions, but the economic return is weak under the current assumptions.";
+
+  const what_looks_fragile =
+    robustness === "Robust across bounded range"
+      ? "The main conclusion remains broadly stable across the bounded low, base, and high cases."
+      : robustness === "Borderline across bounded range"
+        ? "The result sits near a decision boundary, so moderate assumption changes could materially alter the conclusion."
+        : "The result remains unfavourable across the bounded range, suggesting the case is not yet robust.";
+
+  const what_to_validate_next =
+    sensitivity.primary_driver
+      ? `The next priority is to validate local assumptions around ${sensitivity.primary_driver.parameter_label.toLowerCase()}.`
+      : "The next priority is to validate local assumptions around risk, intervention effect, and delivery cost.";
+
+  return {
+    what_model_suggests,
+    where_value_is_coming_from: getMainDriverText(sensitivity),
+    what_looks_fragile,
+    what_to_validate_next,
+  };
 }
