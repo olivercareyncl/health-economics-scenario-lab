@@ -25,19 +25,11 @@ import {
 } from "recharts";
 
 import { DEFAULT_INPUTS } from "@/lib/clearpath/defaults";
-import {
-  buildComparatorCase,
-  runBoundedUncertainty,
-  runModel,
-  runParameterSensitivity,
-} from "@/lib/clearpath/calculations";
+import { runBoundedUncertainty, runModel } from "@/lib/clearpath/calculations";
 import {
   buildCasesShiftedChartData,
-  buildComparatorDeltaChartData,
   buildCumulativeCostChartData,
   buildImpactBarChartData,
-  buildScenarioNetCostChartData,
-  buildScenarioOutcomeChartData,
   buildUncertaintyChartData,
   compactCurrencyAxis,
 } from "@/lib/clearpath/charts";
@@ -52,12 +44,8 @@ import {
   ASSUMPTION_ORDER,
   getAssumptionConfidenceSummary,
 } from "@/lib/clearpath/metadata";
-import {
-  COMPARATOR_OPTIONS,
-  COSTING_METHOD_OPTIONS,
-  SCENARIO_MAP,
-  TARGETING_MODE_OPTIONS,
-} from "@/lib/clearpath/scenarios";
+import { COSTING_METHOD_OPTIONS } from "@/lib/clearpath/scenarios";
+import { runParameterSensitivity } from "@/lib/clearpath/sensitivity";
 import {
   assessUncertaintyRobustness,
   generateInterpretation,
@@ -66,38 +54,17 @@ import {
   generateStructuredRecommendation,
   getDecisionStatus,
   getNetCostLabel,
-  summariseScenarioStrengths,
 } from "@/lib/clearpath/summaries";
 import type {
   AssumptionSectionKey,
-  ComparatorOption,
   CostingMethod,
   Inputs,
   MobileTab,
   ModelResults,
-  ScenarioComparisonRow,
   SensitivitySummary,
-  TargetingMode,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/clearpath/types";
-
-type ScenarioPreset =
-  | "Base case"
-  | "Lower-cost delivery"
-  | "Stronger shift"
-  | "Higher-risk targeting"
-  | "Tighter high-risk targeting"
-  | "Custom";
-
-const SCENARIO_PRESET_OPTIONS: readonly ScenarioPreset[] = [
-  "Base case",
-  "Lower-cost delivery",
-  "Stronger shift",
-  "Higher-risk targeting",
-  "Tighter high-risk targeting",
-  "Custom",
-] as const;
 
 const PANEL_SHELL =
   "rounded-[26px] border border-slate-200 bg-slate-50 p-4 sm:p-5 lg:p-5 xl:p-6";
@@ -122,158 +89,6 @@ function formatAssumptionValue(
 function formatSignedCurrency(value: number) {
   const formatted = formatCurrency(Math.abs(value));
   return value < 0 ? `-${formatted}` : formatted;
-}
-
-function getPresetPatch(
-  preset: Exclude<ScenarioPreset, "Custom">,
-): Partial<Inputs> {
-  switch (preset) {
-    case "Base case":
-      return { ...DEFAULT_INPUTS };
-
-    case "Lower-cost delivery":
-      return {
-        intervention_cost_per_case_reached:
-          DEFAULT_INPUTS.intervention_cost_per_case_reached * 0.8,
-        intervention_reach_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.intervention_reach_rate * 1.02,
-        ),
-      };
-
-    case "Stronger shift":
-      return {
-        achievable_reduction_in_late_diagnosis: Math.min(
-          0.5,
-          DEFAULT_INPUTS.achievable_reduction_in_late_diagnosis * 1.3,
-        ),
-        effect_decay_rate: Math.max(0, DEFAULT_INPUTS.effect_decay_rate * 0.85),
-        participation_dropoff_rate: Math.max(
-          0,
-          DEFAULT_INPUTS.participation_dropoff_rate * 0.9,
-        ),
-      };
-
-    case "Higher-risk targeting":
-      return {
-        targeting_mode: "Higher-risk targeting",
-        current_late_diagnosis_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.current_late_diagnosis_rate * 1.05,
-        ),
-        intervention_reach_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.intervention_reach_rate * 1.03,
-        ),
-      };
-
-    case "Tighter high-risk targeting":
-      return {
-        targeting_mode: "Tighter high-risk targeting",
-        current_late_diagnosis_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.current_late_diagnosis_rate * 1.08,
-        ),
-        intervention_reach_rate: Math.min(
-          1,
-          DEFAULT_INPUTS.intervention_reach_rate * 1.05,
-        ),
-      };
-  }
-}
-
-function getPresetDescription(preset: ScenarioPreset) {
-  switch (preset) {
-    case "Base case":
-      return "Neutral starting template for workshop use.";
-    case "Lower-cost delivery":
-      return "Tests whether value improves under leaner delivery.";
-    case "Stronger shift":
-      return "Tests a stronger and slightly more persistent shift to earlier diagnosis.";
-    case "Higher-risk targeting":
-      return "Focuses value into a more at-risk group with more concentrated later diagnosis.";
-    case "Tighter high-risk targeting":
-      return "Smaller, higher-opportunity group with tighter targeting logic.";
-    case "Custom":
-      return "Inputs have been edited away from a named template.";
-  }
-}
-
-function deriveCaseType(preset: ScenarioPreset, inputs: Inputs): string {
-  if (preset !== "Custom") {
-    switch (preset) {
-      case "Base case":
-        return "Broad earlier-diagnosis case";
-      case "Lower-cost delivery":
-        return "Lower-cost delivery case";
-      case "Stronger shift":
-        return "Stronger-shift case";
-      case "Higher-risk targeting":
-        return "Higher-risk targeting case";
-      case "Tighter high-risk targeting":
-        return "Tighter high-risk targeting case";
-      default:
-        return "Current scenario case";
-    }
-  }
-
-  if (inputs.targeting_mode === "Tighter high-risk targeting") {
-    return "Tighter high-risk targeting case";
-  }
-
-  if (inputs.targeting_mode === "Higher-risk targeting") {
-    return "Higher-risk targeting case";
-  }
-
-  if (inputs.intervention_cost_per_case_reached <= 320) {
-    return "Lower-cost delivery case";
-  }
-
-  if (inputs.achievable_reduction_in_late_diagnosis >= 0.1) {
-    return "Stronger-shift case";
-  }
-
-  return "Broad earlier-diagnosis case";
-}
-
-function buildScenarioComparison(
-  defaults: Inputs,
-  baseInputs: Inputs,
-): ScenarioComparisonRow[] {
-  return Object.entries(SCENARIO_MAP).map(([scenarioName, scenarioFn]) => {
-    const scenarioInputs: Inputs = {
-      ...defaults,
-      ...scenarioFn(defaults),
-      time_horizon_years: baseInputs.time_horizon_years,
-      discount_rate: baseInputs.discount_rate,
-      effect_decay_rate: baseInputs.effect_decay_rate,
-      participation_dropoff_rate: baseInputs.participation_dropoff_rate,
-      costing_method: baseInputs.costing_method,
-      cost_effectiveness_threshold: baseInputs.cost_effectiveness_threshold,
-      cost_per_emergency_admission: baseInputs.cost_per_emergency_admission,
-      cost_per_bed_day: baseInputs.cost_per_bed_day,
-      treatment_cost_early: baseInputs.treatment_cost_early,
-      treatment_cost_late: baseInputs.treatment_cost_late,
-      qaly_gain_per_case_shifted: baseInputs.qaly_gain_per_case_shifted,
-    };
-
-    const scenarioResults = runModel(scenarioInputs);
-
-    return {
-      scenario: scenarioName,
-      targeting: scenarioInputs.targeting_mode,
-      cases_shifted_earlier: scenarioResults.cases_shifted_total,
-      emergency_presentations_avoided:
-        scenarioResults.emergency_presentations_avoided_total,
-      programme_cost: scenarioResults.programme_cost_total,
-      discounted_net_cost: scenarioResults.discounted_net_cost_total,
-      discounted_cost_per_qaly: scenarioResults.discounted_cost_per_qaly,
-      decision_status: getDecisionStatus(
-        scenarioResults,
-        scenarioInputs.cost_effectiveness_threshold,
-      ),
-    };
-  });
 }
 
 function CurrencyTooltip({
@@ -426,7 +241,9 @@ function AssumptionReviewCard({
         {label}
       </p>
       <p className="mt-1.5 text-sm font-semibold text-slate-900">{value}</p>
-      {note ? <p className="mt-1.5 text-sm leading-6 text-slate-600">{note}</p> : null}
+      {note ? (
+        <p className="mt-1.5 text-sm leading-6 text-slate-600">{note}</p>
+      ) : null}
     </div>
   );
 }
@@ -562,7 +379,9 @@ function SliderInput({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full"
       />
-      {help ? <p className="mt-1.5 text-xs leading-5 text-slate-500">{help}</p> : null}
+      {help ? (
+        <p className="mt-1.5 text-xs leading-5 text-slate-500">{help}</p>
+      ) : null}
     </div>
   );
 }
@@ -928,164 +747,10 @@ function SensitivityChart({
   );
 }
 
-function ScenarioNetCostChart({
-  scenarioRows,
-}: {
-  scenarioRows: ScenarioComparisonRow[];
-}) {
-  const data = buildScenarioNetCostChartData(scenarioRows);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Scenario net cost
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Discounted net cost across the preset scenario configurations.
-        </p>
-      </div>
-
-      <div className="h-56 w-full lg:h-64 xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="scenario" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={58}
-            />
-            <Tooltip content={<CurrencyTooltip />} />
-            <Bar
-              dataKey="discountedNetCost"
-              name="Discounted net cost"
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function ScenarioOutcomeChart({
-  scenarioRows,
-}: {
-  scenarioRows: ScenarioComparisonRow[];
-}) {
-  const data = buildScenarioOutcomeChartData(scenarioRows);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Scenario pathway impact
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Cases shifted earlier and emergency presentations avoided by scenario.
-        </p>
-      </div>
-
-      <div className="h-64 w-full xl:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="scenario" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => formatNumber(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={54}
-            />
-            <Tooltip content={<NumberTooltip />} />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
-            <Bar
-              dataKey="casesShiftedEarlier"
-              name="Cases shifted earlier"
-              radius={[8, 8, 0, 0]}
-            />
-            <Bar
-              dataKey="emergencyPresentationsAvoided"
-              name="Emergency presentations avoided"
-              radius={[8, 8, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function ComparatorDeltaChart({
-  baseResults,
-  comparatorResults,
-  comparatorLabel,
-}: {
-  baseResults: ModelResults;
-  comparatorResults: ModelResults;
-  comparatorLabel: string;
-}) {
-  const data = buildComparatorDeltaChartData(baseResults, comparatorResults);
-
-  return (
-    <div className={SUBCARD}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold tracking-tight text-slate-900 lg:text-base">
-          Comparator deltas
-        </h3>
-        <p className="mt-1 text-xs leading-5 text-slate-600 lg:text-sm">
-          Change versus the current configuration using {comparatorLabel.toLowerCase()}.
-        </p>
-      </div>
-
-      <div className="h-56 w-full lg:h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
-            <YAxis
-              tickFormatter={(value) => compactCurrencyAxis(Number(value))}
-              tickLine={false}
-              axisLine={false}
-              fontSize={12}
-              width={58}
-            />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (!active || !payload?.length) return null;
-                const row = data.find((d) => d.label === label);
-                const value = Number(payload[0]?.value ?? 0);
-
-                return (
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                    <p className="text-sm font-medium text-slate-900">{label}</p>
-                    <p className="mt-2 text-sm text-slate-600">
-                      <span className="font-medium text-slate-800">Delta:</span>{" "}
-                      {row?.isCurrency
-                        ? formatSignedCurrency(value)
-                        : formatNumber(value)}
-                    </p>
-                  </div>
-                );
-              }}
-            />
-            <Bar dataKey="delta" name="Delta" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
 export default function ClearPathApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-  const [showComparatorDesktop, setShowComparatorDesktop] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [openSections, setOpenSections] = useState<
     Record<AssumptionSectionKey, boolean>
@@ -1094,10 +759,6 @@ export default function ClearPathApp() {
     "advanced-costs": false,
     "advanced-outcomes": false,
   });
-  const [comparatorMode, setComparatorMode] = useState<ComparatorOption>(
-    COMPARATOR_OPTIONS[0],
-  );
-  const [presetMode, setPresetMode] = useState<ScenarioPreset>("Base case");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
   const uncertainty = useMemo(() => runBoundedUncertainty(inputs), [inputs]);
@@ -1126,7 +787,8 @@ export default function ClearPathApp() {
   );
 
   const structuredRecommendation = useMemo(
-    () => generateStructuredRecommendation(inputs, results, uncertainty, sensitivity),
+    () =>
+      generateStructuredRecommendation(inputs, results, uncertainty, sensitivity),
     [inputs, results, uncertainty, sensitivity],
   );
 
@@ -1139,38 +801,7 @@ export default function ClearPathApp() {
     [uncertainty, inputs.cost_effectiveness_threshold],
   );
 
-  const scenarioRows = useMemo(
-    () => buildScenarioComparison(DEFAULT_INPUTS, inputs),
-    [inputs],
-  );
-
-  const scenarioStrengths = useMemo(
-    () => summariseScenarioStrengths(scenarioRows),
-    [scenarioRows],
-  );
-
-  const comparatorResults = useMemo(() => {
-    const comparatorInputs = buildComparatorCase(
-      DEFAULT_INPUTS,
-      inputs,
-      comparatorMode,
-    );
-    return runModel(comparatorInputs);
-  }, [inputs, comparatorMode]);
-
-  const comparatorDeltas = useMemo(
-    () => buildComparatorDeltaChartData(results, comparatorResults),
-    [results, comparatorResults],
-  );
-
   const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
-
-  const caseTypeLabel = useMemo(
-    () => deriveCaseType(presetMode, inputs),
-    [presetMode, inputs],
-  );
-
-  const presetDescription = getPresetDescription(presetMode);
 
   const handleExportReport = async () => {
     try {
@@ -1209,21 +840,11 @@ export default function ClearPathApp() {
 
   const updateInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => {
     setInputs((prev) => ({ ...prev, [key]: value }));
-    setPresetMode("Custom");
-  };
-
-  const applyPreset = (preset: Exclude<ScenarioPreset, "Custom">) => {
-    const patch = getPresetPatch(preset);
-    setInputs((prev) => ({ ...prev, ...patch }));
-    setPresetMode(preset);
   };
 
   const resetToBaseCase = () => {
     setInputs({ ...DEFAULT_INPUTS });
-    setPresetMode("Base case");
-    setComparatorMode(COMPARATOR_OPTIONS[0]);
     setShowAdvancedMobile(false);
-    setShowComparatorDesktop(false);
     setOpenSections({
       "advanced-pathway": false,
       "advanced-costs": false,
@@ -1274,7 +895,6 @@ export default function ClearPathApp() {
   const interpretationPanel = (
     <div className="grid gap-3 lg:grid-cols-4">
       <MiniInsight label="Overall signal" value={overallSignal} />
-      <MiniInsight label="Current case type" value={caseTypeLabel} />
       <MiniInsight
         label="Main dependency"
         value={structuredRecommendation.main_dependency}
@@ -1282,6 +902,10 @@ export default function ClearPathApp() {
       <MiniInsight
         label="Main fragility"
         value={structuredRecommendation.main_fragility}
+      />
+      <MiniInsight
+        label="Next best step"
+        value={structuredRecommendation.best_next_step}
       />
     </div>
   );
@@ -1307,48 +931,8 @@ export default function ClearPathApp() {
     </div>
   );
 
-  const quickAssumptionNotice = (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
-      Use a starting template first, then fine-tune burden, shift, reach, and delivery assumptions.
-    </div>
-  );
-
-  const presetControl = (
-    <div className={SUBCARD}>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,320px)_1fr] xl:items-end">
-        <SelectInput
-          label="Starting template"
-          value={presetMode}
-          options={SCENARIO_PRESET_OPTIONS}
-          onChange={(value) => {
-            if (value === "Custom") return;
-            applyPreset(value);
-          }}
-          help="Applies a coherent starting setup without resetting the full app."
-        />
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Template summary
-          </p>
-          <p className="mt-2 text-sm leading-6 text-slate-700">
-            <span className="font-medium text-slate-900">{presetMode}:</span>{" "}
-            {presetDescription}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-
   const assumptionsQuick = (
     <div className="grid gap-4 lg:gap-3 xl:grid-cols-2">
-      <SelectInput
-        label="Targeting mode"
-        value={inputs.targeting_mode}
-        options={TARGETING_MODE_OPTIONS as readonly TargetingMode[]}
-        onChange={(value) => updateInput("targeting_mode", value)}
-        help="Changes concentration of later diagnosis and achievable shift."
-      />
-
       <NumberInput
         label="Annual incident cases"
         value={inputs.annual_incident_cases}
@@ -1617,7 +1201,10 @@ export default function ClearPathApp() {
           <AssumptionReviewCard
             key={key}
             label={meta.label}
-            value={formatAssumptionValue(meta.formatter, rawValue as string | number)}
+            value={formatAssumptionValue(
+              meta.formatter,
+              rawValue as string | number,
+            )}
             note={`${meta.source_type} · ${meta.confidence}`}
           />
         );
@@ -1632,7 +1219,9 @@ export default function ClearPathApp() {
           key={String(driver.parameter_key)}
           label={`Driver ${index + 1}`}
           value={driver.parameter_label}
-          note={`Largest ICER swing: ${formatSignedCurrency(driver.max_abs_icer_change)}`}
+          note={`Largest ICER swing: ${formatSignedCurrency(
+            driver.max_abs_icer_change,
+          )}`}
         />
       ))}
     </div>
@@ -1687,7 +1276,8 @@ export default function ClearPathApp() {
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 md:text-base">
           Explore how earlier diagnosis might reduce emergency pathway pressure,
-          admissions, bed use, and economic burden under different assumptions.
+          admissions, bed use, and economic burden under a consistent set of
+          assumptions.
         </p>
       </div>
 
@@ -1848,7 +1438,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Starting template first, then core assumptions and advanced settings."
+            description="Adjust the core assumptions first, then use advanced sections for pathway, cost, and outcome detail."
             action={
               <button
                 type="button"
@@ -1862,13 +1452,13 @@ export default function ClearPathApp() {
             dense
           >
             <div className="space-y-4">
-              {presetControl}
-
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
-                  Quick assumptions
+                  Core assumptions
                 </p>
-                {quickAssumptionNotice}
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
+                  Start with burden, shift, reach, delivery cost, and time horizon.
+                </div>
                 <div className="mt-4">{assumptionsQuick}</div>
               </div>
 
@@ -1901,7 +1491,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
+            description="Review the recommendation readout, uncertainty, sensitivity, and assumption review."
             dense
           >
             <div className="space-y-5">
@@ -1910,7 +1500,8 @@ export default function ClearPathApp() {
                   <div>
                     <h3 className={SECTION_KICKER}>Report export</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-700">
-                      Export a structured summary of the current assumptions, results, and interpretation.
+                      Export a structured summary of the current assumptions,
+                      results, and interpretation.
                     </p>
                   </div>
                   <button
@@ -1926,7 +1517,6 @@ export default function ClearPathApp() {
               </div>
 
               <div className="grid grid-cols-1 gap-3">
-                <MetricCard label="Current case type" value={caseTypeLabel} />
                 <MetricCard
                   label="Admissions avoided"
                   value={formatNumber(results.admissions_avoided_total)}
@@ -1962,35 +1552,28 @@ export default function ClearPathApp() {
                 <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-                <div className="mt-4">
-                  <SelectInput
-                    label="Compare current selection with"
-                    value={comparatorMode}
-                    options={COMPARATOR_OPTIONS}
-                    onChange={(value) => setComparatorMode(value)}
-                  />
-                </div>
-
-                <div className="mt-4 grid gap-3">
-                  {comparatorDeltas.slice(0, 3).map((row) => (
-                    <AssumptionReviewCard
-                      key={row.label}
-                      label={row.label}
-                      value={
-                        row.isCurrency
-                          ? formatSignedCurrency(row.delta)
-                          : formatNumber(row.delta)
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-
               <MobileAccordion title="Assumption review">
                 {assumptionsReview}
               </MobileAccordion>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <MiniInsight label="Overall summary" value={overviewSummary} />
+                  <MiniInsight
+                    label="Uncertainty readout"
+                    value={uncertaintyRobustness}
+                  />
+                  <MiniInsight
+                    label="Interpretation summary"
+                    value={interpretation.what_model_suggests}
+                  />
+                  <MiniInsight
+                    label="Confidence summary"
+                    value={confidenceSummary.summary_text}
+                  />
+                </div>
+              </div>
             </div>
           </SectionCard>
         </div>
@@ -2022,7 +1605,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "assumptions" && "hidden")}>
           <SectionCard
             title="Assumptions"
-            description="Starting template first, then core assumptions and advanced settings."
+            description="Adjust the core assumptions first, then use advanced sections for pathway, cost, and outcome detail."
             action={
               <button
                 type="button"
@@ -2036,13 +1619,13 @@ export default function ClearPathApp() {
             dense
           >
             <div className="space-y-4">
-              {presetControl}
-
               <div className={SUBCARD}>
                 <p className="mb-3 text-sm font-semibold text-slate-900">
-                  Quick assumptions
+                  Core assumptions
                 </p>
-                {quickAssumptionNotice}
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-600">
+                  Start with burden, shift, reach, delivery cost, and time horizon.
+                </div>
                 <div className="mt-4">{assumptionsQuick}</div>
               </div>
 
@@ -2059,7 +1642,7 @@ export default function ClearPathApp() {
         <div className={cx(mobileTab !== "analysis" && "hidden")}>
           <SectionCard
             title="Analysis"
-            description="Review the current case, recommendation readout, comparator snapshot, and the next checks."
+            description="Review the recommendation readout, uncertainty, sensitivity, and assumption review."
             dense
           >
             <div className="space-y-5">
@@ -2068,7 +1651,8 @@ export default function ClearPathApp() {
                   <div>
                     <h3 className={SECTION_KICKER}>Report export</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-700">
-                      Export a structured summary of the current assumptions, results, and interpretation.
+                      Export a structured summary of the current assumptions,
+                      results, and interpretation.
                     </p>
                   </div>
                   <button
@@ -2083,8 +1667,7 @@ export default function ClearPathApp() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                <MetricCard label="Current case type" value={caseTypeLabel} />
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
                 <MetricCard
                   label="Admissions avoided"
                   value={formatNumber(results.admissions_avoided_total)}
@@ -2120,76 +1703,9 @@ export default function ClearPathApp() {
                 <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Comparator snapshot</h3>
-
-                <div className="mt-4">
-                  <SelectInput
-                    label="Compare current selection with"
-                    value={comparatorMode}
-                    options={COMPARATOR_OPTIONS}
-                    onChange={(value) => setComparatorMode(value)}
-                  />
-                </div>
-
-                <div className="mt-4 grid gap-3 xl:grid-cols-4">
-                  {comparatorDeltas.map((row) => (
-                    <AssumptionReviewCard
-                      key={row.label}
-                      label={row.label}
-                      value={
-                        row.isCurrency
-                          ? formatSignedCurrency(row.delta)
-                          : formatNumber(row.delta)
-                      }
-                    />
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowComparatorDesktop((v) => !v)}
-                  className="mt-4 flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left"
-                  aria-expanded={showComparatorDesktop}
-                >
-                  <span className="text-sm font-medium text-slate-900">
-                    Show comparator chart
-                  </span>
-                  <ChevronDown
-                    className={cx(
-                      "h-4 w-4 text-slate-500 transition-transform",
-                      showComparatorDesktop && "rotate-180",
-                    )}
-                  />
-                </button>
-
-                {showComparatorDesktop ? (
-                  <div className="mt-4">
-                    <ComparatorDeltaChart
-                      baseResults={results}
-                      comparatorResults={comparatorResults}
-                      comparatorLabel={comparatorMode}
-                    />
-                  </div>
-                ) : null}
-              </div>
-
               <div>
                 <h3 className={SECTION_KICKER}>Assumption review</h3>
                 <div className="mt-3">{assumptionsReview}</div>
-              </div>
-
-              <div className={SUBCARD}>
-                <h3 className={SECTION_KICKER}>Scenario comparison</h3>
-                <div className="mt-3 grid gap-4 xl:grid-cols-2">
-                  <ScenarioNetCostChart scenarioRows={scenarioRows} />
-                  <ScenarioOutcomeChart scenarioRows={scenarioRows} />
-                </div>
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm leading-6 text-slate-700">
-                    {scenarioStrengths}
-                  </p>
-                </div>
               </div>
 
               <div className={SUBCARD}>
