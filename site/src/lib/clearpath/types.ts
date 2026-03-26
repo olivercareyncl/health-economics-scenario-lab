@@ -1,20 +1,7 @@
-export type TargetingMode =
-  | "Broad population"
-  | "Higher-risk targeting"
-  | "Tighter high-risk targeting";
-
 export type CostingMethod =
   | "Treatment cost difference only"
   | "Emergency/admission savings only"
   | "Combined illustrative view";
-
-export type ComparatorOption =
-  | "Higher-risk targeting"
-  | "Tighter high-risk targeting"
-  | "Modest shift"
-  | "Stronger shift"
-  | "Lower-cost delivery"
-  | "Targeted and stronger shift";
 
 export type MobileTab = "summary" | "assumptions" | "analysis";
 
@@ -44,17 +31,9 @@ export type Inputs = {
   qaly_gain_per_case_shifted: number;
   effect_decay_rate: number;
   participation_dropoff_rate: number;
-  targeting_mode: TargetingMode;
 };
 
-export type TargetingAdjustment = {
-  population_multiplier: number;
-  late_rate_multiplier: number;
-  reach_multiplier: number;
-  shift_multiplier: number;
-};
-
-export type AdjustedTargetingValues = {
+export type AdjustedModelValues = {
   adjusted_incident_cases: number;
   adjusted_late_diagnosis_rate: number;
   adjusted_reach_rate: number;
@@ -82,12 +61,8 @@ export type YearlyResultRow = {
   cumulative_net_cost: number;
 };
 
-export type ModelResults = {
+export type ModelResults = AdjustedModelValues & {
   cases_reached_year_1: number;
-  adjusted_incident_cases: number;
-  adjusted_late_diagnosis_rate: number;
-  adjusted_reach_rate: number;
-  adjusted_reduction: number;
   cases_shifted_total: number;
   emergency_presentations_avoided_total: number;
   admissions_avoided_total: number;
@@ -123,23 +98,6 @@ export type Interpretation = {
   what_looks_fragile: string;
   what_to_validate_next: string;
   limitations: string;
-};
-
-export type ScenarioComparisonRow = {
-  scenario: string;
-  targeting: string;
-  cases_shifted_earlier: number;
-  emergency_presentations_avoided: number;
-  programme_cost: number;
-  discounted_net_cost: number;
-  discounted_cost_per_qaly: number;
-  decision_status: string;
-};
-
-export type ComparatorDeltaRow = {
-  label: string;
-  delta: number;
-  isCurrency: boolean;
 };
 
 export type ParameterSensitivityRow = {
