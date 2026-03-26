@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": 'attachment; filename="stableheart-report.pdf"',
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {
