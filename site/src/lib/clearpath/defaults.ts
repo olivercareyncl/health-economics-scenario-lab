@@ -21,5 +21,4 @@ export const DEFAULT_INPUTS: Inputs = {
   qaly_gain_per_case_shifted: 0.2,
   effect_decay_rate: 0.1,
   participation_dropoff_rate: 0.06,
-  targeting_mode: "Broad population",
 };
