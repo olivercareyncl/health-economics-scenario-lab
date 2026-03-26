@@ -17,6 +17,17 @@ export const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
   "participation_dropoff_rate",
 ];
 
+const RATE_VARIABLES = new Set<keyof Inputs>([
+  "current_late_diagnosis_rate",
+  "achievable_reduction_in_late_diagnosis",
+  "late_emergency_presentation_rate",
+  "early_emergency_presentation_rate",
+  "intervention_reach_rate",
+  "effect_decay_rate",
+  "participation_dropoff_rate",
+  "discount_rate",
+]);
+
 function applyVariation(
   value: number,
   variation: number,
@@ -51,29 +62,19 @@ function formatScenarioValue(value: number, isRate: boolean): string {
 
 export function runOneWaySensitivity(
   baseInputs: Inputs,
-  variables: Array<keyof Inputs>,
+  variables: Array<keyof Inputs> = SENSITIVITY_VARIABLES,
   variation = 0.2,
   outcomeKey: keyof ReturnType<typeof runModel> = "discounted_cost_per_qaly",
 ): ParameterSensitivityRow[] {
   const baseResults = runModel(baseInputs);
-  const baseIcer = Number(baseResults[outcomeKey]);
+  const baseOutcome = Number(baseResults[outcomeKey]);
 
   const rows: ParameterSensitivityRow[] = [];
 
   for (const variable of variables) {
     const meta = ASSUMPTION_META[variable];
     const baseValue = Number(baseInputs[variable]);
-
-    const isRate = new Set<keyof Inputs>([
-      "current_late_diagnosis_rate",
-      "achievable_reduction_in_late_diagnosis",
-      "late_emergency_presentation_rate",
-      "early_emergency_presentation_rate",
-      "intervention_reach_rate",
-      "effect_decay_rate",
-      "participation_dropoff_rate",
-      "discount_rate",
-    ]).has(variable);
+    const isRate = RATE_VARIABLES.has(variable);
 
     const [lowValue, highValue] = applyVariation(baseValue, variation, isRate);
 
@@ -83,11 +84,11 @@ export function runOneWaySensitivity(
     const lowCaseResults = runModel(lowCaseInputs);
     const highCaseResults = runModel(highCaseInputs);
 
-    const lowIcer = Number(lowCaseResults[outcomeKey]);
-    const highIcer = Number(highCaseResults[outcomeKey]);
+    const lowOutcome = Number(lowCaseResults[outcomeKey]);
+    const highOutcome = Number(highCaseResults[outcomeKey]);
 
-    const lowDelta = lowIcer - baseIcer;
-    const highDelta = highIcer - baseIcer;
+    const lowDelta = lowOutcome - baseOutcome;
+    const highDelta = highOutcome - baseOutcome;
 
     rows.push({
       parameter_key: variable,
@@ -97,9 +98,9 @@ export function runOneWaySensitivity(
       high_value: highValue,
       low_value_label: formatScenarioValue(lowValue, isRate),
       high_value_label: formatScenarioValue(highValue, isRate),
-      base_icer: baseIcer,
-      low_icer: lowIcer,
-      high_icer: highIcer,
+      base_icer: baseOutcome,
+      low_icer: lowOutcome,
+      high_icer: highOutcome,
       low_delta: lowDelta,
       high_delta: highDelta,
       max_abs_icer_change: Math.max(Math.abs(lowDelta), Math.abs(highDelta)),
