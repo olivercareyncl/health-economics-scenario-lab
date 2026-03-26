@@ -535,7 +535,7 @@ export function buildSafeStepReportData({
   const overallSignal = getSignalLabel(decisionStatus);
   const fallbackMainDriver = getMainDriverText(inputs);
 
-  const sensitivityRows = oneWaySensitivity?.rows;
+  const sensitivityRows = oneWaySensitivity.rows;
   const topSensitivityDrivers = buildTopSensitivityDrivers(sensitivityRows);
 
   const fragilityText = buildFragilityText(
