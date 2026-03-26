@@ -94,15 +94,6 @@ export type UncertaintyRow = {
   decision_status: string;
 };
 
-export type AssumptionMeta = {
-  label: string;
-  unit: string;
-  formatter: (value: string | number) => string;
-  description: string;
-  source_type: string;
-  confidence: "High confidence" | "Medium confidence" | "Low confidence";
-};
-
 export type SensitivityRow = {
   variable: string;
   label: string;
@@ -121,4 +112,13 @@ export type SensitivitySummary = {
   rows: SensitivityRow[];
   primary_driver: SensitivityRow | null;
   top_drivers: SensitivityRow[];
+};
+
+export type AssumptionMeta = {
+  label: string;
+  unit: string;
+  formatter: (value: string | number) => string;
+  description: string;
+  source_type: string;
+  confidence: "High confidence" | "Medium confidence" | "Low confidence";
 };
