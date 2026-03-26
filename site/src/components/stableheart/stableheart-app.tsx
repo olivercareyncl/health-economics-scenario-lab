@@ -44,7 +44,11 @@ import {
   formatPercent,
   formatRatio,
 } from "@/lib/stableheart/formatters";
-import { ASSUMPTION_META, ASSUMPTION_ORDER } from "@/lib/stableheart/metadata";
+import {
+  ASSUMPTION_META,
+  ASSUMPTION_ORDER,
+  getAssumptionConfidenceSummary,
+} from "@/lib/stableheart/metadata";
 import {
   COMPARATOR_OPTIONS,
   COSTING_METHOD_OPTIONS,
@@ -53,6 +57,7 @@ import {
 import {
   generateInterpretation,
   getDecisionStatus,
+  getMainDriverText,
   getNetCostLabel,
 } from "@/lib/stableheart/summaries";
 import type {
@@ -96,13 +101,14 @@ function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function formatSignedCurrency(value: number) {
+  const formatted = formatCurrency(Math.abs(value));
+  return value < 0 ? `-${formatted}` : formatted;
+}
+
 function getPresetPatch(
   preset: Exclude<PresetKey, "Edited setup">,
 ): Partial<Inputs> {
-  const higherRiskTarget = (TARGETING_MODE_OPTIONS[2] ??
-    TARGETING_MODE_OPTIONS[1] ??
-    TARGETING_MODE_OPTIONS[0]) as TargetingMode;
-
   switch (preset) {
     case "Default":
       return { ...DEFAULT_INPUTS };
@@ -128,7 +134,7 @@ function getPresetPatch(
         annual_participation_dropoff_rate:
           DEFAULT_INPUTS.annual_participation_dropoff_rate,
       };
-    
+
     case "Stronger effect":
       return {
         risk_reduction_in_recurrent_events: 0.24,
@@ -154,71 +160,6 @@ function getPresetDescription(preset: PresetKey) {
   }
 }
 
-function buildRecommendationSummary(
-  inputs: Inputs,
-  results: ModelResults,
-  uncertaintyRows: UncertaintyRow[],
-  preset: PresetKey,
-  sensitivity: SensitivitySummary,
-) {
-  const interpretation = generateInterpretation(results, inputs, uncertaintyRows);
-  const decisionStatus = getDecisionStatus(
-    results,
-    inputs.cost_effectiveness_threshold,
-  );
-  const baseRow = uncertaintyRows.find((row) => row.case === "Base");
-  const lowRow = uncertaintyRows.find((row) => row.case === "Low");
-  const highRow = uncertaintyRows.find((row) => row.case === "High");
-  const topDrivers = sensitivity.top_drivers;
-
-  const currentCaseSuggests =
-    decisionStatus === "Appears cost-saving"
-      ? "The current setup suggests avoided recurrent events with a net saving signal."
-      : decisionStatus === "Appears cost-effective"
-        ? "The current setup suggests a plausible value case at the present threshold."
-        : "The current setup suggests operational benefit, but the economic case remains above threshold.";
-
-  const drivingResult =
-    topDrivers.length > 0
-      ? `The result is mainly being driven by ${topDrivers
-          .slice(0, 3)
-          .map((driver) => driver.parameter_label.toLowerCase())
-          .join(", ")}.`
-      : "The result is mainly being shaped by the core event-rate, effect, and delivery assumptions.";
-
-  const fragilePoint =
-    lowRow && highRow && lowRow.decision_status !== highRow.decision_status
-      ? topDrivers.length > 0
-        ? `The bounded range crosses decision categories, and one-way sensitivity suggests the case is particularly exposed to ${topDrivers[0].parameter_label.toLowerCase()}.`
-        : "The bounded range crosses decision categories, so moderate assumption shifts could change the conclusion."
-      : interpretation.what_looks_fragile;
-
-  const validateNext =
-    baseRow &&
-    baseRow.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
-      ? topDrivers.length > 0
-        ? `Validate local ${topDrivers[0].parameter_label.toLowerCase()}${
-            topDrivers[1]
-              ? ` and ${topDrivers[1].parameter_label.toLowerCase()}`
-              : ""
-          } before treating the case as decision-ready.`
-        : "Validate baseline recurrent event risk, achievable engagement, and real delivery cost before treating the case as decision-ready."
-      : interpretation.what_to_validate_next;
-
-  const recommendationLine =
-    preset === "Edited setup"
-      ? "This is currently an edited setup. Use the starting templates to benchmark whether your assumptions are unusually strict or favourable."
-      : `This setup started from the ${preset.toLowerCase()} template. Adjust the assumptions to reflect your local intervention design.`;
-
-  return {
-    current_case_suggests: currentCaseSuggests,
-    driving_result: drivingResult,
-    fragile_point: fragilePoint,
-    validate_next: validateNext,
-    recommendation_line: recommendationLine,
-  };
-}
-
 function CurrencyTooltip({
   active,
   payload,
@@ -237,7 +178,7 @@ function CurrencyTooltip({
         {payload.map((item, index) => (
           <p key={`${item.name}-${index}`} className="text-sm text-slate-600">
             <span className="font-medium text-slate-800">{item.name}:</span>{" "}
-            {formatCurrency(item.value ?? 0)}
+            {formatSignedCurrency(item.value ?? 0)}
           </p>
         ))}
       </div>
@@ -271,7 +212,286 @@ function NumberTooltip({
   );
 }
 
-function EventsByYearChart({ yearlyResults }: { yearlyResults: YearlyResultRow[] }) {
+function SectionCard({
+  title,
+  description,
+  action,
+  children,
+  dense = false,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+  dense?: boolean;
+}) {
+  return (
+    <section
+      className={cx(
+        PANEL_SHELL,
+        dense ? "p-4 lg:p-5" : "p-4 sm:p-5 lg:p-5 xl:p-6",
+      )}
+    >
+      <div className="mb-4 flex flex-col gap-3 lg:mb-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold tracking-tight text-slate-950 lg:text-lg">
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0 self-start">{action}</div> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "strong";
+}) {
+  return (
+    <div className={SUBCARD_DENSE}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </p>
+      <p
+        className={cx(
+          "mt-1.5 tracking-tight text-slate-950",
+          tone === "strong"
+            ? "text-2xl font-semibold lg:text-[1.7rem]"
+            : "text-lg font-semibold lg:text-xl",
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function MiniInsight({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={SUBCARD_DENSE}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
+    </div>
+  );
+}
+
+function AssumptionReviewCard({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+}) {
+  return (
+    <div className={SUBCARD_DENSE}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1.5 text-sm font-semibold text-slate-900">{value}</p>
+      {note ? (
+        <p className="mt-1.5 text-sm leading-6 text-slate-600">{note}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function MobileTabButton({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cx(
+        "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition",
+        active
+          ? "bg-slate-900 text-white"
+          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+      )}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function MobileAccordion({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-sm font-medium text-slate-900">{title}</span>
+        <ChevronDown
+          className={cx(
+            "h-4 w-4 text-slate-500 transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
+    </div>
+  );
+}
+
+function NumberInput({
+  label,
+  value,
+  onChange,
+  min = 0,
+  step = 1,
+  help,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  step?: number;
+  help?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-slate-700">
+        {label}
+      </span>
+      <input
+        type="number"
+        min={min}
+        step={step}
+        value={Number.isFinite(value) ? value : 0}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+      />
+      {help ? (
+        <span className="mt-1.5 block text-xs leading-5 text-slate-500">
+          {help}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function SliderInput({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  display,
+  help,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  help?: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-4">
+        <label className="text-sm font-medium text-slate-700">{label}</label>
+        <span className="text-sm font-semibold text-slate-900">{display}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full"
+      />
+      {help ? (
+        <p className="mt-1.5 text-xs leading-5 text-slate-500">{help}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function SelectInput<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  help,
+}: {
+  label: string;
+  value: T;
+  options: readonly T[];
+  onChange: (value: T) => void;
+  help?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium text-slate-700">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      {help ? (
+        <span className="mt-1.5 block text-xs leading-5 text-slate-500">
+          {help}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function EventsByYearChart({
+  yearlyResults,
+}: {
+  yearlyResults: YearlyResultRow[];
+}) {
   const data = buildEventsByYearChartData(yearlyResults);
 
   return (
@@ -298,7 +518,11 @@ function EventsByYearChart({ yearlyResults }: { yearlyResults: YearlyResultRow[]
               width={56}
             />
             <Tooltip content={<NumberTooltip />} />
-            <Bar dataKey="eventsAvoided" name="Events avoided" radius={[8, 8, 0, 0]} />
+            <Bar
+              dataKey="eventsAvoided"
+              name="Events avoided"
+              radius={[8, 8, 0, 0]}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -306,7 +530,11 @@ function EventsByYearChart({ yearlyResults }: { yearlyResults: YearlyResultRow[]
   );
 }
 
-function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[] }) {
+function CostVsSavingsChart({
+  yearlyResults,
+}: {
+  yearlyResults: YearlyResultRow[];
+}) {
   const data = buildCumulativeCostChartData(yearlyResults);
 
   return (
@@ -339,7 +567,7 @@ function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[
               dataKey="programmeCost"
               name="Programme cost"
               stroke="#0f172a"
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
             />
             <Line
@@ -347,7 +575,7 @@ function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[
               dataKey="grossSavings"
               name="Gross savings"
               stroke="#c2410c"
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
             />
           </LineChart>
@@ -359,20 +587,19 @@ function CostVsSavingsChart({ yearlyResults }: { yearlyResults: YearlyResultRow[
 
 function ImpactChart({ results }: { results: ModelResults }) {
   const rawData = buildEventsChartData(results);
-  const data = rawData
-    .filter((item) => item.label !== "Patients reached")
-    .map((item) => {
-      if (item.label === "Events avoided") {
-        return { ...item, shortLabel: "Events" };
-      }
-      if (item.label === "Admissions avoided") {
-        return { ...item, shortLabel: "Adm." };
-      }
-      if (item.label === "Bed days avoided") {
-        return { ...item, shortLabel: "Bed days" };
-      }
-      return { ...item, shortLabel: item.label };
-    });
+  const data = rawData.map((item) => ({
+    ...item,
+    shortLabel:
+      item.label === "Events avoided"
+        ? "Events"
+        : item.label === "Admissions avoided"
+          ? "Admissions"
+          : item.label === "Bed days avoided"
+            ? "Bed days"
+            : item.label === "Patients reached"
+              ? "Patients"
+              : item.label,
+  }));
 
   return (
     <div className={SUBCARD}>
@@ -531,7 +758,7 @@ function TornadoSensitivityChart({
               tickLine={false}
               axisLine={false}
               fontSize={12}
-              width={170}
+              width={190}
             />
             <Tooltip
               formatter={(
@@ -552,7 +779,7 @@ function TornadoSensitivityChart({
                     ? `Low case (${entry.payload?.lowValueLabel ?? "—"})`
                     : `High case (${entry.payload?.highValueLabel ?? "—"})`;
 
-                return [formatCurrency(scenarioIcer), label];
+                return [formatSignedCurrency(scenarioIcer), label];
               }}
               labelFormatter={(label) => String(label)}
             />
@@ -566,13 +793,13 @@ function TornadoSensitivityChart({
             <Bar
               dataKey="lowDelta"
               name="lowDelta"
-              fill="#0f172a"
+              fill="#94a3b8"
               radius={[0, 6, 6, 0]}
             />
             <Bar
               dataKey="highDelta"
               name="highDelta"
-              fill="#94a3b8"
+              fill="#0f172a"
               radius={[0, 6, 6, 0]}
             />
           </BarChart>
@@ -582,266 +809,21 @@ function TornadoSensitivityChart({
   );
 }
 
-function MobileAccordion({
-  title,
-  defaultOpen = false,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
-        aria-expanded={open}
-      >
-        <span className="text-sm font-medium text-slate-900">{title}</span>
-        <ChevronDown
-          className={cx("h-4 w-4 text-slate-500 transition-transform", open && "rotate-180")}
-        />
-      </button>
-
-      {open ? <div className="border-t border-slate-200 p-4">{children}</div> : null}
-    </div>
-  );
-}
-
-function SectionCard({
-  title,
-  description,
-  action,
-  children,
-  dense = false,
-}: {
-  title: string;
-  description?: string;
-  action?: ReactNode;
-  children: ReactNode;
-  dense?: boolean;
-}) {
-  return (
-    <section className={cx(PANEL_SHELL, dense ? "p-4 lg:p-5" : "p-4 sm:p-5 lg:p-5 xl:p-6")}>
-      <div className="mb-4 flex flex-col gap-3 lg:mb-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold tracking-tight text-slate-950 lg:text-lg">
-            {title}
-          </h2>
-          {description ? (
-            <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>
-          ) : null}
-        </div>
-        {action ? <div className="shrink-0 self-start">{action}</div> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "strong";
-}) {
-  return (
-    <div className={SUBCARD_DENSE}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        {label}
-      </p>
-      <p
-        className={cx(
-          "mt-1.5 tracking-tight text-slate-950",
-          tone === "strong"
-            ? "text-2xl font-semibold lg:text-[1.7rem]"
-            : "text-lg font-semibold lg:text-xl",
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function MiniInsight({ label, value }: { label: string; value: string }) {
-  return (
-    <div className={SUBCARD_DENSE}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-sm leading-6 text-slate-700">{value}</p>
-    </div>
-  );
-}
-
-function MobileTabButton({
-  active,
-  onClick,
-  icon,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cx(
-        "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition",
-        active
-          ? "bg-slate-900 text-white"
-          : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
-      )}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
-
-function NumberInput({
-  label,
-  value,
-  onChange,
-  min = 0,
-  step = 1,
-  help,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  step?: number;
-  help?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>
-      <input
-        type="number"
-        min={min}
-        step={step}
-        value={Number.isFinite(value) ? value : 0}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
-      />
-      {help ? <span className="mt-1.5 block text-xs leading-5 text-slate-500">{help}</span> : null}
-    </label>
-  );
-}
-
-function SliderInput({
-  label,
-  value,
-  onChange,
-  min,
-  max,
-  step,
-  display,
-  help,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min: number;
-  max: number;
-  step: number;
-  display: string;
-  help?: string;
-}) {
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between gap-4">
-        <label className="text-sm font-medium text-slate-700">{label}</label>
-        <span className="text-sm font-semibold text-slate-900">{display}</span>
-      </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full"
-      />
-      {help ? <p className="mt-1.5 text-xs leading-5 text-slate-500">{help}</p> : null}
-    </div>
-  );
-}
-
-function SelectInput<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  help,
-}: {
-  label: string;
-  value: T;
-  options: readonly T[];
-  onChange: (value: T) => void;
-  help?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-500"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-      {help ? <span className="mt-1.5 block text-xs leading-5 text-slate-500">{help}</span> : null}
-    </label>
-  );
-}
-
-function AssumptionReviewCard({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note?: string;
-}) {
-  return (
-    <div className={SUBCARD_DENSE}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-1.5 text-sm font-semibold text-slate-900">{value}</p>
-      {note ? <p className="mt-1.5 text-sm leading-6 text-slate-600">{note}</p> : null}
-    </div>
-  );
-}
-
 export default function StableHeartApp() {
   const [inputs, setInputs] = useState<Inputs>(DEFAULT_INPUTS);
   const [mobileTab, setMobileTab] = useState<MobileTab>("summary");
   const [showAdvancedMobile, setShowAdvancedMobile] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<AssumptionSectionKey, boolean>>({
+  const [isExporting, setIsExporting] = useState(false);
+  const [openSections, setOpenSections] = useState<
+    Record<AssumptionSectionKey, boolean>
+  >({
     "advanced-baseline": false,
     "advanced-costs": false,
     "advanced-outcomes": false,
   });
-  const [comparatorMode, setComparatorMode] = useState<ComparatorOption>("Lower-cost delivery");
+  const [comparatorMode, setComparatorMode] = useState<ComparatorOption>(
+    "Lower-cost delivery",
+  );
   const [selectedPreset, setSelectedPreset] = useState<PresetKey>("Default");
 
   const results = useMemo(() => runModel(inputs), [inputs]);
@@ -849,7 +831,11 @@ export default function StableHeartApp() {
   const sensitivity = useMemo(() => runParameterSensitivity(inputs), [inputs]);
 
   const comparatorResults = useMemo(() => {
-    const comparatorInputs = buildComparatorCase(DEFAULT_INPUTS, inputs, comparatorMode);
+    const comparatorInputs = buildComparatorCase(
+      DEFAULT_INPUTS,
+      inputs,
+      comparatorMode,
+    );
     return runModel(comparatorInputs);
   }, [inputs, comparatorMode]);
 
@@ -861,27 +847,21 @@ export default function StableHeartApp() {
   const netCostLabel = useMemo(() => getNetCostLabel(results), [results]);
 
   const interpretation = useMemo(
-    () => generateInterpretation(results, inputs, uncertainty),
-    [results, inputs, uncertainty],
+    () => generateInterpretation(results, inputs, uncertainty, sensitivity),
+    [results, inputs, uncertainty, sensitivity],
   );
 
-  const recommendationSummary = useMemo(
-    () =>
-      buildRecommendationSummary(
-        inputs,
-        results,
-        uncertainty,
-        selectedPreset,
-        sensitivity,
-      ),
-    [inputs, results, uncertainty, selectedPreset, sensitivity],
-  );
+  const confidenceSummary = useMemo(() => getAssumptionConfidenceSummary(), []);
 
-  const primaryDriver = sensitivity.primary_driver;
-  const topDrivers = sensitivity.top_drivers;
+  const mainDriverText = useMemo(
+    () => getMainDriverText(inputs, sensitivity),
+    [inputs, sensitivity],
+  );
 
   const handleExportReport = async () => {
     try {
+      setIsExporting(true);
+
       const response = await fetch("/api/export/stableheart", {
         method: "POST",
         headers: {
@@ -905,6 +885,9 @@ export default function StableHeartApp() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("StableHeart export failed:", error);
+      alert("Failed to export report.");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -937,8 +920,14 @@ export default function StableHeartApp() {
 
   const summaryMetrics = (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <MetricCard label="Events avoided" value={formatNumber(results.events_avoided_total)} />
-      <MetricCard label="Admissions avoided" value={formatNumber(results.admissions_avoided_total)} />
+      <MetricCard
+        label="Events avoided"
+        value={formatNumber(results.events_avoided_total)}
+      />
+      <MetricCard
+        label="Admissions avoided"
+        value={formatNumber(results.admissions_avoided_total)}
+      />
       <MetricCard
         label={netCostLabel}
         value={formatCurrency(Math.abs(results.discounted_net_cost_total))}
@@ -951,18 +940,42 @@ export default function StableHeartApp() {
     </div>
   );
 
-  const interpretationPanel = (
-    <div className="grid gap-3 lg:grid-cols-3">
-      <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
-      <MiniInsight
-        label="Main driver"
-        value={
-          primaryDriver
-            ? `The result is currently most shaped by ${primaryDriver.parameter_label.toLowerCase()}.`
-            : interpretation.where_value_is_coming_from
-        }
+  const thresholdMetrics = (
+    <div className="grid gap-3 xl:grid-cols-4">
+      <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+      <MetricCard
+        label="Break-even cost per patient"
+        value={formatCurrency(results.break_even_cost_per_patient)}
       />
-      <MiniInsight label="Fragility" value={recommendationSummary.fragile_point} />
+      <MetricCard
+        label="Required risk reduction"
+        value={formatPercent(results.break_even_risk_reduction_required)}
+      />
+      <MetricCard
+        label="Required baseline event rate"
+        value={formatPercent(results.break_even_baseline_event_rate_required)}
+      />
+    </div>
+  );
+
+  const interpretationPanel = (
+    <div className="grid gap-3 lg:grid-cols-4">
+      <MiniInsight label="What this suggests" value={interpretation.what_model_suggests} />
+      <MiniInsight label="Main driver" value={mainDriverText} />
+      <MiniInsight
+        label="Where value comes from"
+        value={interpretation.where_value_is_coming_from}
+      />
+      <MiniInsight label="What looks fragile" value={interpretation.what_looks_fragile} />
+    </div>
+  );
+
+  const recommendationPanel = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <MiniInsight label="Conclusion" value={interpretation.what_model_suggests} />
+      <MiniInsight label="What drives it" value={interpretation.what_drives_result} />
+      <MiniInsight label="Fragility" value={interpretation.what_looks_fragile} />
+      <MiniInsight label="Validate next" value={interpretation.what_to_validate_next} />
     </div>
   );
 
@@ -974,10 +987,9 @@ export default function StableHeartApp() {
 
   const presetControl = (
     <div className={SUBCARD}>
-      <p className="mb-3 text-sm font-semibold text-slate-900">Starting template</p>
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,320px)_1fr] xl:items-end">
         <SelectInput<PresetKey>
-          label="Template"
+          label="Starting template"
           value={selectedPreset}
           options={PRESET_OPTIONS}
           onChange={(value) => {
@@ -986,11 +998,15 @@ export default function StableHeartApp() {
           }}
           help="Choose a starting template, then adjust inputs to reflect your local intervention design."
         />
-        <AssumptionReviewCard
-          label="Current setup"
-          value={selectedPreset}
-          note={getPresetDescription(selectedPreset)}
-        />
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Template summary
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            <span className="font-medium text-slate-900">{selectedPreset}:</span>{" "}
+            {getPresetDescription(selectedPreset)}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -1038,7 +1054,9 @@ export default function StableHeartApp() {
       <SliderInput
         label="Risk reduction in recurrent events"
         value={inputs.risk_reduction_in_recurrent_events}
-        onChange={(value) => updateInput("risk_reduction_in_recurrent_events", value)}
+        onChange={(value) =>
+          updateInput("risk_reduction_in_recurrent_events", value)
+        }
         min={0}
         max={0.7}
         step={0.01}
@@ -1049,7 +1067,9 @@ export default function StableHeartApp() {
       <NumberInput
         label="Intervention cost per patient"
         value={inputs.intervention_cost_per_patient_reached}
-        onChange={(value) => updateInput("intervention_cost_per_patient_reached", value)}
+        onChange={(value) =>
+          updateInput("intervention_cost_per_patient_reached", value)
+        }
         step={10}
         help="Main implementation cost lever."
       />
@@ -1059,7 +1079,9 @@ export default function StableHeartApp() {
           label="Time horizon"
           value={String(inputs.time_horizon_years) as "1" | "3" | "5"}
           options={["1", "3", "5"]}
-          onChange={(value) => updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)}
+          onChange={(value) =>
+            updateInput("time_horizon_years", Number(value) as 1 | 3 | 5)
+          }
           help="Longer horizons often improve the case."
         />
       </div>
@@ -1075,7 +1097,9 @@ export default function StableHeartApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-baseline"]}
         >
-          <span className="text-sm font-medium text-slate-900">Baseline risk and pathway</span>
+          <span className="text-sm font-medium text-slate-900">
+            Baseline risk and pathway
+          </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1090,7 +1114,9 @@ export default function StableHeartApp() {
               <SliderInput
                 label="Baseline recurrent event rate"
                 value={inputs.baseline_recurrent_event_rate}
-                onChange={(value) => updateInput("baseline_recurrent_event_rate", value)}
+                onChange={(value) =>
+                  updateInput("baseline_recurrent_event_rate", value)
+                }
                 min={0}
                 max={1}
                 step={0.01}
@@ -1099,7 +1125,9 @@ export default function StableHeartApp() {
               <SliderInput
                 label="Admission probability per event"
                 value={inputs.admission_probability_per_event}
-                onChange={(value) => updateInput("admission_probability_per_event", value)}
+                onChange={(value) =>
+                  updateInput("admission_probability_per_event", value)
+                }
                 min={0}
                 max={1}
                 step={0.01}
@@ -1123,7 +1151,9 @@ export default function StableHeartApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-costs"]}
         >
-          <span className="text-sm font-medium text-slate-900">Cost inputs and threshold</span>
+          <span className="text-sm font-medium text-slate-900">
+            Cost inputs and threshold
+          </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1144,13 +1174,17 @@ export default function StableHeartApp() {
               <NumberInput
                 label="Threshold"
                 value={inputs.cost_effectiveness_threshold}
-                onChange={(value) => updateInput("cost_effectiveness_threshold", value)}
+                onChange={(value) =>
+                  updateInput("cost_effectiveness_threshold", value)
+                }
                 step={1000}
               />
               <NumberInput
                 label="Cost per cardiovascular event"
                 value={inputs.cost_per_cardiovascular_event}
-                onChange={(value) => updateInput("cost_per_cardiovascular_event", value)}
+                onChange={(value) =>
+                  updateInput("cost_per_cardiovascular_event", value)
+                }
                 step={50}
               />
               <NumberInput
@@ -1183,7 +1217,9 @@ export default function StableHeartApp() {
           className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left"
           aria-expanded={openSections["advanced-outcomes"]}
         >
-          <span className="text-sm font-medium text-slate-900">Persistence and outcomes</span>
+          <span className="text-sm font-medium text-slate-900">
+            Persistence and outcomes
+          </span>
           <ChevronDown
             className={cx(
               "h-4 w-4 text-slate-500 transition-transform",
@@ -1207,7 +1243,9 @@ export default function StableHeartApp() {
               <SliderInput
                 label="Annual participation drop-off"
                 value={inputs.annual_participation_dropoff_rate}
-                onChange={(value) => updateInput("annual_participation_dropoff_rate", value)}
+                onChange={(value) =>
+                  updateInput("annual_participation_dropoff_rate", value)
+                }
                 min={0}
                 max={0.5}
                 step={0.01}
@@ -1216,7 +1254,9 @@ export default function StableHeartApp() {
               <NumberInput
                 label="QALY gain per event avoided"
                 value={inputs.qaly_gain_per_event_avoided}
-                onChange={(value) => updateInput("qaly_gain_per_event_avoided", value)}
+                onChange={(value) =>
+                  updateInput("qaly_gain_per_event_avoided", value)
+                }
                 step={0.01}
               />
               <SelectInput
@@ -1238,12 +1278,13 @@ export default function StableHeartApp() {
       {ASSUMPTION_ORDER.map((key) => {
         const meta = ASSUMPTION_META[key];
         const value = inputs[key as keyof Inputs] as string | number;
+
         return (
           <AssumptionReviewCard
             key={key}
             label={meta.label}
             value={meta.formatter(value)}
-            note={meta.description}
+            note={`${meta.source_type} · ${meta.confidence_level} confidence`}
           />
         );
       })}
@@ -1252,7 +1293,7 @@ export default function StableHeartApp() {
 
   const sensitivityTop3 = (
     <div className="grid gap-3 md:grid-cols-3">
-      {topDrivers.map((driver, index) => (
+      {sensitivity.top_drivers.slice(0, 3).map((driver, index) => (
         <AssumptionReviewCard
           key={driver.parameter_key}
           label={`Driver ${index + 1}`}
@@ -1260,6 +1301,32 @@ export default function StableHeartApp() {
           note={`Largest ICER swing: ${formatCurrency(driver.max_abs_icer_change)}`}
         />
       ))}
+    </div>
+  );
+
+  const comparatorSummary = (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <AssumptionReviewCard label="Comparator" value={comparatorMode} />
+      <AssumptionReviewCard
+        label="Events avoided delta"
+        value={formatNumber(
+          comparatorResults.events_avoided_total - results.events_avoided_total,
+        )}
+      />
+      <AssumptionReviewCard
+        label="Admissions avoided delta"
+        value={formatNumber(
+          comparatorResults.admissions_avoided_total -
+            results.admissions_avoided_total,
+        )}
+      />
+      <AssumptionReviewCard
+        label="Discounted net cost delta"
+        value={formatSignedCurrency(
+          comparatorResults.discounted_net_cost_total -
+            results.discounted_net_cost_total,
+        )}
+      />
     </div>
   );
 
@@ -1301,75 +1368,6 @@ export default function StableHeartApp() {
     </div>
   );
 
-  const comparatorSummary = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <AssumptionReviewCard label="Comparator" value={comparatorMode} />
-      <AssumptionReviewCard
-        label="Events avoided delta"
-        value={formatNumber(comparatorResults.events_avoided_total - results.events_avoided_total)}
-      />
-      <AssumptionReviewCard
-        label="Admissions avoided delta"
-        value={formatNumber(comparatorResults.admissions_avoided_total - results.admissions_avoided_total)}
-      />
-      <AssumptionReviewCard
-        label="Discounted net cost delta"
-        value={formatCurrency(
-          comparatorResults.discounted_net_cost_total - results.discounted_net_cost_total,
-        )}
-      />
-    </div>
-  );
-
-  const recommendationPanel = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <MiniInsight
-        label="What this suggests"
-        value={recommendationSummary.current_case_suggests}
-      />
-      <MiniInsight
-        label="What is driving it"
-        value={recommendationSummary.driving_result}
-      />
-      <MiniInsight
-        label="What looks fragile"
-        value={recommendationSummary.fragile_point}
-      />
-      <MiniInsight
-        label="Validate next"
-        value={recommendationSummary.validate_next}
-      />
-    </div>
-  );
-
-  const analysisMetricsMobile = (
-    <div className="grid grid-cols-1 gap-3">
-      <MetricCard
-        label="Admissions avoided"
-        value={formatNumber(results.admissions_avoided_total)}
-      />
-      <MetricCard
-        label="Bed days avoided"
-        value={formatNumber(results.bed_days_avoided_total)}
-      />
-      <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
-    </div>
-  );
-
-  const analysisMetricsDesktop = (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-      <MetricCard
-        label="Admissions avoided"
-        value={formatNumber(results.admissions_avoided_total)}
-      />
-      <MetricCard
-        label="Bed days avoided"
-        value={formatNumber(results.bed_days_avoided_total)}
-      />
-      <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
-    </div>
-  );
-
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
       <div className="mb-5 lg:mb-6">
@@ -1395,7 +1393,7 @@ export default function StableHeartApp() {
         </p>
       </div>
 
-      <div className="sticky top-[72px] z-20 mb-5 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
+      <div className="sticky top-[72px] z-20 mb-4 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur lg:hidden">
         <div className="grid grid-cols-3 items-start gap-3">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -1420,14 +1418,15 @@ export default function StableHeartApp() {
         </div>
       </div>
 
-      <div className="mb-4 lg:hidden">
+      <div className="mb-5 lg:hidden">
         <button
           type="button"
           onClick={handleExportReport}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          disabled={isExporting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FileDown className="h-4 w-4" />
-          Export report
+          {isExporting ? "Exporting..." : "Export report"}
         </button>
       </div>
 
@@ -1456,10 +1455,11 @@ export default function StableHeartApp() {
           <button
             type="button"
             onClick={handleExportReport}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            disabled={isExporting}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FileDown className="h-4 w-4" />
-            Export report
+            {isExporting ? "Exporting..." : "Export report"}
           </button>
         </div>
       </div>
@@ -1520,6 +1520,7 @@ export default function StableHeartApp() {
             dense
           >
             {summaryMetrics}
+            <div className="mt-3">{thresholdMetrics}</div>
             <div className="mt-4">{interpretationPanel}</div>
           </SectionCard>
 
@@ -1554,7 +1555,9 @@ export default function StableHeartApp() {
               {presetControl}
 
               <div className={SUBCARD}>
-                <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Quick assumptions
+                </p>
                 {quickAssumptionNotice}
                 <div className="mt-4">{assumptionsQuick}</div>
               </div>
@@ -1577,7 +1580,9 @@ export default function StableHeartApp() {
                   />
                 </button>
 
-                {showAdvancedMobile ? <div className="mt-4">{advancedSections}</div> : null}
+                {showAdvancedMobile ? (
+                  <div className="mt-4">{advancedSections}</div>
+                ) : null}
               </div>
             </div>
           </SectionCard>
@@ -1601,22 +1606,30 @@ export default function StableHeartApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export report
+                    {isExporting ? "Exporting..." : "Export report"}
                   </button>
                 </div>
               </div>
 
-              {analysisMetricsMobile}
+              <div className="grid grid-cols-1 gap-3">
+                <MetricCard
+                  label="Patients reached"
+                  value={formatNumber(results.patients_reached_total)}
+                />
+                <MetricCard
+                  label="Bed days avoided"
+                  value={formatNumber(results.bed_days_avoided_total)}
+                />
+                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+              </div>
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
                 <div className="mt-3">{recommendationPanel}</div>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
-                  {recommendationSummary.recommendation_line}
-                </p>
               </div>
 
               <div className={SUBCARD}>
@@ -1657,9 +1670,7 @@ export default function StableHeartApp() {
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Top sensitivity drivers</h3>
-                <div className="mt-3">
-                  {sensitivityTop3}
-                </div>
+                <div className="mt-3">{sensitivityTop3}</div>
               </div>
 
               <div className={SUBCARD}>
@@ -1685,29 +1696,26 @@ export default function StableHeartApp() {
             {summaryMetrics}
 
             <div className="mt-3 grid gap-3 lg:grid-cols-4">
-              <MetricCard label="Bed days avoided" value={formatNumber(results.bed_days_avoided_total)} />
-              <MetricCard label="Patients reached" value={formatNumber(results.patients_reached_total)} />
-              <MetricCard label="Programme cost" value={formatCurrency(results.programme_cost_total)} />
-              <MetricCard label="Gross savings" value={formatCurrency(results.gross_savings_total)} />
+              <MetricCard
+                label="Bed days avoided"
+                value={formatNumber(results.bed_days_avoided_total)}
+              />
+              <MetricCard
+                label="Patients reached"
+                value={formatNumber(results.patients_reached_total)}
+              />
+              <MetricCard
+                label="Programme cost"
+                value={formatCurrency(results.programme_cost_total)}
+              />
+              <MetricCard
+                label="Gross savings"
+                value={formatCurrency(results.gross_savings_total)}
+              />
             </div>
 
             <div className="mt-4">{interpretationPanel}</div>
-
-            <div className="mt-4 grid gap-3 xl:grid-cols-4">
-              <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
-              <MetricCard
-                label="Break-even cost per patient"
-                value={formatCurrency(results.break_even_cost_per_patient)}
-              />
-              <MetricCard
-                label="Required risk reduction"
-                value={formatPercent(results.break_even_risk_reduction_required)}
-              />
-              <MetricCard
-                label="Required baseline event rate"
-                value={formatPercent(results.break_even_baseline_event_rate_required)}
-              />
-            </div>
+            <div className="mt-4">{thresholdMetrics}</div>
           </SectionCard>
 
           <div className="mt-4">
@@ -1741,13 +1749,17 @@ export default function StableHeartApp() {
               {presetControl}
 
               <div className={SUBCARD}>
-                <p className="mb-3 text-sm font-semibold text-slate-900">Quick assumptions</p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Quick assumptions
+                </p>
                 {quickAssumptionNotice}
                 <div className="mt-4">{assumptionsQuick}</div>
               </div>
 
               <div className={SUBCARD}>
-                <p className="mb-3 text-sm font-semibold text-slate-900">Advanced assumptions</p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Advanced assumptions
+                </p>
                 {advancedSections}
               </div>
             </div>
@@ -1772,22 +1784,34 @@ export default function StableHeartApp() {
                   <button
                     type="button"
                     onClick={handleExportReport}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    disabled={isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileDown className="h-4 w-4" />
-                    Export report
+                    {isExporting ? "Exporting..." : "Export report"}
                   </button>
                 </div>
               </div>
 
-              {analysisMetricsDesktop}
+              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <MetricCard
+                  label="Patients reached"
+                  value={formatNumber(results.patients_reached_total)}
+                />
+                <MetricCard
+                  label="Admissions avoided"
+                  value={formatNumber(results.admissions_avoided_total)}
+                />
+                <MetricCard
+                  label="Bed days avoided"
+                  value={formatNumber(results.bed_days_avoided_total)}
+                />
+                <MetricCard label="Return on spend" value={formatRatio(results.roi)} />
+              </div>
 
               <div className={SUBCARD}>
                 <h3 className={SECTION_KICKER}>Recommendation summary</h3>
                 <div className="mt-3">{recommendationPanel}</div>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
-                  {recommendationSummary.recommendation_line}
-                </p>
               </div>
 
               <div className={SUBCARD}>
@@ -1839,6 +1863,28 @@ export default function StableHeartApp() {
               <div>
                 <h3 className={SECTION_KICKER}>Assumption review</h3>
                 <div className="mt-3">{assumptionsReview}</div>
+              </div>
+
+              <div className={SUBCARD}>
+                <h3 className={SECTION_KICKER}>Decision readout</h3>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <MiniInsight
+                    label="Interpretation summary"
+                    value={interpretation.what_model_suggests}
+                  />
+                  <MiniInsight
+                    label="What drives result"
+                    value={interpretation.what_drives_result}
+                  />
+                  <MiniInsight
+                    label="ROI summary"
+                    value={interpretation.roi_summary}
+                  />
+                  <MiniInsight
+                    label="Confidence summary"
+                    value={confidenceSummary.summary_text}
+                  />
+                </div>
               </div>
             </div>
           </SectionCard>
