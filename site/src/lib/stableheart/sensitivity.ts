@@ -1,8 +1,12 @@
 import { clampRate, runModel } from "@/lib/stableheart/calculations";
 import { ASSUMPTION_META } from "@/lib/stableheart/metadata";
-import type { Inputs } from "@/lib/stableheart/types";
+import type {
+  Inputs,
+  ParameterSensitivityRow,
+  SensitivitySummary,
+} from "@/lib/stableheart/types";
 
-export const SENSITIVITY_VARIABLES = [
+export const SENSITIVITY_VARIABLES: Array<keyof Inputs> = [
   "baseline_recurrent_event_rate",
   "risk_reduction_in_recurrent_events",
   "intervention_cost_per_patient_reached",
@@ -11,9 +15,13 @@ export const SENSITIVITY_VARIABLES = [
   "annual_effect_decay_rate",
   "annual_participation_dropoff_rate",
   "admission_probability_per_event",
-] as const;
+];
 
-function applyVariation(value: number, variation: number, isRate: boolean) {
+function applyVariation(
+  value: number,
+  variation: number,
+  isRate: boolean,
+): [number, number] {
   let low = value * (1 - variation);
   let high = value * (1 + variation);
 
@@ -22,23 +30,41 @@ function applyVariation(value: number, variation: number, isRate: boolean) {
     high = clampRate(high);
   }
 
-  return { low, high };
+  return [low, high];
+}
+
+function formatScenarioValue(value: number, isRate: boolean): string {
+  if (isRate) {
+    return `${(value * 100).toFixed(1)}%`;
+  }
+
+  if (Math.abs(value) >= 1000) {
+    return `£${Math.round(value).toLocaleString()}`;
+  }
+
+  if (Number.isInteger(value)) {
+    return value.toLocaleString();
+  }
+
+  return value.toFixed(2);
 }
 
 export function runOneWaySensitivity(
   baseInputs: Inputs,
-  variables: readonly string[],
+  variables: Array<keyof Inputs>,
   variation = 0.2,
   outcomeKey: keyof ReturnType<typeof runModel> = "discounted_cost_per_qaly",
-) {
+): ParameterSensitivityRow[] {
   const baseResults = runModel(baseInputs);
-  const baseValue = Number(baseResults[outcomeKey]);
+  const baseIcer = Number(baseResults[outcomeKey]);
 
-  const rows = variables.map((variable) => {
+  const rows: ParameterSensitivityRow[] = [];
+
+  for (const variable of variables) {
     const meta = ASSUMPTION_META[variable];
-    const baseInputValue = Number(baseInputs[variable as keyof Inputs]);
+    const baseValue = Number(baseInputs[variable]);
 
-    const isRate = new Set([
+    const isRate = new Set<keyof Inputs>([
       "baseline_recurrent_event_rate",
       "admission_probability_per_event",
       "intervention_reach_rate",
@@ -49,52 +75,83 @@ export function runOneWaySensitivity(
       "discount_rate",
     ]).has(variable);
 
-    const { low, high } = applyVariation(baseInputValue, variation, isRate);
+    const [lowValue, highValue] = applyVariation(baseValue, variation, isRate);
 
-    const lowInputs = { ...baseInputs, [variable]: low } as Inputs;
-    const highInputs = { ...baseInputs, [variable]: high } as Inputs;
+    const lowInputs: Inputs = { ...baseInputs, [variable]: lowValue };
+    const highInputs: Inputs = { ...baseInputs, [variable]: highValue };
 
-    const lowOutcome = Number(runModel(lowInputs)[outcomeKey]);
-    const highOutcome = Number(runModel(highInputs)[outcomeKey]);
+    const lowResults = runModel(lowInputs);
+    const highResults = runModel(highInputs);
 
-    return {
-      variable,
-      label: meta.label,
-      base_input: baseInputValue,
-      low_input: low,
-      high_input: high,
-      base_outcome: baseValue,
-      low_outcome: lowOutcome,
-      high_outcome: highOutcome,
-      low_delta: lowOutcome - baseValue,
-      high_delta: highOutcome - baseValue,
-      swing: Math.abs(highOutcome - lowOutcome),
-    };
-  });
+    const lowIcer = Number(lowResults[outcomeKey]);
+    const highIcer = Number(highResults[outcomeKey]);
 
-  return rows.sort((a, b) => b.swing - a.swing);
+    rows.push({
+      parameter_key: variable,
+      parameter_label: meta.label,
+      low_value_label: formatScenarioValue(lowValue, isRate),
+      high_value_label: formatScenarioValue(highValue, isRate),
+      low_icer: lowIcer,
+      base_icer: baseIcer,
+      high_icer: highIcer,
+      low_net_cost: lowResults.discounted_net_cost_total,
+      base_net_cost: baseResults.discounted_net_cost_total,
+      high_net_cost: highResults.discounted_net_cost_total,
+      max_abs_icer_change: Math.max(
+        Math.abs(lowIcer - baseIcer),
+        Math.abs(highIcer - baseIcer),
+      ),
+    });
+  }
+
+  return rows.sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change);
 }
 
 export function buildSensitivityTakeaways(
-  sensitivityRows: Array<{ label: string; swing: number }>,
+  sensitivityRows: ParameterSensitivityRow[],
 ): string[] {
-  const top = [...sensitivityRows].sort((a, b) => b.swing - a.swing).slice(0, 3);
+  const top = [...sensitivityRows]
+    .sort((a, b) => b.max_abs_icer_change - a.max_abs_icer_change)
+    .slice(0, 3);
 
   const takeaways: string[] = [];
 
-  if (top[0]) {
-    takeaways.push(`The result is most sensitive to ${top[0].label.toLowerCase()}.`);
-  }
-  if (top[1]) {
+  if (top.length >= 1) {
     takeaways.push(
-      `${top[1].label} is the next biggest driver of movement in discounted cost per QALY.`,
+      `The result is most sensitive to ${top[0].parameter_label.toLowerCase()}.`,
     );
   }
-  if (top[2]) {
+
+  if (top.length >= 2) {
     takeaways.push(
-      `Changes in ${top[2].label.toLowerCase()} still matter, but less than the leading two drivers.`,
+      `${top[1].parameter_label} is the next biggest driver of movement in discounted cost per QALY.`,
+    );
+  }
+
+  if (top.length >= 3) {
+    takeaways.push(
+      `Changes in ${top[2].parameter_label.toLowerCase()} still matter, but less than the leading two drivers.`,
     );
   }
 
   return takeaways;
+}
+
+export function runParameterSensitivity(
+  baseInputs: Inputs,
+  variables: Array<keyof Inputs> = SENSITIVITY_VARIABLES,
+  variation = 0.2,
+): SensitivitySummary {
+  const rows = runOneWaySensitivity(
+    baseInputs,
+    variables,
+    variation,
+    "discounted_cost_per_qaly",
+  );
+
+  return {
+    rows,
+    primary_driver: rows[0] ?? null,
+    top_drivers: rows.slice(0, 5),
+  };
 }
