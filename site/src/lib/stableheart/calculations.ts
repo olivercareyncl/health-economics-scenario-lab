@@ -1,5 +1,10 @@
-import { COSTING_METHOD_MAP } from "@/lib/stableheart/scenarios";
+import {
+  COSTING_METHOD_MAP,
+  SCENARIO_MAP,
+  TARGETING_MODE_MAP,
+} from "@/lib/stableheart/scenarios";
 import type {
+  ComparatorOption,
   Inputs,
   ModelResults,
   ParameterSensitivityRow,
@@ -19,6 +24,24 @@ export function clampRate(value: number): number {
 
 export function getDiscountFactor(year: number, discountRate: number): number {
   return 1 / Math.pow(1 + discountRate, year - 1);
+}
+
+export function getTargetingAdjustments(inputs: Inputs) {
+  const targeting = TARGETING_MODE_MAP[inputs.targeting_mode];
+  const adjusted_population =
+    inputs.eligible_population * targeting.population_multiplier;
+  const adjusted_reach_rate = clampRate(
+    inputs.intervention_reach_rate * targeting.reach_multiplier,
+  );
+  const adjusted_event_rate = clampRate(
+    inputs.baseline_recurrent_event_rate * targeting.risk_multiplier,
+  );
+
+  return {
+    adjusted_population,
+    adjusted_reach_rate,
+    adjusted_event_rate,
+  };
 }
 
 export function calculateGrossSavings(
@@ -41,8 +64,9 @@ export function calculateGrossSavings(
 }
 
 function runModelCore(inputs: Inputs) {
+  const targeting = getTargetingAdjustments(inputs);
   const baseReachedPatients =
-    inputs.eligible_population * inputs.intervention_reach_rate;
+    targeting.adjusted_population * targeting.adjusted_reach_rate;
 
   const yearlyRows: YearlyResultRow[] = [];
   let cumulativeProgrammeCost = 0;
@@ -66,8 +90,7 @@ function runModelCore(inputs: Inputs) {
       inputs.risk_reduction_in_recurrent_events * effectMultiplier,
     );
 
-    const baseline_events =
-      effective_patients * inputs.baseline_recurrent_event_rate;
+    const baseline_events = effective_patients * targeting.adjusted_event_rate;
     const events_avoided = baseline_events * eventRiskReduction;
     const admissions_avoided =
       events_avoided * inputs.admission_probability_per_event;
@@ -83,7 +106,8 @@ function runModelCore(inputs: Inputs) {
       inputs,
     );
     const net_cost = programme_cost - gross_savings;
-    const qalys_gained = events_avoided * inputs.qaly_gain_per_event_avoided;
+    const qalys_gained =
+      events_avoided * inputs.qaly_gain_per_event_avoided;
 
     const discount_factor = getDiscountFactor(year, inputs.discount_rate);
     const discounted_programme_cost = programme_cost * discount_factor;
@@ -183,8 +207,9 @@ function runModelCore(inputs: Inputs) {
 }
 
 export function calculateBreakEvenRiskReduction(inputs: Inputs): number {
+  const targeting = getTargetingAdjustments(inputs);
   const baseReachedPatients =
-    inputs.eligible_population * inputs.intervention_reach_rate;
+    targeting.adjusted_population * targeting.adjusted_reach_rate;
 
   let numerator = 0;
   let denominator = 0;
@@ -204,7 +229,7 @@ export function calculateBreakEvenRiskReduction(inputs: Inputs): number {
       patientsReached * inputs.sustained_engagement_rate;
 
     const eventsPerUnit =
-      effectivePatients * inputs.baseline_recurrent_event_rate * effectMultiplier;
+      effectivePatients * targeting.adjusted_event_rate * effectMultiplier;
     const admissionsPerUnit =
       eventsPerUnit * inputs.admission_probability_per_event;
     const bedDaysPerUnit =
@@ -235,8 +260,9 @@ export function calculateBreakEvenRiskReduction(inputs: Inputs): number {
 }
 
 export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
+  const targeting = getTargetingAdjustments(inputs);
   const baseReachedPatients =
-    inputs.eligible_population * inputs.intervention_reach_rate;
+    targeting.adjusted_population * targeting.adjusted_reach_rate;
 
   let totalDiscountedPatientsReached = 0;
   let totalDiscountedValue = 0;
@@ -258,8 +284,7 @@ export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
     const eventRiskReduction = clampRate(
       inputs.risk_reduction_in_recurrent_events * effectMultiplier,
     );
-    const baselineEvents =
-      effectivePatients * inputs.baseline_recurrent_event_rate;
+    const baselineEvents = effectivePatients * targeting.adjusted_event_rate;
     const eventsAvoided = baselineEvents * eventRiskReduction;
     const admissionsAvoided =
       eventsAvoided * inputs.admission_probability_per_event;
@@ -287,8 +312,9 @@ export function calculateBreakEvenCostPerPatient(inputs: Inputs): number {
 }
 
 export function calculateBreakEvenBaselineEventRate(inputs: Inputs): number {
+  const targeting = getTargetingAdjustments(inputs);
   const baseReachedPatients =
-    inputs.eligible_population * inputs.intervention_reach_rate;
+    targeting.adjusted_population * targeting.adjusted_reach_rate;
 
   let numerator = 0;
   let denominator = 0;
@@ -368,7 +394,8 @@ export function calculateBreakEvenHorizon(
 
     if (
       result.discounted_cost_per_qaly > 0 &&
-      result.discounted_cost_per_qaly <= inputs.cost_effectiveness_threshold
+      result.discounted_cost_per_qaly <=
+        inputs.cost_effectiveness_threshold
     ) {
       return `${horizon} year${horizon === 1 ? "" : "s"}`;
     }
@@ -411,7 +438,8 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
         baseline_recurrent_event_rate: clampRate(
           inputs.baseline_recurrent_event_rate * 0.85,
         ),
-        qaly_gain_per_event_avoided: inputs.qaly_gain_per_event_avoided * 0.8,
+        qaly_gain_per_event_avoided:
+          inputs.qaly_gain_per_event_avoided * 0.8,
         sustained_engagement_rate: clampRate(
           inputs.sustained_engagement_rate * 0.9,
         ),
@@ -434,7 +462,8 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
         baseline_recurrent_event_rate: clampRate(
           inputs.baseline_recurrent_event_rate * 1.15,
         ),
-        qaly_gain_per_event_avoided: inputs.qaly_gain_per_event_avoided * 1.2,
+        qaly_gain_per_event_avoided:
+          inputs.qaly_gain_per_event_avoided * 1.2,
         sustained_engagement_rate: clampRate(
           inputs.sustained_engagement_rate * 1.05,
         ),
@@ -467,7 +496,9 @@ export function runBoundedUncertainty(inputs: Inputs): UncertaintyRow[] {
   });
 }
 
-function buildParameterSensitivityLabel(parameterKey: keyof Inputs): string {
+function buildParameterSensitivityLabel(
+  parameterKey: keyof Inputs,
+): string {
   switch (parameterKey) {
     case "risk_reduction_in_recurrent_events":
       return "Risk reduction in recurrent events";
@@ -501,6 +532,10 @@ function buildParameterSensitivityLabel(parameterKey: keyof Inputs): string {
       return "Discount rate";
     case "cost_effectiveness_threshold":
       return "Cost-effectiveness threshold";
+    case "costing_method":
+      return "Costing method";
+    case "targeting_mode":
+      return "Targeting mode";
     case "time_horizon_years":
       return "Time horizon";
     default:
@@ -663,7 +698,9 @@ const SENSITIVITY_PARAMETER_KEYS: Array<keyof Inputs> = [
   "cost_per_bed_day",
 ];
 
-export function runParameterSensitivity(inputs: Inputs): SensitivitySummary {
+export function runParameterSensitivity(
+  inputs: Inputs,
+): SensitivitySummary {
   const baseResult = runModel(inputs);
 
   const rows: ParameterSensitivityRow[] = SENSITIVITY_PARAMETER_KEYS.map(
@@ -734,4 +771,35 @@ export function runParameterSensitivity(inputs: Inputs): SensitivitySummary {
     top_drivers: rows.slice(0, 3),
     primary_driver: rows[0] ?? null,
   };
+}
+
+export function buildComparatorCase(
+  defaults: Inputs,
+  baseInputs: Inputs,
+  comparatorMode: ComparatorOption,
+): Inputs {
+  const comparatorInputs: Inputs = { ...defaults };
+
+  if (comparatorMode in SCENARIO_MAP) {
+    Object.assign(
+      comparatorInputs,
+      SCENARIO_MAP[comparatorMode](defaults),
+    );
+  } else {
+    Object.assign(comparatorInputs, baseInputs);
+  }
+
+  comparatorInputs.time_horizon_years = baseInputs.time_horizon_years;
+  comparatorInputs.discount_rate = baseInputs.discount_rate;
+  comparatorInputs.costing_method = baseInputs.costing_method;
+  comparatorInputs.cost_effectiveness_threshold =
+    baseInputs.cost_effectiveness_threshold;
+  comparatorInputs.cost_per_cardiovascular_event =
+    baseInputs.cost_per_cardiovascular_event;
+  comparatorInputs.cost_per_admission = baseInputs.cost_per_admission;
+  comparatorInputs.cost_per_bed_day = baseInputs.cost_per_bed_day;
+  comparatorInputs.qaly_gain_per_event_avoided =
+    baseInputs.qaly_gain_per_event_avoided;
+
+  return comparatorInputs;
 }
