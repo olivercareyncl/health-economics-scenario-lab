@@ -1,19 +1,7 @@
-export type TargetingMode =
-  | "Secondary prevention focus"
-  | "High-risk targeting"
-  | "Broad cardiovascular risk cohort";
-
 export type CostingMethod =
   | "Event and admission savings only"
   | "Bed-day value only"
   | "Combined illustrative view";
-
-export type ComparatorOption =
-  | "Lower-cost delivery"
-  | "Stronger risk reduction"
-  | "High-risk targeting"
-  | "Secondary prevention focus"
-  | "Targeted high-impact intervention";
 
 export type MobileTab = "summary" | "assumptions" | "analysis";
 
@@ -38,7 +26,6 @@ export type Inputs = {
   cost_per_bed_day: number;
   costing_method: CostingMethod;
   qaly_gain_per_event_avoided: number;
-  targeting_mode: TargetingMode;
   time_horizon_years: 1 | 3 | 5;
   discount_rate: number;
   cost_effectiveness_threshold: number;
