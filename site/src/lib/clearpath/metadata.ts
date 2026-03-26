@@ -28,7 +28,8 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
     label: "Intervention reach rate",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
-    description: "Estimated share of incident cases effectively reached by the intervention.",
+    description:
+      "Estimated share of incident cases effectively reached by the intervention.",
     source_type: "Operational estimate",
     confidence: "Medium confidence",
   },
@@ -37,7 +38,8 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
     label: "Current late diagnosis rate",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
-    description: "Estimated share of cases currently diagnosed later rather than earlier.",
+    description:
+      "Estimated share of cases currently diagnosed later rather than earlier.",
     source_type: "Evidence-informed proxy",
     confidence: "Medium confidence",
   },
@@ -46,7 +48,8 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
     label: "Achievable reduction in late diagnosis",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
-    description: "Estimated absolute reduction in late diagnosis achieved by the intervention.",
+    description:
+      "Estimated absolute reduction in late diagnosis achieved by the intervention.",
     source_type: "Illustrative default",
     confidence: "Low confidence",
   },
@@ -55,7 +58,8 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
     label: "Emergency presentation rate, later diagnosis",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
-    description: "Estimated share of later diagnosis cases presenting as emergencies.",
+    description:
+      "Estimated share of later diagnosis cases presenting as emergencies.",
     source_type: "Evidence-informed proxy",
     confidence: "Medium confidence",
   },
@@ -64,7 +68,8 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
     label: "Emergency presentation rate, earlier diagnosis",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
-    description: "Estimated share of earlier diagnosis cases presenting as emergencies.",
+    description:
+      "Estimated share of earlier diagnosis cases presenting as emergencies.",
     source_type: "Evidence-informed proxy",
     confidence: "Medium confidence",
   },
@@ -73,7 +78,8 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
     label: "Admissions per emergency presentation",
     unit: "ratio",
     formatter: (x) => Number(x).toFixed(1),
-    description: "Estimated inpatient admissions generated per emergency presentation.",
+    description:
+      "Estimated inpatient admissions generated per emergency presentation.",
     source_type: "Operational estimate",
     confidence: "Medium confidence",
   },
@@ -164,18 +170,10 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
     label: "Annual participation drop-off",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
-    description: "Estimated annual reduction in effective intervention reach over time.",
+    description:
+      "Estimated annual reduction in effective intervention reach over time.",
     source_type: "Illustrative default",
     confidence: "Low confidence",
-  },
-
-  targeting_mode: {
-    label: "Targeting mode",
-    unit: "",
-    formatter: (x) => String(x),
-    description: "How broadly or narrowly the intervention is focused across the incident population.",
-    source_type: "User override",
-    confidence: "Medium confidence",
   },
 
   time_horizon_years: {
@@ -200,7 +198,8 @@ export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMetaItem> = {
     label: "Cost-effectiveness threshold",
     unit: "GBP per QALY",
     formatter: (x) => formatCurrency(Number(x)),
-    description: "Illustrative threshold used to interpret discounted cost per QALY.",
+    description:
+      "Illustrative threshold used to interpret discounted cost per QALY.",
     source_type: "Illustrative default",
     confidence: "High confidence",
   },
@@ -224,7 +223,6 @@ export const ASSUMPTION_ORDER: Array<keyof Inputs> = [
   "qaly_gain_per_case_shifted",
   "effect_decay_rate",
   "participation_dropoff_rate",
-  "targeting_mode",
   "time_horizon_years",
   "discount_rate",
   "cost_effectiveness_threshold",
