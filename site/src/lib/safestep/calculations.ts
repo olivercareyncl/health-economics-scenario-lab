@@ -290,7 +290,11 @@ export function calculateBreakEvenHorizon(
   inputs: SafeStepInputs,
   maxYears = 10,
 ): string {
-  for (let horizon = 1; horizon <= maxYears; horizon += 1) {
+  const allowedHorizons = ([1, 3, 5] as const).filter(
+    (horizon) => horizon <= maxYears,
+  );
+
+  for (const horizon of allowedHorizons) {
     const testInputs: SafeStepInputs = {
       ...inputs,
       time_horizon_years: horizon,
@@ -312,7 +316,6 @@ export function calculateBreakEvenHorizon(
 
   return `>${maxYears} years`;
 }
-
 export function runModel(inputs: SafeStepInputs): ModelResult {
   const core = runModelCore(inputs);
 
@@ -493,10 +496,7 @@ function buildSensitivityVariants(
       };
 
     case "time_horizon_years":
-      return {
-        lowValue: Math.max(1, currentValue - 1),
-        highValue: currentValue + 1,
-      };
+      return null;
 
     case "average_length_of_stay":
     case "qaly_loss_per_serious_fall":
