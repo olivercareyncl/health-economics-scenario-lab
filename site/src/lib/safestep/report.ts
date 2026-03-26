@@ -21,7 +21,7 @@ type BuildReportArgs = {
   results: SafeStepModelResults;
   uncertainty: SafeStepUncertaintyRow[];
   exportedAt: string;
-  oneWaySensitivity?: SafeStepSensitivitySummary | null;
+  oneWaySensitivity: SafeStepSensitivitySummary;
 };
 
 type ReportMetric = {
@@ -517,7 +517,7 @@ export function buildSafeStepReportData({
   results,
   uncertainty,
   exportedAt,
-  oneWaySensitivity = null,
+  oneWaySensitivity,
 }: BuildReportArgs): SafeStepReportData {
   const decisionStatus = getDecisionStatus(
     results,
@@ -528,16 +528,16 @@ export function buildSafeStepReportData({
     results,
     inputs,
     uncertainty,
-    oneWaySensitivity ?? undefined,
+    oneWaySensitivity,
   );
 
   const overallSignal = getSignalLabel(decisionStatus);
   const fallbackMainDriver = getMainDriverText(
     inputs,
-    oneWaySensitivity ?? undefined,
+    oneWaySensitivity,
   );
 
-  const sensitivityRows = oneWaySensitivity?.rows ?? [];
+  const sensitivityRows = oneWaySensitivity?.rows;
   const topSensitivityDrivers = buildTopSensitivityDrivers(sensitivityRows);
 
   const fragilityText = buildFragilityText(
