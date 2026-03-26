@@ -412,7 +412,9 @@ function renderInfoRows(
       <View key={item.label} style={rowStyle}>
         <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
         <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
-        {item.note ? <Text style={styles.rowNote}>{cleanText(item.note)}</Text> : null}
+        {item.note ? (
+          <Text style={styles.rowNote}>{cleanText(item.note)}</Text>
+        ) : null}
       </View>
     );
   });
@@ -643,19 +645,19 @@ export function ClearPathReportDocument({
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Scenario framing</Text>
+          <Text style={styles.sectionTitle}>Model framing</Text>
           {renderInfoRows([
             {
               label: "Intervention concept",
-              value: data.scenario.interventionConcept,
+              value: data.modelFraming.interventionConcept,
             },
             {
-              label: "Target population and pathway logic",
-              value: data.scenario.targetPopulationLogic,
+              label: "Pathway logic",
+              value: data.modelFraming.pathwayLogic,
             },
             {
               label: "Economic mechanism",
-              value: data.scenario.economicMechanism,
+              value: data.modelFraming.economicMechanism,
             },
           ])}
         </View>
@@ -702,30 +704,6 @@ export function ClearPathReportDocument({
         <RepeatingHeader module={data.cover.module} />
 
         <View style={styles.sectionTight}>
-          <Text style={styles.sectionTitle}>
-            Scenario and comparator interpretation
-          </Text>
-          {renderInfoRows([
-            {
-              label: "Scenario readout",
-              value: data.scenarioAndComparator.scenarioSummary,
-            },
-            {
-              label: "Strongest scenario pattern",
-              value: data.scenarioAndComparator.strongestScenario,
-            },
-            {
-              label: "Weakest or most fragile scenario pattern",
-              value: data.scenarioAndComparator.weakestScenario,
-            },
-            {
-              label: "Comparator implication",
-              value: data.scenarioAndComparator.comparatorSummary,
-            },
-          ])}
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Decision implications</Text>
           {renderInfoRows([
             {
@@ -735,6 +713,10 @@ export function ClearPathReportDocument({
             {
               label: "Main evidence gap",
               value: data.decisionImplications.mainEvidenceGap,
+            },
+            {
+              label: "Current case position",
+              value: data.decisionImplications.currentCasePosition,
             },
             {
               label: "Recommended next move",
