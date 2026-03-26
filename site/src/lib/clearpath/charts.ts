@@ -1,8 +1,6 @@
 import type {
-  ComparatorDeltaRow,
   ModelResults,
   ParameterSensitivityRow,
-  ScenarioComparisonRow,
   UncertaintyRow,
   YearlyResultRow,
 } from "@/lib/clearpath/types";
@@ -25,19 +23,6 @@ export type ClearPathUncertaintyChartRow = {
   case: string;
   discountedCostPerQaly: number;
   decisionStatus: string;
-};
-
-export type ClearPathScenarioNetCostRow = {
-  scenario: string;
-  discountedNetCost: number;
-  discountedCostPerQaly: number;
-  decisionStatus: string;
-};
-
-export type ClearPathScenarioOutcomeRow = {
-  scenario: string;
-  casesShiftedEarlier: number;
-  emergencyPresentationsAvoided: number;
 };
 
 export type ClearPathTornadoRow = {
@@ -146,27 +131,6 @@ export function buildUncertaintyChartData(
   }));
 }
 
-export function buildScenarioNetCostChartData(
-  scenarioRows: ScenarioComparisonRow[],
-): ClearPathScenarioNetCostRow[] {
-  return scenarioRows.map((row) => ({
-    scenario: row.scenario,
-    discountedNetCost: row.discounted_net_cost,
-    discountedCostPerQaly: row.discounted_cost_per_qaly,
-    decisionStatus: row.decision_status,
-  }));
-}
-
-export function buildScenarioOutcomeChartData(
-  scenarioRows: ScenarioComparisonRow[],
-): ClearPathScenarioOutcomeRow[] {
-  return scenarioRows.map((row) => ({
-    scenario: row.scenario,
-    casesShiftedEarlier: row.cases_shifted_earlier,
-    emergencyPresentationsAvoided: row.emergency_presentations_avoided,
-  }));
-}
-
 export function buildTornadoChartData(
   sensitivityRows: ParameterSensitivityRow[],
 ): ClearPathTornadoRow[] {
@@ -177,38 +141,4 @@ export function buildTornadoChartData(
       lowDelta: row.low_delta,
       highDelta: row.high_delta,
     }));
-}
-
-export function buildComparatorDeltaChartData(
-  baseResults: ModelResults,
-  comparatorResults: ModelResults,
-): ComparatorDeltaRow[] {
-  return [
-    {
-      label: "Cases shifted earlier",
-      delta: comparatorResults.cases_shifted_total - baseResults.cases_shifted_total,
-      isCurrency: false,
-    },
-    {
-      label: "Emergency presentations avoided",
-      delta:
-        comparatorResults.emergency_presentations_avoided_total -
-        baseResults.emergency_presentations_avoided_total,
-      isCurrency: false,
-    },
-    {
-      label: "Discounted net cost",
-      delta:
-        comparatorResults.discounted_net_cost_total -
-        baseResults.discounted_net_cost_total,
-      isCurrency: true,
-    },
-    {
-      label: "Discounted cost per QALY",
-      delta:
-        comparatorResults.discounted_cost_per_qaly -
-        baseResults.discounted_cost_per_qaly,
-      isCurrency: true,
-    },
-  ];
 }
