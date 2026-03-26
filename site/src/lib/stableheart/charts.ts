@@ -5,25 +5,6 @@ import type {
   YearlyResultRow,
 } from "@/lib/stableheart/types";
 
-export type StableHeartBarChartRow = {
-  label: string;
-  value: number;
-  valueLabel: string;
-};
-
-export type StableHeartLineChartRow = {
-  year: string;
-  programmeCost: number;
-  grossSavings: number;
-  cumulativeNetCost: number;
-  eventsAvoided: number;
-};
-
-export type StableHeartUncertaintyChartRow = {
-  case: string;
-  discountedCostPerQaly: number;
-};
-
 export function compactCurrencyAxis(value: number): string {
   const absolute = Math.abs(value);
 
@@ -38,50 +19,38 @@ export function compactCurrencyAxis(value: number): string {
   return `£${value.toFixed(0)}`;
 }
 
-export function buildEventsByYearChartData(
-  yearlyResults: YearlyResultRow[],
-): Array<{ year: string; eventsAvoided: number }> {
+export function buildEventsByYearChartData(yearlyResults: YearlyResultRow[]) {
   return yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
+    year: `Y${row.year}`,
     eventsAvoided: row.events_avoided,
   }));
 }
 
-export function buildCumulativeCostChartData(
-  yearlyResults: YearlyResultRow[],
-): StableHeartLineChartRow[] {
+export function buildCumulativeCostChartData(yearlyResults: YearlyResultRow[]) {
   return yearlyResults.map((row) => ({
-    year: `Year ${row.year}`,
+    year: `Y${row.year}`,
     programmeCost: row.cumulative_programme_cost,
     grossSavings: row.cumulative_gross_savings,
-    cumulativeNetCost: row.cumulative_net_cost,
-    eventsAvoided: row.events_avoided,
   }));
 }
 
-export function buildImpactBarChartData(
-  results: ModelResults,
-): StableHeartBarChartRow[] {
+export function buildEventsChartData(results: ModelResults) {
   return [
     {
       label: "Events avoided",
       value: results.events_avoided_total,
-      valueLabel: results.events_avoided_total.toLocaleString(),
     },
     {
       label: "Admissions avoided",
       value: results.admissions_avoided_total,
-      valueLabel: results.admissions_avoided_total.toLocaleString(),
     },
     {
       label: "Bed days avoided",
       value: results.bed_days_avoided_total,
-      valueLabel: results.bed_days_avoided_total.toLocaleString(),
     },
     {
       label: "Patients reached",
       value: results.patients_reached_total,
-      valueLabel: results.patients_reached_total.toLocaleString(),
     },
   ];
 }
@@ -91,7 +60,7 @@ export function buildUncertaintyChartData(
     case: string;
     discounted_cost_per_qaly: number;
   }>,
-): StableHeartUncertaintyChartRow[] {
+) {
   return uncertaintyRows.map((row) => ({
     case: row.case,
     discountedCostPerQaly: row.discounted_cost_per_qaly,
