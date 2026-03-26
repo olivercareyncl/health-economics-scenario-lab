@@ -1,7 +1,11 @@
-import { formatCurrency, formatNumber, formatPercent } from "@/lib/stableheart/formatters";
-import type { AssumptionMeta } from "@/lib/stableheart/types";
+import {
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+} from "@/lib/stableheart/formatters";
+import type { AssumptionMeta, Inputs } from "@/lib/stableheart/types";
 
-export const ASSUMPTION_META: Record<string, AssumptionMeta> = {
+export const ASSUMPTION_META: Record<keyof Inputs, AssumptionMeta> = {
   eligible_population: {
     label: "Eligible population",
     unit: "patients",
@@ -40,7 +44,8 @@ export const ASSUMPTION_META: Record<string, AssumptionMeta> = {
     label: "Intervention reach",
     unit: "%",
     formatter: (x) => formatPercent(Number(x)),
-    description: "Estimated share of the eligible population reached by the intervention.",
+    description:
+      "Estimated share of the eligible population reached by the intervention.",
     source_type: "Operational estimate",
     confidence_level: "Medium",
   },
@@ -90,7 +95,8 @@ export const ASSUMPTION_META: Record<string, AssumptionMeta> = {
     label: "Cost per cardiovascular event",
     unit: "GBP",
     formatter: (x) => formatCurrency(Number(x)),
-    description: "Estimated cost associated with a recurrent acute cardiovascular event.",
+    description:
+      "Estimated cost associated with a recurrent acute cardiovascular event.",
     source_type: "Evidence-informed proxy",
     confidence_level: "Medium",
   },
@@ -114,7 +120,8 @@ export const ASSUMPTION_META: Record<string, AssumptionMeta> = {
     label: "Costing method",
     unit: "",
     formatter: (x) => String(x),
-    description: "Method used to value the economic effect of avoided recurrent events.",
+    description:
+      "Method used to value the economic effect of avoided recurrent events.",
     source_type: "User override",
     confidence_level: "Medium",
   },
@@ -126,14 +133,6 @@ export const ASSUMPTION_META: Record<string, AssumptionMeta> = {
       "Estimated QALY gain associated with avoiding a recurrent acute cardiovascular event.",
     source_type: "Evidence-informed proxy",
     confidence_level: "Low",
-  },
-  targeting_mode: {
-    label: "Targeting mode",
-    unit: "",
-    formatter: (x) => String(x),
-    description: "Strategic targeting approach used in the model.",
-    source_type: "User override",
-    confidence_level: "Medium",
   },
   time_horizon_years: {
     label: "Time horizon",
@@ -155,13 +154,14 @@ export const ASSUMPTION_META: Record<string, AssumptionMeta> = {
     label: "Cost-effectiveness threshold",
     unit: "GBP per QALY",
     formatter: (x) => formatCurrency(Number(x)),
-    description: "Illustrative threshold used to interpret discounted cost per QALY.",
+    description:
+      "Illustrative threshold used to interpret discounted cost per QALY.",
     source_type: "Illustrative default",
     confidence_level: "High",
   },
 };
 
-export const ASSUMPTION_ORDER = [
+export const ASSUMPTION_ORDER: Array<keyof Inputs> = [
   "eligible_population",
   "baseline_recurrent_event_rate",
   "admission_probability_per_event",
@@ -177,13 +177,17 @@ export const ASSUMPTION_ORDER = [
   "cost_per_bed_day",
   "costing_method",
   "qaly_gain_per_event_avoided",
-  "targeting_mode",
   "time_horizon_years",
   "discount_rate",
   "cost_effectiveness_threshold",
-] as const;
+];
 
-export function getAssumptionConfidenceSummary() {
+export function getAssumptionConfidenceSummary(): {
+  High: number;
+  Medium: number;
+  Low: number;
+  summary_text: string;
+} {
   const summary = {
     High: 0,
     Medium: 0,
