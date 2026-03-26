@@ -1,5 +1,6 @@
 import {
   Document,
+  Font,
   Page,
   Text,
   View,
@@ -10,6 +11,8 @@ import type { StableHeartReportData } from "@/lib/stableheart/report";
 type StableHeartReportDocumentProps = {
   data: StableHeartReportData;
 };
+
+Font.registerHyphenationCallback((word) => [word]);
 
 function formatGeneratedAt(value: string) {
   const date = new Date(value);
@@ -23,6 +26,21 @@ function formatGeneratedAt(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function normaliseCurrencyString(value: string) {
+  return value.replace(/^£-/, "-£");
+}
+
+function cleanText(value: string) {
+  return value
+    .replace(/\bis appears\b/gi, "appears")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanValue(value: string) {
+  return cleanText(normaliseCurrencyString(value));
 }
 
 const styles = StyleSheet.create({
@@ -376,9 +394,11 @@ function renderInfoRows(
 
     return (
       <View key={item.label} style={rowStyle}>
-        <Text style={styles.rowLabel}>{item.label}</Text>
-        <Text style={styles.rowValue}>{item.value}</Text>
-        {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
+        <Text style={styles.rowLabel}>{cleanText(item.label)}</Text>
+        <Text style={styles.rowValue}>{cleanValue(item.value)}</Text>
+        {item.note ? (
+          <Text style={styles.rowNote}>{cleanText(item.note)}</Text>
+        ) : null}
       </View>
     );
   });
@@ -396,14 +416,14 @@ function renderMetricCards(items: Array<{ label: string; value: string }>) {
       {rows.map((row, rowIndex) => (
         <View key={`metric-row-${rowIndex}`} style={styles.metricRow}>
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>{row[0].label}</Text>
-            <Text style={styles.metricValue}>{row[0].value}</Text>
+            <Text style={styles.metricLabel}>{cleanText(row[0].label)}</Text>
+            <Text style={styles.metricValue}>{cleanValue(row[0].value)}</Text>
           </View>
 
           {row[1] ? (
             <View style={styles.metricCard}>
-              <Text style={styles.metricLabel}>{row[1].label}</Text>
-              <Text style={styles.metricValue}>{row[1].value}</Text>
+              <Text style={styles.metricLabel}>{cleanText(row[1].label)}</Text>
+              <Text style={styles.metricValue}>{cleanValue(row[1].value)}</Text>
             </View>
           ) : (
             <View style={styles.metricCard} />
@@ -423,7 +443,7 @@ function renderBulletBlocks(items: Array<string> | Array<{ body: string }>) {
         return (
           <View key={`${body}-${index}`} style={styles.bulletRow}>
             <Text style={styles.bulletDot}>•</Text>
-            <Text style={styles.bulletText}>{body}</Text>
+            <Text style={styles.bulletText}>{cleanText(body)}</Text>
           </View>
         );
       })}
@@ -459,13 +479,15 @@ function renderAssumptionTable(
         return (
           <View key={`${row.assumption}-${index}`} style={rowStyle}>
             <View style={styles.colAssumption}>
-              <Text style={styles.tableCellLabel}>{row.assumption}</Text>
+              <Text style={styles.tableCellLabel}>{cleanText(row.assumption)}</Text>
             </View>
             <View style={styles.colValue}>
-              <Text style={styles.tableCellValue}>{row.value}</Text>
+              <Text style={styles.tableCellValue}>{cleanValue(row.value)}</Text>
             </View>
             <View style={styles.colRationale}>
-              <Text style={styles.tableCellRationale}>{row.rationale}</Text>
+              <Text style={styles.tableCellRationale}>
+                {cleanText(row.rationale)}
+              </Text>
             </View>
           </View>
         );
@@ -481,10 +503,10 @@ function renderUncertaintyColumns(
     <View style={styles.uncertaintyGrid}>
       {items.map((item) => (
         <View key={item.label} style={styles.uncertaintyCard}>
-          <Text style={styles.uncertaintyCardTitle}>{item.label}</Text>
-          <Text style={styles.uncertaintyCardValue}>{item.value}</Text>
+          <Text style={styles.uncertaintyCardTitle}>{cleanText(item.label)}</Text>
+          <Text style={styles.uncertaintyCardValue}>{cleanValue(item.value)}</Text>
           {item.note ? (
-            <Text style={styles.uncertaintyCardNote}>{item.note}</Text>
+            <Text style={styles.uncertaintyCardNote}>{cleanText(item.note)}</Text>
           ) : null}
         </View>
       ))}
@@ -498,7 +520,7 @@ function RepeatingHeader({ module }: { module: string }) {
       <View style={styles.headerSpacer} />
       <View style={styles.headerRight}>
         <Text style={styles.moduleLabel}>StableHeart</Text>
-        <Text style={styles.moduleName}>{module}</Text>
+        <Text style={styles.moduleName}>{cleanText(module)}</Text>
       </View>
     </View>
   );
@@ -528,8 +550,8 @@ export function StableHeartReportDocument({
 
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.title}>{data.cover.title}</Text>
-            <Text style={styles.subtitle}>{data.cover.subtitle}</Text>
+            <Text style={styles.title}>{cleanText(data.cover.title)}</Text>
+            <Text style={styles.subtitle}>{cleanText(data.cover.subtitle)}</Text>
             <Text style={styles.metaLine}>
               Prepared: {formatGeneratedAt(data.cover.generatedAt)}
             </Text>
@@ -540,14 +562,14 @@ export function StableHeartReportDocument({
 
         <View style={styles.caveatBox}>
           <Text style={styles.caveatTitle}>Scope and use note</Text>
-          <Text style={styles.caveatText}>{data.caveats.useNote}</Text>
+          <Text style={styles.caveatText}>{cleanText(data.caveats.useNote)}</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Executive summary</Text>
           <View style={styles.executiveSummaryBox}>
             <Text style={styles.executiveSummaryLead}>
-              {data.executiveSummary.overview}
+              {cleanText(data.executiveSummary.overview)}
             </Text>
             {renderInfoRows([
               {
@@ -582,9 +604,9 @@ export function StableHeartReportDocument({
 
         <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Question explored</Text>
-          <Text style={styles.paragraph}>{data.purpose.question}</Text>
+          <Text style={styles.paragraph}>{cleanText(data.purpose.question)}</Text>
           <Text style={[styles.paragraph, { marginTop: 8 }]}>
-            {data.purpose.context}
+            {cleanText(data.purpose.context)}
           </Text>
         </View>
 
@@ -625,7 +647,7 @@ export function StableHeartReportDocument({
         <View style={styles.sectionTight}>
           <Text style={styles.sectionTitle}>Uncertainty and sensitivity</Text>
           <Text style={styles.paragraph}>
-            {data.uncertaintyAndSensitivity.robustnessSummary}
+            {cleanText(data.uncertaintyAndSensitivity.robustnessSummary)}
           </Text>
 
           <View style={[styles.sectionTight, { marginTop: 10 }]}>
@@ -640,47 +662,43 @@ export function StableHeartReportDocument({
 
           <View style={[styles.sectionTight, { marginTop: 12 }]}>
             <Text style={styles.subSectionTitle}>Sensitivity interpretation</Text>
-            {renderBulletBlocks(
-              data.uncertaintyAndSensitivity.sensitivitySummary,
-            )}
+            {renderBulletBlocks(data.uncertaintyAndSensitivity.sensitivitySummary)}
           </View>
 
           {data.uncertaintyAndSensitivity.topSensitivityDrivers?.length ? (
             <View style={[styles.sectionTight, { marginTop: 12 }]}>
               <Text style={styles.subSectionTitle}>Top parameter drivers</Text>
-              {data.uncertaintyAndSensitivity.topSensitivityDrivers.map(
-                (driver) => (
-                  <View
-                    key={`${driver.rank}-${driver.label}`}
-                    style={styles.sensitivityDriverBox}
-                  >
-                    <Text style={styles.sensitivityDriverTitle}>
-                      {driver.rank ? `${driver.rank}. ` : ""}
-                      {driver.label}
+              {data.uncertaintyAndSensitivity.topSensitivityDrivers.map((driver) => (
+                <View
+                  key={`${driver.rank}-${driver.label}`}
+                  style={styles.sensitivityDriverBox}
+                >
+                  <Text style={styles.sensitivityDriverTitle}>
+                    {driver.rank ? `${driver.rank}. ` : ""}
+                    {cleanText(driver.label)}
+                  </Text>
+                  {driver.lowCase ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      Low case: {cleanValue(driver.lowCase)}
                     </Text>
-                    {driver.lowCase ? (
-                      <Text style={styles.sensitivityDriverMeta}>
-                        Low case: {driver.lowCase}
-                      </Text>
-                    ) : null}
-                    {driver.highCase ? (
-                      <Text style={styles.sensitivityDriverMeta}>
-                        High case: {driver.highCase}
-                      </Text>
-                    ) : null}
-                    {driver.swing ? (
-                      <Text style={styles.sensitivityDriverMeta}>
-                        ICER swing: {driver.swing}
-                      </Text>
-                    ) : null}
-                    {driver.note ? (
-                      <Text style={styles.sensitivityDriverMeta}>
-                        {driver.note}
-                      </Text>
-                    ) : null}
-                  </View>
-                ),
-              )}
+                  ) : null}
+                  {driver.highCase ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      High case: {cleanValue(driver.highCase)}
+                    </Text>
+                  ) : null}
+                  {driver.swing ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      ICER swing: {cleanValue(driver.swing)}
+                    </Text>
+                  ) : null}
+                  {driver.note ? (
+                    <Text style={styles.sensitivityDriverMeta}>
+                      {cleanText(driver.note)}
+                    </Text>
+                  ) : null}
+                </View>
+              ))}
             </View>
           ) : null}
         </View>
@@ -748,7 +766,7 @@ export function StableHeartReportDocument({
 
           {data.assumptions.sections.map((section) => (
             <View key={section.title} break={section.title === "Cost assumptions"}>
-              <Text style={styles.subSectionTitle}>{section.title}</Text>
+              <Text style={styles.subSectionTitle}>{cleanText(section.title)}</Text>
               {renderAssumptionTable(section.rows)}
             </View>
           ))}
