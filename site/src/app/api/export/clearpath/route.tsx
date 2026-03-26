@@ -3,12 +3,9 @@ import { renderToStream } from "@react-pdf/renderer";
 
 import { ClearPathReportDocument } from "@/components/pdf/clearpath-report";
 import { DEFAULT_INPUTS } from "@/lib/clearpath/defaults";
-import {
-  runBoundedUncertainty,
-  runModel,
-  runParameterSensitivity,
-} from "@/lib/clearpath/calculations";
+import { runBoundedUncertainty, runModel } from "@/lib/clearpath/calculations";
 import { buildClearPathReportData } from "@/lib/clearpath/report";
+import { runParameterSensitivity } from "@/lib/clearpath/sensitivity";
 import type { Inputs } from "@/lib/clearpath/types";
 
 export async function POST(request: Request) {
