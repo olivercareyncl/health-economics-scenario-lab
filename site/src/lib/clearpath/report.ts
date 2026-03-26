@@ -71,9 +71,9 @@ export type ClearPathReportData = {
     mainFragility: string;
     bestNextStep: string;
   };
-  scenario: {
+  modelFraming: {
     interventionConcept: string;
-    targetPopulationLogic: string;
+    pathwayLogic: string;
     economicMechanism: string;
   };
   headlineMetrics: ReportMetric[];
@@ -94,12 +94,6 @@ export type ClearPathReportData = {
       value: string;
       note: string;
     }>;
-  };
-  scenarioAndComparator: {
-    scenarioSummary: string;
-    strongestScenario: string;
-    weakestScenario: string;
-    comparatorSummary: string;
   };
   decisionImplications: {
     progressionView: string;
@@ -140,23 +134,23 @@ function getSignalLabel(decisionStatus: string): string {
 }
 
 function buildPurposeQuestion(inputs: Inputs): string {
-  return `This run explores whether an earlier-diagnosis approach in a ${inputs.targeting_mode.toLowerCase()} setting could plausibly reduce downstream emergency pressure, admissions, bed use, and economic burden over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
+  return `This run explores whether an earlier-diagnosis approach could plausibly reduce downstream emergency pressure, admissions, bed use, and economic burden over ${inputs.time_horizon_years} year${inputs.time_horizon_years === 1 ? "" : "s"} under the current assumptions.`;
 }
 
-function buildScenarioSection(inputs: Inputs): ClearPathReportData["scenario"] {
+function buildModelFraming(
+  inputs: Inputs,
+): ClearPathReportData["modelFraming"] {
   return {
-    interventionConcept: `The scenario tests an earlier-diagnosis improvement approach that aims to reach ${formatPercent(
+    interventionConcept: `The model tests an earlier-diagnosis improvement approach that aims to reach ${formatPercent(
       inputs.intervention_reach_rate,
     )} of the relevant population and reduce late diagnosis by ${formatPercent(
       inputs.achievable_reduction_in_late_diagnosis,
-    )}. In practice, this could represent targeted case-finding, pathway redesign, earlier referral activity, or a structured diagnostic improvement programme.`,
-    targetPopulationLogic: `The model assumes a baseline late diagnosis rate of ${formatPercent(
+    )}. In practice, this could represent case-finding, pathway redesign, earlier referral activity, or a structured diagnostic improvement programme.`,
+    pathwayLogic: `The model assumes a baseline late diagnosis rate of ${formatPercent(
       inputs.current_late_diagnosis_rate,
     )} across ${formatNumber(
       inputs.annual_incident_cases,
-    )} annual incident cases. The targeting mode is set to ${
-      inputs.targeting_mode
-    }, which affects how concentrated the opportunity is assumed to be within the population and therefore how much practical shift earlier might be achievable.`,
+    )} annual incident cases. Value arises when a meaningful share of later diagnoses can be shifted earlier at a realistic delivery cost and with sufficient operational reach.`,
     economicMechanism: `The value mechanism runs through fewer emergency presentations, fewer downstream admissions, lower bed use, and a difference in treatment and outcome profile between earlier and later diagnosis. The model then assesses whether these effects are enough to offset programme costs and produce an acceptable cost per QALY against the selected threshold.`,
   };
 }
@@ -194,7 +188,7 @@ function buildPlainEnglishResults(
       )}.`,
     },
     {
-      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative scenario result rather than a definitive conclusion, because the signal remains sensitive to the assumed size of the late-diagnosis shift, achievable reach, and delivery cost.`,
+      body: `Taken together, the current signal is ${decisionStatus.toLowerCase()}. This should be read as an indicative sandbox result rather than a definitive conclusion, because the signal remains sensitive to the assumed size of the late-diagnosis shift, achievable reach, and delivery cost.`,
     },
   ];
 }
@@ -206,12 +200,6 @@ function buildAssumptionSections(
     {
       title: "Core programme assumptions",
       rows: [
-        {
-          assumption: "Targeting mode",
-          value: inputs.targeting_mode,
-          rationale:
-            "Determines how concentrated the opportunity is assumed to be and therefore how plausible it is to achieve meaningful pathway change in the selected population.",
-        },
         {
           assumption: "Annual incident cases",
           value: formatNumber(inputs.annual_incident_cases),
@@ -467,7 +455,7 @@ export function buildClearPathReportData({
       bestNextStep: structured.best_next_step,
     },
 
-    scenario: buildScenarioSection(inputs),
+    modelFraming: buildModelFraming(inputs),
 
     headlineMetrics: [
       {
@@ -524,17 +512,6 @@ export function buildClearPathReportData({
       })),
       sensitivitySummary,
       topDriverRows,
-    },
-
-    scenarioAndComparator: {
-      scenarioSummary:
-        "The scenario framing suggests value is most likely to emerge where later diagnosis is sufficiently common, pathway consequences are materially worse for later diagnosis, and the intervention can reach the right population at a realistic delivery cost.",
-      strongestScenario:
-        "The strongest scenario is typically the one where reach is higher, the achievable shift earlier is larger, and downstream emergency pressure is more meaningfully reduced.",
-      weakestScenario:
-        "The weakest or most fragile scenario is typically the one where the achievable reduction in late diagnosis is smaller, costs are higher, or the downstream acute pathway benefit is less pronounced.",
-      comparatorSummary:
-        "Comparator interpretation should focus on whether the current configuration offers a materially better pathway and economic signal than a more conservative alternative. If gains over comparator are modest, the case is more likely to require stronger local evidence before progression.",
     },
 
     decisionImplications: {
