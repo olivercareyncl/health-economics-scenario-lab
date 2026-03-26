@@ -2,7 +2,6 @@ import type {
   Inputs,
   ModelResults,
   ParameterSensitivityRow,
-  ScenarioComparisonRow,
   SensitivitySummary,
   UncertaintyRow,
 } from "@/lib/clearpath/types";
@@ -43,10 +42,6 @@ export function getMainDriverText(
     return primaryDriver.parameter_label.toLowerCase();
   }
 
-  if (inputs.targeting_mode !== "Broad population") {
-    return "targeting and concentration of later diagnosis";
-  }
-
   if (inputs.costing_method === "Combined illustrative view") {
     return "the chosen costing method and the achievable diagnosis shift";
   }
@@ -67,7 +62,7 @@ export function getMainDriverText(
     return "the assumed QALY gain from earlier diagnosis";
   }
 
-  return "a combination of achievable shift, targeting, and delivery cost";
+  return "a combination of achievable shift and delivery cost";
 }
 
 export function assessUncertaintyRobustness(
@@ -186,9 +181,6 @@ export function generateStructuredRecommendation(
       "The result is sensitive to how value is counted, especially if treatment and acute savings overlap.";
   } else if (topDrivers.length > 0) {
     mainFragility = buildFragilityFromSensitivity(uncertaintyRows, sensitivity);
-  } else if (inputs.targeting_mode === "Broad population") {
-    mainFragility =
-      "The result may depend on whether broad implementation is diluting value that would look stronger in a higher-risk subgroup.";
   } else if (inputs.participation_dropoff_rate >= 0.1) {
     mainFragility =
       "The case may weaken if reach falls faster than assumed over time.";
@@ -205,9 +197,6 @@ export function generateStructuredRecommendation(
     bestNextStep = second
       ? `Validate local ${first} and ${second} before using the result in a live decision conversation.`
       : `Validate local ${first} before using the result in a live decision conversation.`;
-  } else if (inputs.targeting_mode === "Broad population") {
-    bestNextStep =
-      "Test whether a more targeted implementation improves value without losing too much impact.";
   } else if (inputs.costing_method === "Combined illustrative view") {
     bestNextStep =
       "Stress-test the costing approach using a cleaner local method before using the result in a live decision conversation.";
@@ -241,16 +230,6 @@ export function generateDecisionReadiness(
   } else {
     validateNext.push(
       "Validate the local cost inputs used in the economic framing.",
-    );
-  }
-
-  if (inputs.targeting_mode !== "Broad population") {
-    validateNext.push(
-      "Confirm the real prevalence and operational identifiability of the higher-risk group.",
-    );
-  } else {
-    validateNext.push(
-      "Confirm whether a more targeted implementation strategy would be operationally feasible.",
     );
   }
 
@@ -297,35 +276,6 @@ export function generateDecisionReadiness(
   };
 }
 
-export function summariseScenarioStrengths(
-  scenarioRows: ScenarioComparisonRow[],
-): string {
-  if (!scenarioRows.length) {
-    return "No scenario comparison is available yet.";
-  }
-
-  const bestValue = [...scenarioRows].sort(
-    (a, b) => a.discounted_cost_per_qaly - b.discounted_cost_per_qaly,
-  )[0];
-
-  const bestEfficiency = [...scenarioRows].sort(
-    (a, b) => a.discounted_net_cost - b.discounted_net_cost,
-  )[0];
-
-  const bestImpact = [...scenarioRows].sort(
-    (a, b) => b.cases_shifted_earlier - a.cases_shifted_earlier,
-  )[0];
-
-  if (
-    bestValue.scenario === bestEfficiency.scenario &&
-    bestEfficiency.scenario === bestImpact.scenario
-  ) {
-    return `Under the current settings, ${bestValue.scenario} is simultaneously strongest for value, efficiency, and impact.`;
-  }
-
-  return `Under the current settings, ${bestValue.scenario} looks strongest for value, ${bestEfficiency.scenario} looks strongest for efficiency, and ${bestImpact.scenario} looks strongest for impact.`;
-}
-
 export function generateOverviewSummary(
   results: ModelResults,
   inputs: Inputs,
@@ -343,21 +293,20 @@ export function generateOverviewSummary(
   const emergencies = `${results.emergency_presentations_avoided_total.toFixed(0)}`;
   const admissions = `${results.admissions_avoided_total.toFixed(0)}`;
   const horizon = inputs.time_horizon_years;
-  const targeting = inputs.targeting_mode.toLowerCase();
   const costing = inputs.costing_method.toLowerCase();
 
   if (results.discounted_net_cost_total < 0) {
-    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, ClearPath suggests the intervention could shift around ${shifted} cases earlier, avoid ${emergencies} emergency presentations and ${admissions} admissions, while appearing cost-saving on a discounted basis. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, ClearPath suggests the intervention could shift around ${shifted} cases earlier, avoid ${emergencies} emergency presentations and ${admissions} admissions, while appearing cost-saving on a discounted basis. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
   }
 
   if (
     results.discounted_cost_per_qaly > 0 &&
     results.discounted_cost_per_qaly <= threshold
   ) {
-    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, ClearPath suggests the intervention creates meaningful pathway and outcome benefit, with around ${shifted} cases shifted earlier and ${admissions} admissions avoided. It does not appear cost-saving, but it does sit within the current threshold on a discounted basis. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+    return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, ClearPath suggests the intervention creates meaningful pathway and outcome benefit, with around ${shifted} cases shifted earlier and ${admissions} admissions avoided. It does not appear cost-saving, but it does sit within the current threshold on a discounted basis. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
   }
 
-  return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, ClearPath suggests the intervention creates measurable benefit, with around ${shifted} cases shifted earlier and ${admissions} admissions avoided, but the discounted economic case remains above the current threshold. The current case reflects ${targeting} using ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
+  return `Over ${horizon} year${horizon !== 1 ? "s" : ""}, ClearPath suggests the intervention creates measurable benefit, with around ${shifted} cases shifted earlier and ${admissions} admissions avoided, but the discounted economic case remains above the current threshold. The current case uses ${costing}. The result is most strongly shaped by ${mainDriver}. ${uncertaintyText}`;
 }
 
 export function generateInterpretation(
@@ -401,8 +350,8 @@ export function generateInterpretation(
 
   const whatDrivesResult =
     topDrivers.length > 0
-      ? `${buildSensitivityLead(topDrivers)} In practical terms, the result depends most strongly on ${dependency}, as well as the chosen costing method, the quality of targeting, and whether intervention reach and effect persist over time.`
-      : `The current result depends most strongly on ${dependency}, as well as the chosen costing method, the quality of targeting, and whether intervention reach and effect persist over time.`;
+      ? `${buildSensitivityLead(topDrivers)} In practical terms, the result depends most strongly on ${dependency}, as well as the chosen costing method and whether intervention reach and effect persist over time.`
+      : `The current result depends most strongly on ${dependency}, as well as the chosen costing method and whether intervention reach and effect persist over time.`;
 
   let whatLooksFragile: string;
 
@@ -411,9 +360,6 @@ export function generateInterpretation(
       "The economic signal may be fragile because the combined costing approach is intentionally illustrative and may overstate value if local cost components overlap.";
   } else if (topDrivers.length > 0) {
     whatLooksFragile = buildFragilityFromSensitivity(uncertaintyRows, sensitivity);
-  } else if (inputs.targeting_mode === "Broad population") {
-    whatLooksFragile =
-      "The case may be fragile because broad implementation can dilute value if the highest-opportunity patients are only a subset of the incident population.";
   } else {
     whatLooksFragile = uncertaintyText;
   }
