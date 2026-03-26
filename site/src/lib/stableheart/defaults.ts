@@ -16,6 +16,7 @@ export const DEFAULT_INPUTS: Inputs = {
   cost_per_bed_day: 420,
   costing_method: "Event and admission savings only",
   qaly_gain_per_event_avoided: 0.08,
+  targeting_mode: "Secondary prevention focus",
   time_horizon_years: 3,
   discount_rate: 0.035,
   cost_effectiveness_threshold: 20000,
